@@ -8,6 +8,10 @@ export const metadata = {
   description: "A storefront built with the Kurumera base theme.",
 };
 
+// The store is resolved per-request (multi-tenant), so every route renders
+// dynamically — never statically prerendered at build with no store context.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
