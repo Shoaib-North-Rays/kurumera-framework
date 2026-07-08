@@ -1,5 +1,5 @@
 import type { ProductListItem } from "@kurumera/storefront";
-import { kurumera } from "@/lib/kurumera";
+import { getStore } from "@/lib/kurumera";
 import { ProductCard } from "@/components/ProductCard";
 
 /** collection template */
@@ -9,6 +9,7 @@ export default async function CollectionPage({
   params: Promise<{ handle: string }>;
 }) {
   const { handle } = await params;
+  const kurumera = await getStore();
   const collection = await kurumera.collections.getByHandle(handle);
 
   const products: ProductListItem[] = Array.isArray(collection.products)

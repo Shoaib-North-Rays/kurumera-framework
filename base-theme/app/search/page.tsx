@@ -1,4 +1,4 @@
-import { kurumera } from "@/lib/kurumera";
+import { getStore } from "@/lib/kurumera";
 import { ProductCard } from "@/components/ProductCard";
 
 /** search template */
@@ -8,6 +8,7 @@ export default async function SearchPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q = "" } = await searchParams;
+  const kurumera = await getStore();
   const results = q ? (await kurumera.search.query(q, { limit: 24 })).results : [];
 
   return (

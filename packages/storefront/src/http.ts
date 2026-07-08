@@ -15,12 +15,12 @@ export interface ClientConfig {
   /** Read-only storefront token, `ksf_…` (from the dashboard / CLI). Preferred. */
   token?: string;
   /**
-   * Dev-only alternative to `token`: resolve the store by its slug via
-   * `X-Tenant-ID`. Convenient for local testing against your own store before a
-   * token is provisioned; use `token` in production. One of `token`/`tenant`
-   * is required.
+   * Resolve the store by its slug via `X-Tenant-ID` (subdomain / dev). One of
+   * `token` / `tenant` / `domain` is required.
    */
   tenant?: string;
+  /** Resolve the store by a verified custom domain via `X-Tenant-Domain`. */
+  domain?: string;
   /** Platform API base URL. Defaults to {@link DEFAULT_API_URL}. */
   apiUrl?: string;
   /** Inject a fetch implementation (tests, older runtimes). Defaults to global fetch. */
@@ -63,8 +63,8 @@ export interface Http {
 }
 
 export function createHttp(config: ClientConfig): Http {
-  if (!config.token && !config.tenant) {
-    throw new Error("createKurumeraClient: pass a storefront `token` (ksf_…) or a dev `tenant` slug.");
+  if (!config.token && !config.tenant && !config.domain) {
+    throw new Error("createKurumeraClient: pass a storefront `token` (ksf_…), a `tenant` slug, or a `domain`.");
   }
   const base = (config.apiUrl ?? DEFAULT_API_URL).replace(/\/+$/, "");
   const doFetch = config.fetch ?? globalThis.fetch;
@@ -73,7 +73,9 @@ export function createHttp(config: ClientConfig): Http {
   }
   const authHeaders: Record<string, string> = config.token
     ? { "X-Kurumera-Storefront-Token": config.token }
-    : { "X-Tenant-ID": config.tenant! };
+    : config.tenant
+      ? { "X-Tenant-ID": config.tenant }
+      : { "X-Tenant-Domain": config.domain! };
 
   async function request<T>(method: string, path: string, opts: { query?: Query; body?: unknown } = {}): Promise<T> {
     const url = base + path + queryString(opts.query);

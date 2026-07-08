@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { KurumeraError } from "@kurumera/storefront";
-import { kurumera } from "@/lib/kurumera";
+import { getStore } from "@/lib/kurumera";
 
 /** page template — CMS content pages (about, contact, policies…) */
 export default async function CmsPage({
@@ -9,6 +9,7 @@ export default async function CmsPage({
   params: Promise<{ handle: string }>;
 }) {
   const { handle } = await params;
+  const kurumera = await getStore();
 
   let page;
   try {

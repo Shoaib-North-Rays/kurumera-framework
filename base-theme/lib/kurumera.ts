@@ -1,26 +1,34 @@
-import { createKurumeraClient } from "@kurumera/storefront";
+import { headers } from "next/headers";
+import { createKurumeraClient, type KurumeraClient } from "@kurumera/storefront";
 
 /**
- * The store client, wired from env. `kurumera theme dev` injects these:
- *   KURUMERA_STOREFRONT_TOKEN  the read-only ksf_ token for the target store (prod)
- *   KURUMERA_TENANT            dev-only: resolve the store by slug (X-Tenant-ID)
- *   KURUMERA_API_URL           platform API base (defaults to production)
+ * Build a Storefront client for THIS request's store. The store is resolved by
+ * middleware.ts from the host (or ?store=) and passed via request headers, so a
+ * single deployed theme serves every store — visitors connect to a live store,
+ * not a predefined one.
  *
- * Server-only — never expose the token to the browser.
+ * Env fallbacks keep local single-store dev working:
+ *   KURUMERA_STOREFRONT_TOKEN  a ksf_ token (pins one store)
+ *   KURUMERA_TENANT            a store slug (pins one store)
+ *   KURUMERA_API_URL           platform API base
  */
-const token = process.env.KURUMERA_STOREFRONT_TOKEN;
-const tenant = process.env.KURUMERA_TENANT;
+export async function getStore(): Promise<KurumeraClient> {
+  const h = await headers();
+  const tenant = h.get("x-kurumera-tenant") || process.env.KURUMERA_TENANT || "";
+  const domain = h.get("x-kurumera-domain") || "";
+  const token = process.env.KURUMERA_STOREFRONT_TOKEN || "";
 
-if (!token && !tenant) {
-  // Fail loud so a missing credential is obvious, not a silent empty store.
-  throw new Error(
-    "No store credential. Run `kurumera theme dev --store <slug>` (dev) or " +
-      "provide KURUMERA_STOREFRONT_TOKEN.",
-  );
+  if (!token && !tenant && !domain) {
+    throw new Error(
+      "No store resolved for this request. Visit a store host (<slug>.kurumera.com), " +
+        "add ?store=<slug>, or set KURUMERA_TENANT / KURUMERA_STOREFRONT_TOKEN.",
+    );
+  }
+
+  return createKurumeraClient({
+    token: token || undefined,
+    tenant: tenant || undefined,
+    domain: domain || undefined,
+    apiUrl: process.env.KURUMERA_API_URL,
+  });
 }
-
-export const kurumera = createKurumeraClient({
-  token,
-  tenant,
-  apiUrl: process.env.KURUMERA_API_URL,
-});

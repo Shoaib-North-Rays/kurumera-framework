@@ -1,8 +1,9 @@
-import { kurumera } from "@/lib/kurumera";
+import { getStore } from "@/lib/kurumera";
 import { FeaturedProducts } from "@/sections/FeaturedProducts";
 
 /** home template */
 export default async function HomePage() {
+  const kurumera = await getStore();
   const { results } = await kurumera.products.list({ limit: 8 });
   return (
     <>

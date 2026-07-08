@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { KurumeraError } from "@kurumera/storefront";
-import { kurumera } from "@/lib/kurumera";
+import { getStore } from "@/lib/kurumera";
 import { Price } from "@/components/Price";
 
 /** product template */
@@ -10,6 +10,7 @@ export default async function ProductPage({
   params: Promise<{ handle: string }>;
 }) {
   const { handle } = await params;
+  const kurumera = await getStore();
 
   let product;
   try {
