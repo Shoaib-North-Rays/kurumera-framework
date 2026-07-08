@@ -18,6 +18,7 @@ export function middleware(req: NextRequest) {
   let domain = "";
 
   const q = req.nextUrl.searchParams.get("store");
+  const cookie = req.cookies.get("kurumera_store")?.value;
   if (q) {
     tenant = q.toLowerCase();
   } else if (host.endsWith(`.${ROOT}`)) {
@@ -25,12 +26,19 @@ export function middleware(req: NextRequest) {
     if (sub && !sub.includes(".") && !RESERVED.has(sub)) tenant = sub;
   } else if (host && host !== ROOT && host.includes(".") && !host.endsWith(".localhost")) {
     domain = host;
+  } else if (cookie) {
+    // Sticky store for the ?store= demo so internal navigation keeps context.
+    tenant = cookie;
   }
 
   const headers = new Headers(req.headers);
   if (tenant) headers.set("x-kurumera-tenant", tenant);
   if (domain) headers.set("x-kurumera-domain", domain);
-  return NextResponse.next({ request: { headers } });
+
+  const res = NextResponse.next({ request: { headers } });
+  // Remember an explicit ?store choice so links without it still resolve.
+  if (q && tenant) res.cookies.set("kurumera_store", tenant, { path: "/", sameSite: "lax" });
+  return res;
 }
 
 export const config = {
