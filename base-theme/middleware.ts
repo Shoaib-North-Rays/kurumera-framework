@@ -24,12 +24,12 @@ export function middleware(req: NextRequest) {
   } else if (host.endsWith(`.${ROOT}`)) {
     const sub = host.slice(0, -(ROOT.length + 1));
     if (sub && !sub.includes(".") && !RESERVED.has(sub)) tenant = sub;
+    // A reserved host (e.g. themekit) sets no tenant — fall through to the cookie.
   } else if (host && host !== ROOT && host.includes(".") && !host.endsWith(".localhost")) {
     domain = host;
-  } else if (cookie) {
-    // Sticky store for the ?store= demo so internal navigation keeps context.
-    tenant = cookie;
   }
+  // Sticky store for the ?store= demo so internal navigation keeps context.
+  if (!tenant && !domain && cookie) tenant = cookie;
 
   const headers = new Headers(req.headers);
   if (tenant) headers.set("x-kurumera-tenant", tenant);
