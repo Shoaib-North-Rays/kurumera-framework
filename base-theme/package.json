@@ -1,0 +1,7 @@
+{
+  "name": "@kurumera/base-theme",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The official Kurumera starter Next.js theme (scaffolded in P1).",
+  "license": "UNLICENSED"
+}
