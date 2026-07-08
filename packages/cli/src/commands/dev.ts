@@ -14,8 +14,9 @@ export function themeDev(args: string[]): number {
     return 1;
   }
 
-  const store = flag(args, "--store");
   const cfg = readConfig();
+  // Use --store, else the store from `kurumera login`.
+  const store = flag(args, "--store") || cfg.defaultStore;
   const token =
     flag(args, "--token") ||
     process.env.KURUMERA_STOREFRONT_TOKEN ||

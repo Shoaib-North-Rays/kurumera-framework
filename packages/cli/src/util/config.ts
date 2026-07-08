@@ -7,6 +7,11 @@ const FILE = join(DIR, "config.json");
 
 export interface CliConfig {
   apiUrl?: string;
+  /** Developer session from `kurumera login` (browser authorize). */
+  authToken?: string;
+  refresh?: string;
+  /** The developer's default store slug (from login). */
+  defaultStore?: string;
   /** Fallback storefront token when no per-store token is set. */
   token?: string;
   /** Per-store storefront tokens, keyed by store slug. */

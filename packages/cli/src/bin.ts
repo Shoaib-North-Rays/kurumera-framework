@@ -39,7 +39,7 @@ if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
 
 const [a, b, ...rest] = argv;
 
-function dispatch(): number {
+async function dispatch(): Promise<number> {
   if (a === "login") return login(argv.slice(1));
   if (a === "theme" && b === "init") return themeInit(rest[0]);
   // themeDev spawns `next dev`; on success it returns 0 and the child keeps the
@@ -56,5 +56,6 @@ function dispatch(): number {
   return 1;
 }
 
-const code = dispatch();
-if (code !== 0) process.exit(code);
+dispatch().then((code) => {
+  if (code !== 0) process.exit(code);
+});
