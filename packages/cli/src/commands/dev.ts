@@ -21,25 +21,30 @@ export function themeDev(args: string[]): number {
     process.env.KURUMERA_STOREFRONT_TOKEN ||
     (store && cfg.stores?.[store]) ||
     cfg.token;
+  // Dev convenience: resolve by store slug (X-Tenant-ID) when no token is set.
+  // `--store` doubles as the tenant slug; `--tenant` overrides it explicitly.
+  const tenant = flag(args, "--tenant") || (!token ? store : undefined);
 
-  if (!token) {
+  if (!token && !tenant) {
     console.error(
-      "No storefront token found.\n" +
-        "  • Pass one:   kurumera theme dev --store <slug> --token ksf_…\n" +
-        "  • Or save it: kurumera login --store <slug> --token ksf_…\n" +
-        "Get a token in the dashboard → Settings → Developer.",
+      "No store credential found.\n" +
+        "  • Dev (your own store):  kurumera theme dev --store <slug>\n" +
+        "  • With a token:          kurumera theme dev --store <slug> --token ksf_…\n" +
+        "  • Or save it first:      kurumera login --store <slug> --token ksf_…",
     );
     return 1;
   }
 
   const apiUrl = process.env.KURUMERA_API_URL || cfg.apiUrl || DEFAULT_API_URL;
-  console.log(`▸ Starting theme dev${store ? ` for "${store}"` : ""} → http://localhost:3000`);
+  const how = token ? "token" : `slug "${tenant}"`;
+  console.log(`▸ Starting theme dev${store ? ` for "${store}"` : ""} (via ${how}) → http://localhost:3000`);
 
   const child = spawn(npmBin(), ["run", "dev"], {
     stdio: "inherit",
     env: {
       ...process.env,
-      KURUMERA_STOREFRONT_TOKEN: token,
+      ...(token ? { KURUMERA_STOREFRONT_TOKEN: token } : {}),
+      ...(tenant ? { KURUMERA_TENANT: tenant } : {}),
       KURUMERA_API_URL: apiUrl,
     },
   });

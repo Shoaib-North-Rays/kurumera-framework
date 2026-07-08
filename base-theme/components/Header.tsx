@@ -7,9 +7,9 @@ export async function Header() {
   const menus = await kurumera.navigation.all().catch(() => ({}) as Record<string, Menu>);
   const menu = menus["main-menu"] ?? Object.values(menus)[0] ?? null;
   const config = (await kurumera.config.get().catch(() => ({}))) as {
-    branding?: { name?: string };
+    branding?: { store_name?: string; name?: string };
   };
-  const storeName = config.branding?.name ?? "Store";
+  const storeName = config.branding?.store_name ?? config.branding?.name ?? "Store";
 
   return (
     <header className="site-header">

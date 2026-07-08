@@ -12,8 +12,15 @@ import type { Paginated } from "./types.js";
 export const DEFAULT_API_URL = "https://admin.kurumera.com/api/v1";
 
 export interface ClientConfig {
-  /** Read-only storefront token, `ksf_…` (from `kurumera` dashboard / CLI). */
-  token: string;
+  /** Read-only storefront token, `ksf_…` (from the dashboard / CLI). Preferred. */
+  token?: string;
+  /**
+   * Dev-only alternative to `token`: resolve the store by its slug via
+   * `X-Tenant-ID`. Convenient for local testing against your own store before a
+   * token is provisioned; use `token` in production. One of `token`/`tenant`
+   * is required.
+   */
+  tenant?: string;
   /** Platform API base URL. Defaults to {@link DEFAULT_API_URL}. */
   apiUrl?: string;
   /** Inject a fetch implementation (tests, older runtimes). Defaults to global fetch. */
@@ -56,19 +63,24 @@ export interface Http {
 }
 
 export function createHttp(config: ClientConfig): Http {
-  if (!config.token) throw new Error("createKurumeraClient: a storefront `token` is required.");
+  if (!config.token && !config.tenant) {
+    throw new Error("createKurumeraClient: pass a storefront `token` (ksf_…) or a dev `tenant` slug.");
+  }
   const base = (config.apiUrl ?? DEFAULT_API_URL).replace(/\/+$/, "");
   const doFetch = config.fetch ?? globalThis.fetch;
   if (typeof doFetch !== "function") {
     throw new Error("No fetch available — pass `fetch` in the client config.");
   }
+  const authHeaders: Record<string, string> = config.token
+    ? { "X-Kurumera-Storefront-Token": config.token }
+    : { "X-Tenant-ID": config.tenant! };
 
   async function request<T>(method: string, path: string, opts: { query?: Query; body?: unknown } = {}): Promise<T> {
     const url = base + path + queryString(opts.query);
     const res = await doFetch(url, {
       method,
       headers: {
-        "X-Kurumera-Storefront-Token": config.token,
+        ...authHeaders,
         Accept: "application/json",
         ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}),
       },
