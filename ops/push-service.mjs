@@ -22,6 +22,7 @@ const PORT = Number(process.env.PORT || 9200);
 const ROOT = "/home/ubuntu/theme-pushes";
 const CURRENT = join(ROOT, "current");
 const STATUS = join(ROOT, "status.json");
+const PUBLISHED = join(ROOT, "published.json");
 const PREVIEW_URL = "https://themekit.kurumera.com";
 const API_URL = "https://admin.kurumera.com/api/v1";
 const NET = "website-builder_web";
@@ -33,6 +34,12 @@ function setStatus(s) {
 }
 function getStatus() {
   try { return JSON.parse(readFileSync(STATUS, "utf8")); } catch { return { status: "idle" }; }
+}
+function getPublished() {
+  try { return JSON.parse(readFileSync(PUBLISHED, "utf8")); } catch { return { stores: [] }; }
+}
+function setPublished(p) {
+  writeFileSync(PUBLISHED, JSON.stringify(p));
 }
 function sh(cmd, args, opts = {}) {
   return new Promise((resolve) => {
@@ -84,6 +91,31 @@ const server = http.createServer((req, res) => {
 
   if (req.method === "GET" && url.endsWith("/status")) {
     return json(200, getStatus());
+  }
+
+  // Which stores currently serve the code theme (the builder polls this to route
+  // <slug>.kurumera.com to the code-theme container instead of the visual builder).
+  if (req.method === "GET" && url.endsWith("/published")) {
+    return json(200, getPublished());
+  }
+
+  // Publish / roll back a store to/from the code theme.
+  if (req.method === "POST" && (url.endsWith("/publish") || url.endsWith("/unpublish"))) {
+    const auth = req.headers["authorization"] || "";
+    if (!auth.startsWith("Bearer ") || auth.length < 12) return json(401, { error: "sign in first (kurumera login)" });
+    const off = url.endsWith("/unpublish");
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => {
+      let store = "";
+      try { store = (JSON.parse(Buffer.concat(chunks).toString() || "{}").store || "").trim(); } catch { /* */ }
+      if (!store) return json(400, { error: "store is required" });
+      const cur = new Set(getPublished().stores);
+      if (off) cur.delete(store); else cur.add(store);
+      setPublished({ stores: [...cur] });
+      json(200, { store, live: !off, stores: [...cur] });
+    });
+    return;
   }
 
   if (req.method === "POST" && url.endsWith("/push")) {

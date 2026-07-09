@@ -11,10 +11,10 @@ import { themeDev } from "./commands/dev.js";
 import { themeCheck } from "./commands/check.js";
 import { themePush } from "./commands/push.js";
 import { themePreview } from "./commands/preview.js";
+import { themePublish } from "./commands/publish.js";
 
 const PLANNED: Record<string, string> = {
   "stores list": "List the stores you can develop for.",
-  "theme publish": "Publish a successful build to the selected store.",
 };
 
 function help(): void {
@@ -27,6 +27,7 @@ function help(): void {
   console.log("  theme check                          Validate the route contract + safety rules");
   console.log("  theme push                           Upload the theme; the platform builds it");
   console.log("  theme preview --store <slug>         Open the built preview against a live store");
+  console.log("  theme publish --store <slug>         Make it the store's live theme (--off to roll back)");
   console.log("\nComing next:");
   for (const [name, desc] of Object.entries(PLANNED)) {
     console.log(`  ${name.padEnd(36)} ${desc}`);
@@ -48,6 +49,7 @@ async function dispatch(): Promise<number> {
   if (a === "theme" && b === "check") return themeCheck();
   if (a === "theme" && b === "push") return themePush(rest);
   if (a === "theme" && b === "preview") return themePreview(rest);
+  if (a === "theme" && b === "publish") return themePublish(rest);
   // themeDev spawns `next dev`; on success it returns 0 and the child keeps the
   // process alive, so we must NOT exit(0) after it — only on its error code.
   if (a === "theme" && b === "dev") return themeDev(rest);
