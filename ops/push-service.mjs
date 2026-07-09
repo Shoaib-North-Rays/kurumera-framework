@@ -25,12 +25,17 @@
  */
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const PORT = Number(process.env.PORT || 9200);
 const ROOT = "/home/ubuntu/theme-pushes";
 const STATE = join(ROOT, "state.json");
+
+// Control plane: mirror every state change into the Django backend (source of
+// truth). Best-effort — a backend hiccup must never break a build or publish.
+const CONTROL_URL = (process.env.KURUMERA_CONTROL_URL || "https://admin.kurumera.com/api/v1/themes/control").replace(/\/+$/, "");
+const SERVICE_KEY = process.env.KURUMERA_SERVICE_KEY || "";
 const MARKET = join(ROOT, "_market");            // shared theme registry (published built artifacts)
 const MARKET_STATE = join(ROOT, "market.json");  // { themes: { <slug>: { name, description, author, latest, versions:[{version,id,published,installs}] } } }
 const API_URL = "https://admin.kurumera.com/api/v1";
@@ -72,6 +77,30 @@ function runContainer(name, dir) {
   ]);
 }
 
+// Read theme identity (name/version) from the extracted source's theme.config,
+// so the DB records the real theme@semver — not the internal build id.
+function readManifest(dir) {
+  const f = ["theme.config.ts", "theme.config.js"].map((n) => join(dir, n)).find((p) => existsSync(p));
+  if (!f) return {};
+  let src = "";
+  try { src = readFileSync(f, "utf8"); } catch { return {}; }
+  const pick = (k) => { const m = src.match(new RegExp(`\\b${k}\\s*:\\s*["'\`]([^"'\`]+)["'\`]`)); return m ? m[1] : ""; };
+  return { name: pick("name"), version: pick("version"), description: pick("description") };
+}
+
+// Fire-and-forget POST to the control plane. Never throws.
+async function control(path, body) {
+  if (!SERVICE_KEY) return; // fail closed: no key ⇒ don't attempt (backend rejects anyway)
+  try {
+    const res = await fetch(`${CONTROL_URL}/${path}/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Kurumera-Service": SERVICE_KEY },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) console.error(`control ${path} -> ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  } catch (e) { console.error(`control ${path} failed: ${e?.message || e}`); }
+}
+
 const building = new Set();
 
 async function buildVersion(s, buffer) {
@@ -102,12 +131,21 @@ async function buildVersion(s, buffer) {
     const r = await runContainer(previewName(s), dir);
     if (r.code !== 0) return fail(s, v, "preview host failed", r.out.slice(-800));
 
+    const man = readManifest(dir);
+    const themeSlug = slug(man.name || s);
+    const semver = man.version || v;
+
     const st2 = getState();
     const rec = store(st2, s);
     rec.versions.push(v);
     rec.build = { status: "ready", id: v, preview_url: "https://themekit.kurumera.com" };
+    (rec.meta ||= {})[v] = { theme: themeSlug, name: man.name || s, version: semver };
     setState(st2);
     pruneVersions(s);   // reclaim disk from superseded builds
+
+    // Mirror into the control plane: record the version + point preview at it.
+    await control("version", { theme_slug: themeSlug, theme_name: man.name || s, version: semver, build_status: "success", theme_config: man });
+    await control("preview", { store: s, theme_slug: themeSlug, version: semver });
   } finally {
     building.delete(s);
   }
@@ -155,6 +193,8 @@ async function publishStore(s) {
   rec.live = latest;
   rec.history.push(latest);
   setState(getMerge(st, s, rec));
+  const m = (rec.meta || {})[latest];
+  if (m) await control("publish", { store: s, theme_slug: m.theme, version: m.version });
   return { ok: true, version: latest };
 }
 
@@ -168,6 +208,7 @@ async function rollbackStore(s) {
     if (!(await goLive(s, prev))) return { ok: false, error: "host failed" };
     rec.live = prev;
     setState(getMerge(st, s, rec));
+    await control("rollback", { store: s });            // backend restores its prior live pointer
     return { ok: true, version: prev, reverted: "previous version" };
   }
   // no previous version → fall back to the visual builder
@@ -183,6 +224,7 @@ async function unpublishStore(s) {
   rec.history = [];
   setState(getMerge(st, s, rec));
   await sh("docker", ["rm", "-f", liveName(s)]);
+  await control("unpublish", { store: s });
   return { ok: true };
 }
 function getMerge(st, s, rec) { st.stores[slug(s)] = rec; return st; }
@@ -254,6 +296,7 @@ async function installFromMarket(s, theme, version) {
   const rec = store(st, s);
   rec.versions.push(newV);
   rec.build = { status: "ready", id: newV, source: `${theme}@${ver}` };
+  (rec.meta ||= {})[newV] = { theme, name: entry.name || theme, version: ver };
   setState(getMerge(st, s, rec));
 
   if (!(await goLive(s, newV))) return { ok: false, error: "host failed" };
@@ -266,6 +309,9 @@ async function installFromMarket(s, theme, version) {
   found.installs = (found.installs || 0) + 1;
   setMarket(m);
   pruneVersions(s);   // reclaim disk from superseded store versions
+  // Ensure the version record exists in the DB, then mark it live as an install.
+  await control("version", { theme_slug: theme, theme_name: entry.name || theme, version: ver, build_status: "success" });
+  await control("install", { store: s, theme_slug: theme, version: ver });
   return { ok: true, store: s, theme, version: ver, storeVersion: newV };
 }
 
