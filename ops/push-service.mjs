@@ -39,6 +39,10 @@ const SERVICE_KEY = process.env.KURUMERA_SERVICE_KEY || "";
 // Ownership authz lives next to the control API (…/themes/authz). The backend,
 // not this service, decides whether a developer may mutate a store.
 const AUTHZ_URL = CONTROL_URL.replace(/\/control$/, "/authz");
+// This host's identity in the multi-host registry. Each host heartbeats the
+// control plane and stamps the stores it runs, so the platform knows which hosts
+// are alive and (later) can fail a dead host's stores over to a live one.
+const HOST_NAME = process.env.KURUMERA_HOST_NAME || "host-1";
 const MARKET = join(ROOT, "_market");            // shared theme registry (published built artifacts)
 const MARKET_STATE = join(ROOT, "market.json");  // { themes: { <slug>: { name, description, author, latest, versions:[{version,id,published,installs}] } } }
 const API_URL = "https://admin.kurumera.com/api/v1";
@@ -332,6 +336,7 @@ async function reconcile() {
       const prevMeta = latest ? (rec.meta || {})[latest] : null;
       await control("reconcile", {
         store: s,
+        host: HOST_NAME,
         mode: rec.live ? "code" : "builder",
         live: liveMeta ? { theme: liveMeta.theme, theme_name: liveMeta.name, version: liveMeta.version } : null,
         preview: prevMeta ? { theme: prevMeta.theme, theme_name: prevMeta.name, version: prevMeta.version } : null,
@@ -661,3 +666,14 @@ const kickReconcile = () => {
 };
 setTimeout(kickReconcile, 15 * 1000);
 setInterval(kickReconcile, RECONCILE_MS);
+
+// Heartbeat: tell the control plane this host is alive + how many stores it runs.
+// Faster than reconcile so a dead host is detected within ~90s (3 missed beats).
+const HEARTBEAT_MS = Number(process.env.KURUMERA_HEARTBEAT_MS || 30 * 1000);
+const beat = () => {
+  const st = getState();
+  const stores_count = Object.values(st.stores).filter((r) => r.live).length;
+  return control("host/heartbeat", { host: HOST_NAME, stores_count, meta: { reconcile_ms: RECONCILE_MS } });
+};
+setTimeout(beat, 3 * 1000);
+setInterval(beat, HEARTBEAT_MS);
