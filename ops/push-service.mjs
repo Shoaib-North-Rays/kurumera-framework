@@ -300,6 +300,49 @@ async function unpublishStore(s, actor) {
 }
 function getMerge(st, s, rec) { st.stores[slug(s)] = rec; return st; }
 
+// ── Reconciliation ───────────────────────────────────────────────────────────
+// The DB is the durable source of truth; this loop keeps runtime + DB converged:
+//   1. self-heal — if a store should be live but its container isn't running,
+//      bring it back up (survives crashes/reboots);
+//   2. converge — re-assert each store's real live/preview to the control plane,
+//      which idempotently repairs any drift a failed write-through left behind.
+async function containerRunning(name) {
+  const r = await sh("docker", ["inspect", "-f", "{{.State.Running}}", name]);
+  return r.code === 0 && r.out.trim() === "true";
+}
+
+let reconciling = false;
+async function reconcile() {
+  if (reconciling) return { skipped: "already running" };
+  reconciling = true;
+  const report = { stores: 0, healed: [] };
+  try {
+    const st = getState();
+    for (const s of Object.keys(st.stores)) {
+      const rec = st.stores[s];
+      report.stores++;
+      // 1. self-heal the live container
+      if (rec.live && !(await containerRunning(liveName(s)))) {
+        const ok = await goLive(s, rec.live);
+        report.healed.push({ store: s, restarted: ok });
+      }
+      // 2. converge the DB with the runtime's real state
+      const liveMeta = rec.live ? (rec.meta || {})[rec.live] : null;
+      const latest = rec.versions[rec.versions.length - 1];
+      const prevMeta = latest ? (rec.meta || {})[latest] : null;
+      await control("reconcile", {
+        store: s,
+        mode: rec.live ? "code" : "builder",
+        live: liveMeta ? { theme: liveMeta.theme, theme_name: liveMeta.name, version: liveMeta.version } : null,
+        preview: prevMeta ? { theme: prevMeta.theme, theme_name: prevMeta.name, version: prevMeta.version } : null,
+      });
+    }
+  } finally {
+    reconciling = false;
+  }
+  return report;
+}
+
 // ── Marketplace ────────────────────────────────────────────────────────────
 // A developer publishes a store's latest BUILT version into a shared registry;
 // any store can install it (copied into that store's own version history, then
@@ -420,6 +463,13 @@ const server = http.createServer((req, res) => {
     return res.end(log || "No build logs yet — run `kurumera theme push`.");
   }
 
+  // ── Reconcile (service key only) — heal containers + converge the DB ─────────
+  if (p.endsWith("/_push/reconcile")) {
+    if (!SERVICE_KEY || req.headers["x-kurumera-service"] !== SERVICE_KEY) return json(403, { error: "service key required" });
+    reconcile().then((r) => json(200, r));
+    return;
+  }
+
   // ── Marketplace ────────────────────────────────────────────────────────────
   if (p.endsWith("/_push/market") && req.method === "GET") return json(200, { themes: marketListing() });
   if (p.endsWith("/_push/market/info")) {
@@ -487,3 +537,14 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, "0.0.0.0", () => console.log(`kurumera push-service (per-store) on :${PORT}`));
+
+// Periodic reconciliation: self-heal live containers + converge the DB. Runs a
+// few seconds after boot (heal anything that died while we were down), then on an
+// interval. Best-effort — never throws into the loop.
+const RECONCILE_MS = Number(process.env.KURUMERA_RECONCILE_MS || 5 * 60 * 1000);
+const kickReconcile = () => reconcile().then(
+  (r) => { if (r.healed?.length) console.log("reconcile healed:", JSON.stringify(r.healed)); },
+  (e) => console.error("reconcile failed:", e?.message || e),
+);
+setTimeout(kickReconcile, 15 * 1000);
+setInterval(kickReconcile, RECONCILE_MS);
