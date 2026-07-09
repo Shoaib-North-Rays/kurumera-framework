@@ -9,11 +9,11 @@ import { login } from "./commands/login.js";
 import { themeInit } from "./commands/init.js";
 import { themeDev } from "./commands/dev.js";
 import { themeCheck } from "./commands/check.js";
+import { themePush } from "./commands/push.js";
+import { themePreview } from "./commands/preview.js";
 
 const PLANNED: Record<string, string> = {
   "stores list": "List the stores you can develop for.",
-  "theme push": "Upload the theme as a new unpublished version.",
-  "theme preview": "Open the preview URL for the uploaded build.",
   "theme publish": "Publish a successful build to the selected store.",
 };
 
@@ -25,6 +25,8 @@ function help(): void {
   console.log("  theme init <name>                    Scaffold the base Next.js theme");
   console.log("  theme dev --store <slug>             Run the theme against live store data");
   console.log("  theme check                          Validate the route contract + safety rules");
+  console.log("  theme push                           Upload the theme; the platform builds it");
+  console.log("  theme preview --store <slug>         Open the built preview against a live store");
   console.log("\nComing next:");
   for (const [name, desc] of Object.entries(PLANNED)) {
     console.log(`  ${name.padEnd(36)} ${desc}`);
@@ -44,6 +46,8 @@ async function dispatch(): Promise<number> {
   if (a === "login") return login(argv.slice(1));
   if (a === "theme" && b === "init") return themeInit(rest[0]);
   if (a === "theme" && b === "check") return themeCheck();
+  if (a === "theme" && b === "push") return themePush(rest);
+  if (a === "theme" && b === "preview") return themePreview(rest);
   // themeDev spawns `next dev`; on success it returns 0 and the child keeps the
   // process alive, so we must NOT exit(0) after it — only on its error code.
   if (a === "theme" && b === "dev") return themeDev(rest);
