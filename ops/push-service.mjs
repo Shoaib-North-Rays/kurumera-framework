@@ -31,16 +31,21 @@ import { join } from "node:path";
 const PORT = Number(process.env.PORT || 9200);
 const ROOT = "/home/ubuntu/theme-pushes";
 const STATE = join(ROOT, "state.json");
+const MARKET = join(ROOT, "_market");            // shared theme registry (published built artifacts)
+const MARKET_STATE = join(ROOT, "market.json");  // { themes: { <slug>: { name, description, author, latest, versions:[{version,id,published,installs}] } } }
 const API_URL = "https://admin.kurumera.com/api/v1";
 const NET = "website-builder_web";
 
 mkdirSync(ROOT, { recursive: true });
+mkdirSync(MARKET, { recursive: true });
 
 const slug = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9-]/g, "");
 const storeDir = (s) => join(ROOT, slug(s));
 const versionDir = (s, v) => join(storeDir(s), "versions", v);
 const previewName = (s) => `kurumera-preview-${slug(s)}`;
 const liveName = (s) => `kurumera-store-${slug(s)}`;
+// A published marketplace theme's immutable built artifact.
+const marketDir = (theme, version) => join(MARKET, slug(theme), String(version).replace(/[^a-zA-Z0-9._-]/g, ""));
 
 function getState() {
   try { return JSON.parse(readFileSync(STATE, "utf8")); } catch { return { stores: {} }; }
@@ -163,6 +168,96 @@ async function unpublishStore(s) {
 }
 function getMerge(st, s, rec) { st.stores[slug(s)] = rec; return st; }
 
+// ── Marketplace ────────────────────────────────────────────────────────────
+// A developer publishes a store's latest BUILT version into a shared registry;
+// any store can install it (copied into that store's own version history, then
+// made live — so installs stay per-store isolated and roll back independently).
+function getMarket() {
+  try { return JSON.parse(readFileSync(MARKET_STATE, "utf8")); } catch { return { themes: {} }; }
+}
+function setMarket(m) { writeFileSync(MARKET_STATE, JSON.stringify(m)); }
+
+function copyDir(src, dest) {
+  return sh("sh", ["-c", `rm -rf '${dest}' && mkdir -p '${dest}' && cp -a '${src}/.' '${dest}/'`]);
+}
+
+// Publish store <s>'s latest ready build to the registry as <theme>@<version> (immutable).
+async function publishToMarket(s, meta) {
+  s = slug(s);
+  const theme = slug(meta.name || s);
+  const version = String(meta.version || "").replace(/[^a-zA-Z0-9._-]/g, "");
+  if (!theme) return { ok: false, error: "theme name required (set `name` in theme.config)" };
+  if (!version) return { ok: false, error: "version required (set `version` in theme.config)" };
+
+  const st = getState();
+  const rec = store(st, s);
+  const latest = rec.versions[rec.versions.length - 1];
+  if (!latest) return { ok: false, error: "no build to publish — run `kurumera theme push` first" };
+  if (rec.build.status !== "ready") return { ok: false, error: `latest build is "${rec.build.status}", not ready` };
+
+  const dest = marketDir(theme, version);
+  const m = getMarket();
+  const entry = (m.themes[theme] ||= { name: meta.name || theme, description: "", author: "", latest: null, versions: [] });
+  if (entry.versions.some((v) => v.version === version)) {
+    return { ok: false, error: `${theme}@${version} is already published — bump the version in theme.config` };
+  }
+
+  const c = await copyDir(versionDir(s, latest), dest);
+  if (c.code !== 0) return { ok: false, error: "failed to stage artifact", log: c.out.slice(-400) };
+
+  entry.name = meta.name || entry.name;
+  if (meta.description) entry.description = meta.description;
+  if (meta.author) entry.author = meta.author;
+  entry.versions.push({ version, id: latest, published: Date.now(), installs: 0 });
+  entry.latest = version;
+  setMarket(m);
+  return { ok: true, theme, version };
+}
+
+// Install <theme>@<version> into store <s>: copy the registry artifact into a new
+// per-store version, then make it live. Returns the new store version id.
+async function installFromMarket(s, theme, version) {
+  s = slug(s); theme = slug(theme);
+  const m = getMarket();
+  const entry = m.themes[theme];
+  if (!entry) return { ok: false, error: `no marketplace theme "${theme}"` };
+  const ver = version && version !== "latest" ? String(version) : entry.latest;
+  const found = entry.versions.find((v) => v.version === ver);
+  if (!found) return { ok: false, error: `${theme}@${ver} not found` };
+
+  const src = marketDir(theme, ver);
+  const newV = "v" + Date.now();
+  const dest = versionDir(s, newV);
+  const c = await copyDir(src, dest);
+  if (c.code !== 0) return { ok: false, error: "failed to copy artifact", log: c.out.slice(-400) };
+
+  const st = getState();
+  const rec = store(st, s);
+  rec.versions.push(newV);
+  rec.build = { status: "ready", id: newV, source: `${theme}@${ver}` };
+  setState(getMerge(st, s, rec));
+
+  if (!(await goLive(s, newV))) return { ok: false, error: "host failed" };
+  const st2 = getState();
+  const rec2 = store(st2, s);
+  rec2.live = newV;
+  rec2.history.push(newV);
+  setState(getMerge(st2, s, rec2));
+
+  found.installs = (found.installs || 0) + 1;
+  setMarket(m);
+  return { ok: true, store: s, theme, version: ver, storeVersion: newV };
+}
+
+function marketListing() {
+  const m = getMarket();
+  return Object.entries(m.themes).map(([themeSlug, e]) => ({
+    slug: themeSlug, name: e.name, description: e.description, author: e.author,
+    latest: e.latest, versions: e.versions.map((v) => v.version),
+    installs: e.versions.reduce((n, v) => n + (v.installs || 0), 0),
+  }));
+}
+
 function livePublishedStores() {
   const st = getState();
   return Object.entries(st.stores).filter(([, r]) => r.live).map(([s]) => s);
@@ -187,6 +282,34 @@ const server = http.createServer((req, res) => {
     try { log = readFileSync(join(storeDir(u.searchParams.get("store") || ""), "build.log"), "utf8"); } catch { /* none */ }
     res.writeHead(200, { "Content-Type": "text/plain" });
     return res.end(log || "No build logs yet — run `kurumera theme push`.");
+  }
+
+  // ── Marketplace ────────────────────────────────────────────────────────────
+  if (p.endsWith("/_push/market") && req.method === "GET") return json(200, { themes: marketListing() });
+  if (p.endsWith("/_push/market/info")) {
+    const t = slug(u.searchParams.get("theme") || "");
+    const e = getMarket().themes[t];
+    return e ? json(200, { slug: t, ...e }) : json(404, { error: `no marketplace theme "${t}"` });
+  }
+  if (p.endsWith("/_push/market/publish") && req.method === "POST") {
+    if (!authed()) return json(401, { error: "sign in first (kurumera login)" });
+    readBody().then(async (buf) => {
+      let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
+      if (!body.store) return json(400, { error: "store is required" });
+      const r = await publishToMarket(body.store, body);
+      json(r.ok === false ? 400 : 200, r);
+    });
+    return;
+  }
+  if (p.endsWith("/_push/market/install") && req.method === "POST") {
+    if (!authed()) return json(401, { error: "sign in first (kurumera login)" });
+    readBody().then(async (buf) => {
+      let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
+      if (!body.store || !body.theme) return json(400, { error: "store and theme are required" });
+      const r = await installFromMarket(body.store, body.theme, body.version);
+      json(r.ok === false ? 400 : 200, { ...r, stores: livePublishedStores() });
+    });
+    return;
   }
 
   if (p.endsWith("/_push/push") && req.method === "POST") {

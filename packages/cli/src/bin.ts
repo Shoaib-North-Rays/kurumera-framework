@@ -13,6 +13,7 @@ import { themePush } from "./commands/push.js";
 import { themePreview } from "./commands/preview.js";
 import { themePublish, themeRollback } from "./commands/publish.js";
 import { themeLogs } from "./commands/logs.js";
+import { marketplace } from "./commands/marketplace.js";
 
 const PLANNED: Record<string, string> = {
   "stores list": "List the stores you can develop for.",
@@ -31,6 +32,12 @@ function help(): void {
   console.log("  theme publish --store <slug>         Make it the store's live theme (--off to unpublish)");
   console.log("  theme rollback --store <slug>        Restore the store's previous live version");
   console.log("  theme logs --store <slug>            Show the latest build log");
+  console.log("\nMarketplace:");
+  console.log("  marketplace publish --store <slug>   Publish this theme's build to the registry");
+  console.log("  marketplace list                     Browse published themes");
+  console.log("  marketplace info <theme>             Show a theme's versions");
+  console.log("  marketplace install <theme>[@ver] --store <slug>");
+  console.log("                                       Install a registry theme into a store (live)");
   console.log("\nComing next:");
   for (const [name, desc] of Object.entries(PLANNED)) {
     console.log(`  ${name.padEnd(36)} ${desc}`);
@@ -55,6 +62,7 @@ async function dispatch(): Promise<number> {
   if (a === "theme" && b === "publish") return themePublish(rest);
   if (a === "theme" && b === "rollback") return themeRollback(rest);
   if (a === "theme" && b === "logs") return themeLogs(rest);
+  if (a === "marketplace" || a === "market") return marketplace(argv.slice(1));
   // themeDev spawns `next dev`; on success it returns 0 and the child keeps the
   // process alive, so we must NOT exit(0) after it — only on its error code.
   if (a === "theme" && b === "dev") return themeDev(rest);
