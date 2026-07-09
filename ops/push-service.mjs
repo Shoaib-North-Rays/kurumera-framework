@@ -89,6 +89,7 @@ async function buildVersion(s, buffer) {
 
     const b = await sh("docker", ["run", "--rm", "-v", `${dir}:/app`, "-w", "/app", "node:20-alpine",
       "sh", "-c", "npm install --no-audit --no-fund && npx next build"]);
+    try { writeFileSync(join(storeDir(s), "build.log"), b.out); } catch { /* best-effort */ }
     if (b.code !== 0) return fail(s, v, "build failed", b.out.slice(-800));
 
     // (re)start this store's preview container on the new version
@@ -181,6 +182,12 @@ const server = http.createServer((req, res) => {
   // ── API ──────────────────────────────────────────────────────────────────
   if (p.endsWith("/_push/published")) return json(200, { stores: livePublishedStores() });
   if (p.endsWith("/_push/status")) return json(200, store(getState(), u.searchParams.get("store") || "").build);
+  if (p.endsWith("/_push/logs")) {
+    let log = "";
+    try { log = readFileSync(join(storeDir(u.searchParams.get("store") || ""), "build.log"), "utf8"); } catch { /* none */ }
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    return res.end(log || "No build logs yet — run `kurumera theme push`.");
+  }
 
   if (p.endsWith("/_push/push") && req.method === "POST") {
     if (!authed()) return json(401, { error: "sign in first (kurumera login)" });
