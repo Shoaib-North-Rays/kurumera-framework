@@ -6,9 +6,11 @@ import { copyDir } from "../util/fs.js";
 /** Locate the base theme template to clone from. */
 function baseThemeDir(): string {
   if (process.env.KURUMERA_BASE_THEME) return process.env.KURUMERA_BASE_THEME;
-  // In the monorepo the CLI runs from packages/cli/dist/… — the base theme is a
-  // sibling of packages/. (Production packaging will bundle/fetch the template.)
-  const here = fileURLToPath(import.meta.url);
+  const here = fileURLToPath(import.meta.url); // dist/commands/init.js
+  // Published package: the template is bundled at <pkg>/template.
+  const bundled = resolve(here, "../../../template");
+  if (existsSync(bundled)) return bundled;
+  // Monorepo dev fallback: the base theme is a sibling of packages/.
   return resolve(here, "../../../../../base-theme");
 }
 

@@ -26,5 +26,25 @@ with ships on the backend `feature/theme-framework` branch.
 npm install -g @kurumera/cli
 kurumera login
 kurumera theme init my-theme && cd my-theme
+npm install
 kurumera theme dev --store my-demo-store
 ```
+
+No repo clone: the CLI bundles the base theme, and a scaffolded theme installs
+`@kurumera/storefront` + `@kurumera/theme` from npm.
+
+## Publishing (maintainers)
+
+Packages publish to the public npm registry under the `@kurumera` scope.
+
+```bash
+# one-time: create the @kurumera org on npmjs.com, then:
+npm login
+npm run build
+npm publish -w @kurumera/storefront
+npm publish -w @kurumera/theme
+npm publish -w @kurumera/cli          # bundles base-theme via prepack
+```
+
+`publishConfig.access = public` is set on each package, so scoped packages
+publish publicly. Bump versions in lockstep for a release.
