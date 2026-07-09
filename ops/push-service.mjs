@@ -151,6 +151,16 @@ async function verifyOwnership(authHeader, store) {
   }
 }
 
+// Authorize a store mutation from EITHER the trusted backend control plane
+// (X-Kurumera-Service key — it already authenticated the merchant and passes the
+// acting email in the body) OR a developer CLI (dev JWT, verified for ownership).
+async function authorizeMutation(req, store, bodyActor) {
+  if (SERVICE_KEY && req.headers["x-kurumera-service"] === SERVICE_KEY) {
+    return { ok: true, actor: bodyActor || undefined };
+  }
+  return verifyOwnership(req.headers["authorization"], store);
+}
+
 const building = new Set();
 
 async function buildVersion(s, buffer, actor) {
@@ -433,7 +443,7 @@ const server = http.createServer((req, res) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
       if (!body.theme) return json(400, { error: "theme is required" });
       const s = slug(body.store);
-      const az = await verifyOwnership(req.headers["authorization"], s);   // must own the target store
+      const az = await authorizeMutation(req, s, body.actor_email);   // merchant (backend) or dev (CLI)
       if (!az.ok) return json(az.status || 403, { error: az.error });
       const r = await installFromMarket(s, body.theme, body.version, az.actor);
       json(r.ok === false ? 400 : 200, { ...r, stores: livePublishedStores() });
@@ -454,8 +464,9 @@ const server = http.createServer((req, res) => {
   for (const [suffix, fn] of [["/_push/publish", publishStore], ["/_push/rollback", rollbackStore], ["/_push/unpublish", unpublishStore]]) {
     if (p.endsWith(suffix) && req.method === "POST") {
       readBody().then(async (buf) => {
-        let s = ""; try { s = slug(JSON.parse(buf.toString() || "{}").store); } catch { /* */ }
-        const az = await verifyOwnership(req.headers["authorization"], s);
+        let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
+        const s = slug(body.store);
+        const az = await authorizeMutation(req, s, body.actor_email);   // merchant (backend) or dev (CLI)
         if (!az.ok) return json(az.status || 403, { error: az.error });
         const r = await fn(s, az.actor);
         json(r.ok === false ? 400 : 200, { store: s, ...r, stores: livePublishedStores() });
