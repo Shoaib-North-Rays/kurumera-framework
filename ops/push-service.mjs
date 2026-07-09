@@ -362,15 +362,23 @@ async function containerExists(name) {
   const r = await sh("docker", ["inspect", "-f", "{{.State.Status}}", name]);
   return r.code === 0 ? r.out.trim() : null;   // "running" | "exited" | null(absent)
 }
-// Poll the container's HTTP port until it answers (or timeout) so we don't proxy
-// to a not-yet-ready process on cold start.
-function waitReady(name, ms = WAKE_READY_MS) {
+// Poll the container on its REAL serving path (GET /?store=<slug> with the store
+// Host) until it returns a non-5xx — i.e. it genuinely resolves the store and
+// serves, not just "the port is open". A bare HEAD / has no store and always
+// 500s ("No store resolved"), which would falsely look ready on cold start.
+function waitReady(name, slug, ms = WAKE_READY_MS) {
   const deadline = Date.now() + ms;
   return new Promise((resolve) => {
     const tick = () => {
-      const req = http.request({ hostname: name, port: 3000, path: "/", method: "HEAD", timeout: 2000 }, (r) => {
-        r.resume(); resolve(true);
-      });
+      const req = http.request(
+        { hostname: name, port: 3000, path: `/?store=${encodeURIComponent(slug)}`, method: "GET", timeout: 3000,
+          headers: { host: `${slug}.kurumera.com` } },
+        (r) => {
+          r.resume();
+          if (r.statusCode && r.statusCode < 500) return resolve(true);      // serving for real
+          return Date.now() < deadline ? setTimeout(tick, 400) : resolve(false);
+        },
+      );
       req.on("error", () => (Date.now() < deadline ? setTimeout(tick, 400) : resolve(false)));
       req.on("timeout", () => { req.destroy(); Date.now() < deadline ? setTimeout(tick, 400) : resolve(false); });
       req.end();
@@ -393,7 +401,7 @@ async function wakeStore(s) {
   } else {
     await goLive(s, rec.live);                          // absent → recreate
   }
-  const ready = await waitReady(name);
+  const ready = await waitReady(name, s);
   return { status: ready ? "woken" : "starting" };
 }
 // Same, for a store's preview container (dev-facing, reaped just like live).
@@ -405,7 +413,7 @@ async function wakePreview(s) {
   if (status === "running") return true;
   if (status === "exited" || status === "created") {
     await sh("docker", ["start", name]);
-    return waitReady(name);
+    return waitReady(name, s);
   }
   return false;   // absent (never built) — nothing to wake
 }
