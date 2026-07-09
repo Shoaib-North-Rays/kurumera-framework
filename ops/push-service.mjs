@@ -61,22 +61,45 @@ function getState() {
 function setState(st) { writeFileSync(STATE, JSON.stringify(st)); }
 function store(st, s) { return (st.stores[slug(s)] ||= { build: { status: "idle" }, versions: [], live: null, history: [] }); }
 
-function sh(cmd, args) {
+// ── Sandbox ──────────────────────────────────────────────────────────────────
+// Theme code is UNTRUSTED — it runs at build time (npm install postinstall +
+// next build) and at runtime (SSR on every request). Every container that runs
+// theme code does so unprivileged, with all Linux capabilities dropped, no
+// privilege escalation, capped memory/cpu/pids, and a read-only root fs (only the
+// /app mount + a tmpfs are writable). Builds additionally run on an ISOLATED
+// network with no route to internal services (backend, push-service, other
+// stores) and a hard timeout, so hostile build code can't pivot or hang the box.
+const SANDBOX_UID = "1000:1000";                    // node:20-alpine's `node` user
+const HARDEN = ["--user", SANDBOX_UID, "--cap-drop", "ALL", "--security-opt", "no-new-privileges"];
+const BUILD_NET = process.env.KURUMERA_BUILD_NET || "kurumera-build";  // isolated: internet egress, no internal lateral
+const BUILD_LIMITS = ["--memory", "2g", "--memory-swap", "2g", "--cpus", "2", "--pids-limit", "1024"];
+const RUN_LIMITS = ["--memory", "1g", "--memory-swap", "1g", "--cpus", "1", "--pids-limit", "256"];
+const BUILD_TIMEOUT_MS = 10 * 60 * 1000;
+
+function sh(cmd, args, opts = {}) {
+  const { timeoutMs = 0, killContainer = "" } = opts;
   return new Promise((resolve) => {
     const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
-    let out = "";
+    let out = "", timer = null;
+    if (timeoutMs > 0) timer = setTimeout(() => {
+      out += `\n[killed: exceeded ${Math.round(timeoutMs / 1000)}s timeout]`;
+      if (killContainer) spawn("docker", ["rm", "-f", killContainer]);   // stop the runaway build
+      p.kill("SIGKILL");
+    }, timeoutMs);
     p.stdout.on("data", (d) => (out += d));
     p.stderr.on("data", (d) => (out += d));
-    p.on("close", (code) => resolve({ code, out }));
-    p.on("error", (e) => resolve({ code: 1, out: String(e) }));
+    p.on("close", (code) => { if (timer) clearTimeout(timer); resolve({ code, out }); });
+    p.on("error", (e) => { if (timer) clearTimeout(timer); resolve({ code: 1, out: String(e) }); });
   });
 }
 function runContainer(name, dir) {
   return sh("docker", [
     "run", "-d", "--name", name, "--restart", "unless-stopped", "--network", NET,
-    "-v", `${dir}:/app`, "-w", "/app",
+    ...HARDEN, ...RUN_LIMITS,
+    "--read-only", "--tmpfs", "/tmp:size=256m",
+    "-v", `${dir}:/app`, "-w", "/app", "-e", "HOME=/app",
     "-e", `KURUMERA_API_URL=${API_URL}`, "-e", "KURUMERA_ROOT_DOMAIN=kurumera.com",
-    "node:20-alpine", "sh", "-c", "npx next start -p 3000",
+    "node:20-alpine", "sh", "-c", "node_modules/.bin/next start -p 3000",
   ]);
 }
 
@@ -148,8 +171,18 @@ async function buildVersion(s, buffer, actor) {
     rmSync(tgz, { force: true });
     if (x.code !== 0) return fail(s, v, "unpack failed");
 
-    const b = await sh("docker", ["run", "--rm", "-v", `${dir}:/app`, "-w", "/app", "node:20-alpine",
-      "sh", "-c", "npm install --no-audit --no-fund && npx next build"]);
+    // Hand the tree to the sandbox uid so the unprivileged build can write it.
+    await sh("chown", ["-R", SANDBOX_UID, dir]);
+    const buildName = `kurumera-build-${s}`;
+    await sh("docker", ["rm", "-f", buildName]);   // clear any stale build container
+    const b = await sh("docker", [
+      "run", "--rm", "--name", buildName, "--network", BUILD_NET,
+      ...HARDEN, ...BUILD_LIMITS,
+      "--read-only", "--tmpfs", "/tmp:size=1g",
+      "-e", "HOME=/app", "-e", "npm_config_cache=/app/.npm",
+      "-v", `${dir}:/app`, "-w", "/app", "node:20-alpine",
+      "sh", "-c", "npm install --no-audit --no-fund && npx next build",
+    ], { timeoutMs: BUILD_TIMEOUT_MS, killContainer: buildName });
     try { writeFileSync(join(storeDir(s), "build.log"), b.out); } catch { /* best-effort */ }
     if (b.code !== 0) return fail(s, v, "build failed", b.out.slice(-800));
 
@@ -205,6 +238,7 @@ function pruneVersions(s) {
 async function goLive(s, v) {
   s = slug(s);
   const dir = versionDir(s, v);
+  await sh("chown", ["-R", SANDBOX_UID, dir]);   // sandboxed runtime must own its tree (e.g. market-copied artifacts)
   await sh("docker", ["rm", "-f", liveName(s)]);
   const r = await runContainer(liveName(s), dir);
   return r.code === 0;
