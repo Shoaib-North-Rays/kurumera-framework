@@ -107,6 +107,7 @@ async function buildVersion(s, buffer) {
     rec.versions.push(v);
     rec.build = { status: "ready", id: v, preview_url: "https://themekit.kurumera.com" };
     setState(st2);
+    pruneVersions(s);   // reclaim disk from superseded builds
   } finally {
     building.delete(s);
   }
@@ -115,6 +116,24 @@ function fail(s, v, error, log) {
   const st = getState();
   store(st, s).build = { status: "failed", id: v, error, log };
   setState(st);
+}
+
+// Bound disk use: after a successful build/install, delete version dirs the store
+// no longer needs. Keep the live version, the last few builds (preview + recent
+// history), and the rollback target — everything else is safe to remove.
+function pruneVersions(s) {
+  s = slug(s);
+  const st = getState();
+  const rec = store(st, s);
+  const keep = new Set();
+  if (rec.live) keep.add(rec.live);              // mounted by the live container
+  rec.versions.slice(-3).forEach((v) => keep.add(v)); // recent builds (latest = preview)
+  rec.history.slice(-2).forEach((v) => keep.add(v));  // one-step rollback target
+  for (const v of rec.versions) {
+    if (!keep.has(v)) { try { rmSync(versionDir(s, v), { recursive: true, force: true }); } catch { /* */ } }
+  }
+  rec.versions = rec.versions.filter((v) => keep.has(v));
+  setState(getMerge(st, s, rec));
 }
 
 // Promote store <s> to a live version; run its live container on that version.
@@ -246,6 +265,7 @@ async function installFromMarket(s, theme, version) {
 
   found.installs = (found.installs || 0) + 1;
   setMarket(m);
+  pruneVersions(s);   // reclaim disk from superseded store versions
   return { ok: true, store: s, theme, version: ver, storeVersion: newV };
 }
 

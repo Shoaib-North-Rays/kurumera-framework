@@ -77,6 +77,10 @@ async function dispatch(): Promise<number> {
   return 1;
 }
 
-dispatch().then((code) => {
-  if (code !== 0) process.exit(code);
-});
+// Set exitCode and let the event loop drain instead of process.exit(): forcing
+// exit while undici's fetch socket is mid-close triggers a libuv assertion on
+// Windows (src\win\async.c). themeDev returns 0 and keeps the child alive, so a
+// 0 code must never exit here anyway.
+dispatch()
+  .then((code) => { if (code && code !== 0) process.exitCode = code; })
+  .catch((e) => { console.error((e as Error)?.message || e); process.exitCode = 1; });
