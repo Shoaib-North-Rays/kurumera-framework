@@ -36,6 +36,9 @@ const STATE = join(ROOT, "state.json");
 // truth). Best-effort — a backend hiccup must never break a build or publish.
 const CONTROL_URL = (process.env.KURUMERA_CONTROL_URL || "https://admin.kurumera.com/api/v1/themes/control").replace(/\/+$/, "");
 const SERVICE_KEY = process.env.KURUMERA_SERVICE_KEY || "";
+// Ownership authz lives next to the control API (…/themes/authz). The backend,
+// not this service, decides whether a developer may mutate a store.
+const AUTHZ_URL = CONTROL_URL.replace(/\/control$/, "/authz");
 const MARKET = join(ROOT, "_market");            // shared theme registry (published built artifacts)
 const MARKET_STATE = join(ROOT, "market.json");  // { themes: { <slug>: { name, description, author, latest, versions:[{version,id,published,installs}] } } }
 const API_URL = "https://admin.kurumera.com/api/v1";
@@ -101,9 +104,33 @@ async function control(path, body) {
   } catch (e) { console.error(`control ${path} failed: ${e?.message || e}`); }
 }
 
+// Ask the backend whether the developer behind `authHeader` may mutate `store`.
+// FAILS CLOSED: any auth failure, unknown store, or backend outage → not allowed.
+// Returns { ok, actor?, status?, error? }. `actor` is the developer's email, used
+// to attribute the resulting history event.
+async function verifyOwnership(authHeader, store) {
+  const bearer = authHeader || "";
+  if (!bearer.startsWith("Bearer ") || bearer.length < 12) {
+    return { ok: false, status: 401, error: "sign in first (kurumera login)" };
+  }
+  if (!store) return { ok: false, status: 400, error: "no store — pass --store or run `kurumera login`" };
+  try {
+    const res = await fetch(`${AUTHZ_URL}/?store=${encodeURIComponent(store)}`, { headers: { Authorization: bearer } });
+    const d = await res.json().catch(() => ({}));
+    if (res.status === 200 && d.authorized) return { ok: true, actor: d.actor };
+    if (res.status === 200) return { ok: false, status: 403, error: d.detail || "not authorized for this store" };
+    if (res.status === 401) return { ok: false, status: 401, error: "invalid or expired session — run `kurumera login`" };
+    if (res.status === 403) return { ok: false, status: 403, error: d.detail || "you do not have access to this store" };
+    if (res.status === 404) return { ok: false, status: 404, error: d.detail || `no store "${store}"` };
+    return { ok: false, status: 502, error: `ownership check failed (${res.status})` };
+  } catch {
+    return { ok: false, status: 503, error: "ownership check unavailable — try again shortly" };
+  }
+}
+
 const building = new Set();
 
-async function buildVersion(s, buffer) {
+async function buildVersion(s, buffer, actor) {
   s = slug(s);
   building.add(s);
   const v = "v" + Date.now();
@@ -145,7 +172,7 @@ async function buildVersion(s, buffer) {
 
     // Mirror into the control plane: record the version + point preview at it.
     await control("version", { theme_slug: themeSlug, theme_name: man.name || s, version: semver, build_status: "success", theme_config: man });
-    await control("preview", { store: s, theme_slug: themeSlug, version: semver });
+    await control("preview", { store: s, theme_slug: themeSlug, version: semver, actor_email: actor });
   } finally {
     building.delete(s);
   }
@@ -183,7 +210,7 @@ async function goLive(s, v) {
   return r.code === 0;
 }
 
-async function publishStore(s) {
+async function publishStore(s, actor) {
   s = slug(s);
   const st = getState();
   const rec = store(st, s);
@@ -194,11 +221,11 @@ async function publishStore(s) {
   rec.history.push(latest);
   setState(getMerge(st, s, rec));
   const m = (rec.meta || {})[latest];
-  if (m) await control("publish", { store: s, theme_slug: m.theme, version: m.version });
+  if (m) await control("publish", { store: s, theme_slug: m.theme, version: m.version, actor_email: actor });
   return { ok: true, version: latest };
 }
 
-async function rollbackStore(s) {
+async function rollbackStore(s, actor) {
   s = slug(s);
   const st = getState();
   const rec = store(st, s);
@@ -208,15 +235,15 @@ async function rollbackStore(s) {
     if (!(await goLive(s, prev))) return { ok: false, error: "host failed" };
     rec.live = prev;
     setState(getMerge(st, s, rec));
-    await control("rollback", { store: s });            // backend restores its prior live pointer
+    await control("rollback", { store: s, actor_email: actor });  // backend restores its prior live pointer
     return { ok: true, version: prev, reverted: "previous version" };
   }
   // no previous version → fall back to the visual builder
-  await unpublishStore(s);
+  await unpublishStore(s, actor);
   return { ok: true, reverted: "visual builder" };
 }
 
-async function unpublishStore(s) {
+async function unpublishStore(s, actor) {
   s = slug(s);
   const st = getState();
   const rec = store(st, s);
@@ -224,7 +251,7 @@ async function unpublishStore(s) {
   rec.history = [];
   setState(getMerge(st, s, rec));
   await sh("docker", ["rm", "-f", liveName(s)]);
-  await control("unpublish", { store: s });
+  await control("unpublish", { store: s, actor_email: actor });
   return { ok: true };
 }
 function getMerge(st, s, rec) { st.stores[slug(s)] = rec; return st; }
@@ -277,7 +304,7 @@ async function publishToMarket(s, meta) {
 
 // Install <theme>@<version> into store <s>: copy the registry artifact into a new
 // per-store version, then make it live. Returns the new store version id.
-async function installFromMarket(s, theme, version) {
+async function installFromMarket(s, theme, version, actor) {
   s = slug(s); theme = slug(theme);
   const m = getMarket();
   const entry = m.themes[theme];
@@ -311,7 +338,7 @@ async function installFromMarket(s, theme, version) {
   pruneVersions(s);   // reclaim disk from superseded store versions
   // Ensure the version record exists in the DB, then mark it live as an install.
   await control("version", { theme_slug: theme, theme_name: entry.name || theme, version: ver, build_status: "success" });
-  await control("install", { store: s, theme_slug: theme, version: ver });
+  await control("install", { store: s, theme_slug: theme, version: ver, actor_email: actor });
   return { ok: true, store: s, theme, version: ver, storeVersion: newV };
 }
 
@@ -338,7 +365,6 @@ const server = http.createServer((req, res) => {
   const p = u.pathname;
   const json = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
   const readBody = () => new Promise((resolve) => { const c = []; req.on("data", (d) => c.push(d)); req.on("end", () => resolve(Buffer.concat(c))); });
-  const authed = () => { const a = req.headers["authorization"] || ""; return a.startsWith("Bearer ") && a.length >= 12; };
 
   // ── API ──────────────────────────────────────────────────────────────────
   if (p.endsWith("/_push/published")) return json(200, { stores: livePublishedStores() });
@@ -358,42 +384,46 @@ const server = http.createServer((req, res) => {
     return e ? json(200, { slug: t, ...e }) : json(404, { error: `no marketplace theme "${t}"` });
   }
   if (p.endsWith("/_push/market/publish") && req.method === "POST") {
-    if (!authed()) return json(401, { error: "sign in first (kurumera login)" });
     readBody().then(async (buf) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
-      if (!body.store) return json(400, { error: "store is required" });
-      const r = await publishToMarket(body.store, body);
+      const s = slug(body.store);
+      const az = await verifyOwnership(req.headers["authorization"], s);   // must own the source store
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      const r = await publishToMarket(s, body);
       json(r.ok === false ? 400 : 200, r);
     });
     return;
   }
   if (p.endsWith("/_push/market/install") && req.method === "POST") {
-    if (!authed()) return json(401, { error: "sign in first (kurumera login)" });
     readBody().then(async (buf) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
-      if (!body.store || !body.theme) return json(400, { error: "store and theme are required" });
-      const r = await installFromMarket(body.store, body.theme, body.version);
+      if (!body.theme) return json(400, { error: "theme is required" });
+      const s = slug(body.store);
+      const az = await verifyOwnership(req.headers["authorization"], s);   // must own the target store
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      const r = await installFromMarket(s, body.theme, body.version, az.actor);
       json(r.ok === false ? 400 : 200, { ...r, stores: livePublishedStores() });
     });
     return;
   }
 
   if (p.endsWith("/_push/push") && req.method === "POST") {
-    if (!authed()) return json(401, { error: "sign in first (kurumera login)" });
     const s = slug(req.headers["x-kurumera-store"] || "");
-    if (!s) return json(400, { error: "no store — pass --store or run `kurumera login`" });
-    if (building.has(s)) return json(409, { error: "a build is already in progress for this store" });
-    readBody().then((buf) => { json(200, { id: "queued", status: "building" }); buildVersion(s, buf); });
+    verifyOwnership(req.headers["authorization"], s).then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (building.has(s)) return json(409, { error: "a build is already in progress for this store" });
+      readBody().then((buf) => { json(200, { id: "queued", status: "building" }); buildVersion(s, buf, az.actor); });
+    });
     return;
   }
 
   for (const [suffix, fn] of [["/_push/publish", publishStore], ["/_push/rollback", rollbackStore], ["/_push/unpublish", unpublishStore]]) {
     if (p.endsWith(suffix) && req.method === "POST") {
-      if (!authed()) return json(401, { error: "sign in first (kurumera login)" });
       readBody().then(async (buf) => {
         let s = ""; try { s = slug(JSON.parse(buf.toString() || "{}").store); } catch { /* */ }
-        if (!s) return json(400, { error: "store is required" });
-        const r = await fn(s);
+        const az = await verifyOwnership(req.headers["authorization"], s);
+        if (!az.ok) return json(az.status || 403, { error: az.error });
+        const r = await fn(s, az.actor);
         json(r.ok === false ? 400 : 200, { store: s, ...r, stores: livePublishedStores() });
       });
       return;
