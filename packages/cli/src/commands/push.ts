@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { tmpdir } from "node:os";
 import { readConfig } from "../util/config.js";
 import { checkTheme } from "../lib/themeCheck.js";
 
@@ -32,19 +31,19 @@ export async function themePush(args: string[]): Promise<number> {
   }
   const store = flag(args, "--store") || cfg.defaultStore;
 
-  // 2) Bundle the source (exclude build/vcs artifacts) with tar.
-  const tarball = join(tmpdir(), `kurumera-theme-${Date.now()}.tgz`);
+  // 2) Bundle the source to stdout (run tar IN the theme dir so no absolute
+  //    drive-letter paths reach tar — GNU tar treats "C:\…" as a remote host).
   const tar = spawnSync(
     "tar",
-    ["-czf", tarball, "--exclude=node_modules", "--exclude=.next", "--exclude=.git", "--exclude=dist", "-C", dir, "."],
-    { stdio: "inherit" },
+    ["-czf", "-", "--exclude=node_modules", "--exclude=.next", "--exclude=.git", "--exclude=dist", "."],
+    { cwd: dir, maxBuffer: 100 * 1024 * 1024 },
   );
-  if (tar.status !== 0 || !existsSync(tarball)) {
+  if (tar.status !== 0 || !tar.stdout || !tar.stdout.length) {
     console.error("Failed to bundle the theme (is `tar` available on your PATH?).");
+    if (tar.stderr) console.error(tar.stderr.toString().trim());
     return 1;
   }
-  const size = statSync(tarball).size;
-  console.log(`▸ Uploading theme (${(size / 1024).toFixed(0)} KB)…`);
+  console.log(`▸ Uploading theme (${(tar.stdout.length / 1024).toFixed(0)} KB)…`);
 
   // 3) Upload the gzip tarball as the raw body (simple, no multipart parsing).
   let res: Response;
@@ -56,7 +55,7 @@ export async function themePush(args: string[]): Promise<number> {
         "Content-Type": "application/gzip",
         "X-Kurumera-Store": store || "",
       },
-      body: readFileSync(tarball),
+      body: tar.stdout,
     });
   } catch (e) {
     console.error(`Upload failed: ${(e as Error).message}`);
