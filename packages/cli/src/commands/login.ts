@@ -8,14 +8,19 @@ import { flag } from "../util/fs.js";
 const DASHBOARD = (process.env.KURUMERA_DASHBOARD || "https://kurumera.com").replace(/\/+$/, "");
 
 function openBrowser(url: string): void {
-  const [cmd, args] =
-    process.platform === "win32"
-      ? ["cmd", ["/c", "start", "", url]]
-      : process.platform === "darwin"
-        ? ["open", [url]]
-        : ["xdg-open", [url]];
   try {
-    spawn(cmd as string, args as string[], { stdio: "ignore", detached: true }).unref();
+    if (process.platform === "win32") {
+      // cmd's `start` treats & as a command separator, which truncates the URL
+      // at &state=… — escape each & with ^ so the whole URL reaches the browser.
+      spawn("cmd", ["/c", "start", "", url.replace(/&/g, "^&")], {
+        stdio: "ignore",
+        detached: true,
+        windowsVerbatimArguments: true,
+      }).unref();
+      return;
+    }
+    const cmd = process.platform === "darwin" ? "open" : "xdg-open";
+    spawn(cmd, [url], { stdio: "ignore", detached: true }).unref();
   } catch {
     /* the URL is printed as a fallback */
   }
