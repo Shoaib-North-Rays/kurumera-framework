@@ -48,6 +48,6 @@ export function themeInit(name?: string): number {
   console.log("Next steps:");
   console.log(`  cd ${name}`);
   console.log("  npm install");
-  console.log("  kurumera theme dev --store <your-store> --token ksf_…");
+  console.log("  kurumera theme dev --store <your-store>");
   return 0;
 }

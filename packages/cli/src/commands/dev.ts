@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { readConfig } from "../util/config.js";
-import { flag, npmBin } from "../util/fs.js";
+import { flag } from "../util/fs.js";
 
 const DEFAULT_API_URL = "https://admin.kurumera.com/api/v1";
 
@@ -40,8 +40,11 @@ export function themeDev(args: string[]): number {
   const how = token ? "token" : `slug "${tenant}"`;
   console.log(`▸ Starting theme dev${store ? ` for "${store}"` : ""} (via ${how}) → http://localhost:3000`);
 
-  const child = spawn(npmBin(), ["run", "dev"], {
+  // `shell: true` so it works cross-platform — and so Node 24 can spawn npm on
+  // Windows (spawning npm.cmd directly throws EINVAL since a Node security fix).
+  const child = spawn("npm", ["run", "dev"], {
     stdio: "inherit",
+    shell: true,
     env: {
       ...process.env,
       ...(token ? { KURUMERA_STOREFRONT_TOKEN: token } : {}),
