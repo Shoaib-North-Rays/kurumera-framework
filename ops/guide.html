@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kurumera Theme Framework — Developer Guide</title>
+<style>
+  :root{
+    --paper:#F5F7F6; --surface:#FFFFFF; --raised:#FBFCFC;
+    --ink:#16211E; --muted:#586964; --faint:#8A9994;
+    --line:#E1E7E4; --line-strong:#CBD4D0;
+    --accent:#0E9184; --accent-ink:#0B6F65; --accent-soft:rgba(14,145,132,.10);
+    --term-bg:#0E1512; --term-fg:#D7E0DC; --term-dim:#7E8F89; --term-prompt:#37D3BE;
+    --ok:#2E7D5B; --warn:#9A6410; --bad:#BB3E36;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;
+    --measure:68ch;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --paper:#0D1211; --surface:#131A18; --raised:#171F1D;
+      --ink:#E7EDEB; --muted:#94A29D; --faint:#6B7A75;
+      --line:#212B28; --line-strong:#2C3833;
+      --accent:#25C7B5; --accent-ink:#3FD8C7; --accent-soft:rgba(37,199,181,.12);
+      --term-bg:#0A0F0E; --term-fg:#D7E0DC; --term-dim:#788883; --term-prompt:#3FE0CC;
+      --ok:#57C79A; --warn:#D6A24A; --bad:#E7736A;
+    }
+  }
+  :root[data-theme="light"]{
+    --paper:#F5F7F6; --surface:#FFFFFF; --raised:#FBFCFC;
+    --ink:#16211E; --muted:#586964; --faint:#8A9994;
+    --line:#E1E7E4; --line-strong:#CBD4D0;
+    --accent:#0E9184; --accent-ink:#0B6F65; --accent-soft:rgba(14,145,132,.10);
+    --term-bg:#0E1512; --term-fg:#D7E0DC; --term-dim:#7E8F89; --term-prompt:#37D3BE;
+    --ok:#2E7D5B; --warn:#9A6410; --bad:#BB3E36;
+  }
+  :root[data-theme="dark"]{
+    --paper:#0D1211; --surface:#131A18; --raised:#171F1D;
+    --ink:#E7EDEB; --muted:#94A29D; --faint:#6B7A75;
+    --line:#212B28; --line-strong:#2C3833;
+    --accent:#25C7B5; --accent-ink:#3FD8C7; --accent-soft:rgba(37,199,181,.12);
+    --term-bg:#0A0F0E; --term-fg:#D7E0DC; --term-dim:#788883; --term-prompt:#3FE0CC;
+    --ok:#57C79A; --warn:#D6A24A; --bad:#E7736A;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:16px; line-height:1.62;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:940px; margin:0 auto; padding:0 24px}
+  .col{max-width:var(--measure)}
+
+  a{color:var(--accent-ink); text-decoration:none; border-bottom:1px solid var(--accent-soft)}
+  a:hover{border-bottom-color:currentColor}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:3px}
+
+  .eyebrow{font-family:var(--mono); font-size:.72rem; letter-spacing:.16em; text-transform:uppercase; color:var(--accent-ink)}
+  h1,h2,h3{text-wrap:balance; line-height:1.12; letter-spacing:-.015em; font-weight:680}
+  h1{font-size:clamp(2.1rem,5.2vw,3.1rem); margin:.35em 0 .2em}
+  h2{font-size:clamp(1.4rem,3.2vw,1.75rem); margin:0 0 .5em}
+  h3{font-size:1.06rem; letter-spacing:-.01em; margin:0 0 .35em}
+  p{margin:0 0 1em}
+  strong{font-weight:650}
+  .lead{font-size:1.16rem; line-height:1.55; color:var(--ink)}
+  .muted{color:var(--muted)}
+
+  /* ── Masthead ─────────────────────────────── */
+  header.mast{
+    border-bottom:1px solid var(--line);
+    background:
+      radial-gradient(120% 140% at 88% -20%, var(--accent-soft), transparent 60%);
+  }
+  .mast .wrap{padding-top:56px; padding-bottom:40px}
+  .brandrow{display:flex; align-items:center; gap:10px; margin-bottom:26px}
+  .glyph{
+    width:26px;height:26px;border-radius:6px;display:grid;place-items:center;
+    background:var(--accent); color:#fff; font-family:var(--mono); font-weight:700; font-size:.9rem;
+    box-shadow:0 1px 0 rgba(0,0,0,.15) inset;
+  }
+  .brandrow b{font-family:var(--mono); letter-spacing:.02em; font-weight:600; font-size:.95rem}
+  .metarow{display:flex; flex-wrap:wrap; gap:8px 10px; margin-top:22px}
+  .tag{
+    font-family:var(--mono); font-size:.74rem; letter-spacing:.02em;
+    color:var(--muted); border:1px solid var(--line-strong); border-radius:5px;
+    padding:4px 9px; background:var(--surface);
+  }
+  .tag b{color:var(--ink); font-weight:600}
+
+  /* ── Section rhythm ───────────────────────── */
+  section{padding:44px 0; border-bottom:1px solid var(--line)}
+  .sec-h{display:flex; align-items:baseline; gap:14px; margin-bottom:20px}
+  .sec-h .num{font-family:var(--mono); font-size:.78rem; color:var(--faint); letter-spacing:.1em; padding-top:.35em}
+
+  /* ── Terminal block ───────────────────────── */
+  .term{background:var(--term-bg); border-radius:9px; overflow:hidden; margin:0 0 4px; border:1px solid rgba(255,255,255,.06)}
+  .term__bar{display:flex; gap:7px; align-items:center; padding:11px 14px; border-bottom:1px solid rgba(255,255,255,.06)}
+  .term__bar i{width:10px;height:10px;border-radius:50%;background:#39433f;display:block}
+  .term__bar span{margin-left:8px; font-family:var(--mono); font-size:.7rem; color:var(--term-dim); letter-spacing:.05em}
+  .term pre{margin:0; padding:15px 16px; overflow-x:auto}
+  .term code{font-family:var(--mono); font-size:.83rem; line-height:1.75; color:var(--term-fg); white-space:pre}
+  .term .p{color:var(--term-prompt); user-select:none}
+  .term .o{color:var(--term-dim)}
+  .term .c{color:#6a7c77; font-style:italic}
+  .term .hl{color:#eaf1ee; font-weight:600}
+
+  code.inline{font-family:var(--mono); font-size:.86em; background:var(--accent-soft); color:var(--accent-ink); padding:.1em .38em; border-radius:4px; white-space:nowrap}
+
+  /* ── Steps ────────────────────────────────── */
+  .step{display:grid; grid-template-columns:38px 1fr; gap:18px; padding:22px 0; border-top:1px solid var(--line)}
+  .step:first-of-type{border-top:0}
+  .step .idx{
+    font-family:var(--mono); font-weight:600; font-size:.9rem; color:var(--accent-ink);
+    width:34px;height:34px;border-radius:8px;display:grid;place-items:center;
+    border:1px solid var(--line-strong); background:var(--surface);
+  }
+  .step .body h3{margin-top:3px}
+  .step .body p{color:var(--muted); margin-bottom:.75em}
+  .step .body p:last-child{margin-bottom:0}
+
+  /* ── Cards / grids ────────────────────────── */
+  .grid{display:grid; gap:14px}
+  @media(min-width:620px){.grid.two{grid-template-columns:1fr 1fr}.grid.three{grid-template-columns:repeat(3,1fr)}}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:18px 18px}
+  .card h3{font-size:1rem}
+  .card p{margin:0; color:var(--muted); font-size:.94rem}
+  .card .k{font-family:var(--mono); font-size:.7rem; letter-spacing:.12em; text-transform:uppercase; color:var(--accent-ink); display:block; margin-bottom:8px}
+
+  /* ── Architecture flow ────────────────────── */
+  .flowwrap{overflow-x:auto; padding-bottom:6px}
+  .flow{display:flex; align-items:stretch; gap:0; min-width:640px}
+  .node{
+    flex:1; min-width:120px; background:var(--surface); border:1px solid var(--line-strong);
+    border-radius:9px; padding:13px 13px; text-align:center;
+  }
+  .node .t{font-weight:620; font-size:.9rem; margin-bottom:3px}
+  .node .d{font-size:.76rem; color:var(--muted); line-height:1.4}
+  .node.accent{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+  .arrow{display:grid; place-items:center; padding:0 4px; color:var(--faint); font-family:var(--mono); flex:0 0 30px}
+  .plane{display:flex; align-items:center; gap:8px; margin:14px 0 4px}
+  .plane .lbl{font-family:var(--mono); font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
+  .plane hr{flex:1; border:0; border-top:1px dashed var(--line-strong)}
+
+  /* ── File tree ────────────────────────────── */
+  .tree{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px 18px; overflow-x:auto}
+  .tree pre{margin:0; font-family:var(--mono); font-size:.82rem; line-height:1.85; color:var(--ink); white-space:pre}
+  .tree .req{color:var(--accent-ink)}
+  .tree .cm{color:var(--faint)}
+
+  /* ── Table ────────────────────────────────── */
+  .tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px}
+  table{border-collapse:collapse; width:100%; min-width:560px; font-size:.9rem}
+  th,td{text-align:left; padding:11px 15px; border-bottom:1px solid var(--line); vertical-align:top}
+  thead th{font-family:var(--mono); font-size:.7rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); background:var(--raised)}
+  tbody tr:last-child td{border-bottom:0}
+  td code{font-family:var(--mono); font-size:.84em; color:var(--accent-ink); white-space:nowrap}
+  td .d{color:var(--muted)}
+
+  /* ── Callout ──────────────────────────────── */
+  .note{display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:start; background:var(--raised); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:8px; padding:14px 16px; margin:16px 0}
+  .note .tagn{font-family:var(--mono); font-size:.68rem; letter-spacing:.1em; text-transform:uppercase; color:var(--accent-ink); padding-top:2px}
+  .note p{margin:0; font-size:.92rem; color:var(--ink)}
+  .note.warn{border-left-color:var(--warn)} .note.warn .tagn{color:var(--warn)}
+
+  ul.clean{margin:0 0 1em; padding-left:0; list-style:none}
+  ul.clean li{position:relative; padding-left:22px; margin-bottom:.5em; color:var(--muted)}
+  ul.clean li::before{content:"→"; position:absolute; left:0; color:var(--accent); font-family:var(--mono)}
+  ul.clean li b{color:var(--ink); font-weight:600}
+
+  footer{padding:34px 0 60px; color:var(--faint); font-size:.85rem}
+  footer .wrap{display:flex; flex-wrap:wrap; gap:10px 22px; align-items:center; justify-content:space-between}
+  footer .mono{font-family:var(--mono); font-size:.76rem}
+
+  @media (prefers-reduced-motion:no-preference){
+    a,.node,.tag{transition:border-color .15s ease, color .15s ease}
+  }
+</style>
+</head>
+<body>
+<header class="mast">
+  <div class="wrap">
+    <div class="brandrow">
+      <span class="glyph">K</span>
+      <b>KURUMERA · THEME FRAMEWORK</b>
+    </div>
+    <div class="col">
+      <span class="eyebrow">Developer guide</span>
+      <h1>Build storefronts as code, publish them per&#8209;store.</h1>
+      <p class="lead muted">Kurumera lets you write a real Next.js theme, run it against a live store's products and cart, and ship it to a merchant's storefront with one command — Shopify-style themes, but React all the way down.</p>
+    </div>
+    <div class="metarow">
+      <span class="tag">CLI <b>@kurumera/cli</b></span>
+      <span class="tag">Runtime <b>Next.js 15</b></span>
+      <span class="tag">Node <b>20+</b></span>
+      <span class="tag">Dashboard <b>kurumera.com</b></span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- WHAT IT IS -->
+  <section>
+    <div class="sec-h"><span class="num">01</span><div><span class="eyebrow">Concept</span><h2>What you're working with</h2></div></div>
+    <div class="col">
+      <p>A <strong>theme</strong> is a Next.js app you author locally. It renders a store's home, product, collection, cart and search pages, pulling live data from the <strong>Storefront API</strong> through a read-only token — so what you see in <code class="inline">dev</code> is the merchant's real catalog, not fixtures.</p>
+      <p>You never run servers or manage hosting. The <code class="inline">kurumera</code> CLI uploads your source; the platform <strong>builds it in a sandbox</strong>, hosts a versioned container per store, and serves it at <code class="inline">&lt;store&gt;.kurumera.com</code>. Every version, publish, and rollback is recorded, so a store can always go back.</p>
+    </div>
+    <div class="grid three" style="margin-top:22px">
+      <div class="card"><span class="k">You write</span><h3>The theme</h3><p>React components + templates against a fixed route contract. Client-safe only.</p></div>
+      <div class="card"><span class="k">The CLI does</span><h3>Build &amp; publish</h3><p>check → push → preview → publish → rollback, scoped to stores you own.</p></div>
+      <div class="card"><span class="k">The platform runs</span><h3>Hosting</h3><p>Sandboxed builds, versioned per-store containers, history in Postgres.</p></div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section>
+    <div class="sec-h"><span class="num">02</span><div><span class="eyebrow">Architecture</span><h2>How it works</h2></div></div>
+    <div class="col"><p>Two planes. The <strong>control plane</strong> (Django + Postgres) is the source of truth for who-owns-what and every version's publish state. The <strong>data plane</strong> (the build/host service) turns your source into a running container and serves shoppers.</p></div>
+
+    <div class="plane"><span class="lbl">Data plane · what a request flows through</span><hr></div>
+    <div class="flowwrap">
+      <div class="flow">
+        <div class="node"><div class="t">Your theme</div><div class="d">Next.js source, local</div></div>
+        <div class="arrow">→</div>
+        <div class="node"><div class="t">kurumera&nbsp;CLI</div><div class="d">check · push</div></div>
+        <div class="arrow">→</div>
+        <div class="node accent"><div class="t">Build sandbox</div><div class="d">npm&nbsp;install · next&nbsp;build<br>non-root · isolated net</div></div>
+        <div class="arrow">→</div>
+        <div class="node"><div class="t">Per-store host</div><div class="d">versioned container<br>scale-to-zero</div></div>
+        <div class="arrow">→</div>
+        <div class="node accent"><div class="t">store.kurumera.com</div><div class="d">shoppers</div></div>
+      </div>
+    </div>
+
+    <div class="plane"><span class="lbl">Control plane · the source of truth</span><hr></div>
+    <div class="flowwrap">
+      <div class="flow">
+        <div class="node"><div class="t">Ownership authz</div><div class="d">only your stores</div></div>
+        <div class="arrow">·</div>
+        <div class="node"><div class="t">Theme / Version</div><div class="d">immutable builds</div></div>
+        <div class="arrow">·</div>
+        <div class="node"><div class="t">Live &amp; preview pointers</div><div class="d">per store</div></div>
+        <div class="arrow">·</div>
+        <div class="node"><div class="t">Publish history</div><div class="d">rollback timeline</div></div>
+      </div>
+    </div>
+    <div class="col"><p class="muted" style="margin-top:16px;font-size:.92rem">The runtime reads live catalog data from the <strong>Storefront API</strong> at render time, so a published theme always shows the merchant's current products, prices and inventory.</p></div>
+  </section>
+
+  <!-- THE JOURNEY -->
+  <section>
+    <div class="sec-h"><span class="num">03</span><div><span class="eyebrow">From scratch</span><h2>The developer journey</h2></div></div>
+    <div class="col"><p>Nine commands, start to shipped. Run them in order the first time; after that you'll live in <code class="inline">dev</code> → <code class="inline">push</code> → <code class="inline">publish</code>.</p></div>
+
+    <div style="margin-top:8px">
+      <div class="step"><div class="idx">1</div><div class="body">
+        <h3>Install the CLI</h3>
+        <p>One global install. Requires Node 20 or newer.</p>
+        <div class="term"><div class="term__bar"><i></i><i></i><i></i><span>bash</span></div><pre><code><span class="p">$</span> npm i -g @kurumera/cli
+<span class="p">$</span> kurumera --help</code></pre></div>
+      </div></div>
+
+      <div class="step"><div class="idx">2</div><div class="body">
+        <h3>Sign in</h3>
+        <p>Opens your browser to authorize, then hands the session back to the CLI. It remembers your <strong>default store</strong> so most commands need no <code class="inline">--store</code>.</p>
+        <div class="term"><div class="term__bar"><i></i><i></i><i></i><span>bash</span></div><pre><code><span class="p">$</span> kurumera login
+<span class="o">Opening your browser to sign in…</span>
+<span class="o">✓ Logged in — store: </span><span class="hl">your-store</span></code></pre></div>
+      </div></div>
+
+      <div class="step"><div class="idx">3</div><div class="body">
+        <h3>Scaffold a theme</h3>
+        <p>Creates a complete, valid theme — every required route, the config, and the storefront SDK wired up.</p>
+        <div class="term"><div class="term__bar"><i></i><i></i><i></i><span>bash</span></div><pre><code><span class="p">$</span> kurumera theme init my-theme
+<span class="p">$</span> cd my-theme</code></pre></div>
+      </div></div>
+
+      <div class="step"><div class="idx">4</div><div class="body">
+        <h3>Develop against live data</h3>
+        <p>Runs the theme locally, resolving your store so components render the <strong>real catalog</strong>. Edit and hot-reload as usual.</p>
+        <div class="term"><div class="term__bar"><i></i><i></i><i></i><span>bash</span></div><pre><code><span class="p">$</span> kurumera theme dev
+<span class="o">▲ Local:  http://localhost:3000  ·  store: </span><span class="hl">your-store</span></code></pre></div>
+      </div></div>
+
+      <div class="step"><div class="idx">5</div><div class="body">
+        <h3>Validate</h3>
+        <p>Checks the route contract and safety rules before anything leaves your machine. Grouped output with a fix hint on each finding. <strong>Push is blocked until this passes.</strong></p>
+        <div class="term"><div class="term__bar"><i></i><i></i><i></i><span>bash</span></div><pre><code><span class="p">$</span> kurumera theme check
+<span class="o">✓ theme check passed — no issues.  Ready to push.</span></code></pre></div>
+      </div></div>
+
+      <div class="step"><div class="idx">6</div><div class="body">
+        <h3>Push — the platform builds it</h3>
+        <p>Bundles your source and uploads it. The platform builds it in an isolated sandbox and stages a preview. You can only push to a store you staff.</p>
+        <div class="term"><div class="term__bar"><i></i><i></i><i></i><span>bash</span></div><pre><code><span class="p">$</span> kurumera theme push
+<span class="o">▸ Uploading theme (20 KB)…</span>
+<span class="o">✓ Pushed — version queued. Building…</span>
+<span class="p">$</span> kurumera theme logs   <span class="c"># watch the build</span></code></pre></div>
+      </div></div>
+
+      <div class="step"><div class="idx">7</div><div class="body">
+        <h3>Preview</h3>
+        <p>Opens the built version on a hosted, store-scoped URL — the real thing, not yet live to shoppers.</p>
+        <div class="term"><div class="term__bar"><i></i><i></i><i></i><span>bash</span></div><pre><code><span class="p">$</span> kurumera theme preview
+<span class="o">→ https://themekit.kurumera.com/?store=</span><span class="hl">your-store</span></code></pre></div>
+      </div></div>
+
+      <div class="step"><div class="idx">8</div><div class="body">
+        <h3>Publish — go live</h3>
+        <p>Makes the built version the store's live theme. Shoppers on <code class="inline">your-store.kurumera.com</code> now see it. <code class="inline">--off</code> reverts to the visual builder.</p>
+        <div class="term"><div class="term__bar"><i></i><i></i><i></i><span>bash</span></div><pre><code><span class="p">$</span> kurumera theme publish
+<span class="o">✓ Published — live at </span><span class="hl">https://your-store.kurumera.com</span></code></pre></div>
+      </div></div>
+
+      <div class="step"><div class="idx">9</div><div class="body">
+        <h3>Roll back, anytime</h3>
+        <p>Restores the store's previous live version instantly. Every publish is on record, so this is always safe.</p>
+        <div class="term"><div class="term__bar"><i></i><i></i><i></i><span>bash</span></div><pre><code><span class="p">$</span> kurumera theme rollback
+<span class="o">✓ Rolled back to the previous version.</span></code></pre></div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ANATOMY -->
+  <section>
+    <div class="sec-h"><span class="num">04</span><div><span class="eyebrow">Structure</span><h2>Anatomy of a theme</h2></div></div>
+    <div class="col"><p>A theme is an ordinary Next.js App Router project with a fixed set of routes. Highlighted paths are <span style="color:var(--accent-ink);font-weight:600">required</span> — <code class="inline">theme check</code> enforces them.</p></div>
+    <div class="tree" style="margin-bottom:20px">
+<pre>my-theme/
+├─ <span class="req">theme.config.ts</span>        <span class="cm"># name, version, routes, merchant settings</span>
+├─ middleware.ts          <span class="cm"># resolves which store is being served</span>
+├─ app/
+│  ├─ <span class="req">page.tsx</span>             <span class="cm"># home</span>
+│  ├─ <span class="req">products/[handle]/page.tsx</span>
+│  ├─ <span class="req">collections/[handle]/page.tsx</span>
+│  ├─ <span class="req">cart/page.tsx</span>
+│  ├─ <span class="req">search/page.tsx</span>
+│  ├─ <span class="req">pages/[handle]/page.tsx</span>
+│  └─ not-found.tsx       <span class="cm"># branded 404 (recommended)</span>
+└─ package.json           <span class="cm"># depends on @kurumera/storefront</span></pre>
+    </div>
+    <div class="grid two">
+      <div class="card"><span class="k">The contract</span><h3>Data via the SDK</h3><p>Import <code class="inline">@kurumera/storefront</code> to read products, collections, cart and search. It resolves the current store for you — no keys in the theme.</p></div>
+      <div class="card"><span class="k">The rules</span><h3>Client-safe only</h3><p>No <code class="inline">fs</code>/<code class="inline">child_process</code>, no <code class="inline">app/api</code>, no <code class="inline">"use server"</code>, no server-only deps. Enforced locally by <code class="inline">check</code> and re-checked on the server.</p></div>
+    </div>
+  </section>
+
+  <!-- SEE YOUR STORES -->
+  <section>
+    <div class="sec-h"><span class="num">05</span><div><span class="eyebrow">Your stores</span><h2>Seeing &amp; managing your stores</h2></div></div>
+    <div class="col">
+      <p>You act on stores you're <strong>staff of</strong> — the platform verifies ownership on every push and publish, so a store header alone can't reach a store you don't run.</p>
+    </div>
+    <div class="grid two" style="margin-top:6px">
+      <div class="card">
+        <span class="k">From the CLI</span>
+        <h3>Your default store</h3>
+        <p><code class="inline">kurumera login</code> prints it and every command uses it unless you pass <code class="inline">--store &lt;slug&gt;</code>. Your storefront is always <code class="inline">&lt;slug&gt;.kurumera.com</code>.</p>
+      </div>
+      <div class="card">
+        <span class="k">From the dashboard</span>
+        <h3>kurumera.com&#8202;/&#8202;themes</h3>
+        <p>See the current storefront (visual builder vs code theme), the live &amp; preview versions, the full history timeline, and publish, roll back, or install a theme — no CLI needed.</p>
+      </div>
+    </div>
+    <div class="note">
+      <span class="tagn">Multi-store</span>
+      <p>Own more than one store? Each has its own <code class="inline">--store</code> slug. Target any of them explicitly, e.g. <code class="inline">kurumera theme publish --store north-cafe</code>. Trying to touch a store you don't staff returns <b style="color:var(--bad)">403 — you do not have access to this store</b>.</p>
+    </div>
+  </section>
+
+  <!-- LOCAL DEV / TOKENS -->
+  <section>
+    <div class="sec-h"><span class="num">06</span><div><span class="eyebrow">Live data locally</span><h2>Reading real store data in dev</h2></div></div>
+    <div class="col">
+      <p><code class="inline">kurumera theme dev</code> uses your login to resolve the store, so the SDK returns live products and collections while you build. For <strong>off-host or headless</strong> use (CI, a preview box, a separate frontend), mint a read-only <strong>storefront token</strong>.</p>
+      <ul class="clean">
+        <li><b>Mint it</b> in the dashboard → <code class="inline">Themes → Storefront tokens</code>. It's shown once and starts with <code class="inline">ksf_</code>.</li>
+        <li><b>Scope</b> — anonymous, read-only, tenant-locked. It can only reach public storefront reads for that one store; it can never write or reach an authenticated endpoint.</li>
+        <li><b>Use it</b> — set <code class="inline">KURUMERA_STOREFRONT_TOKEN</code> in the environment, or send it as a <code class="inline">Bearer ksf_…</code> header from a headless client.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- COMMAND REFERENCE -->
+  <section>
+    <div class="sec-h"><span class="num">07</span><div><span class="eyebrow">Reference</span><h2>Every command</h2></div></div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>kurumera login</code></td><td><span class="d">Sign in via the browser; saves your default store.</span></td></tr>
+          <tr><td><code>theme init &lt;name&gt;</code></td><td><span class="d">Scaffold a complete, valid theme.</span></td></tr>
+          <tr><td><code>theme dev</code></td><td><span class="d">Run locally against your live store data.</span></td></tr>
+          <tr><td><code>theme check</code></td><td><span class="d">Validate the route contract + safety rules. Gates push.</span></td></tr>
+          <tr><td><code>theme push</code></td><td><span class="d">Upload source; the platform builds it in a sandbox.</span></td></tr>
+          <tr><td><code>theme logs</code></td><td><span class="d">Stream the latest build log for the store.</span></td></tr>
+          <tr><td><code>theme preview</code></td><td><span class="d">Open the built version on a hosted, store-scoped URL.</span></td></tr>
+          <tr><td><code>theme publish</code></td><td><span class="d">Make the build the store's live theme. <code>--off</code> reverts to the visual builder.</span></td></tr>
+          <tr><td><code>theme rollback</code></td><td><span class="d">Restore the store's previous live version.</span></td></tr>
+          <tr><td><code>marketplace publish</code></td><td><span class="d">Publish this theme's build to the shared registry.</span></td></tr>
+          <tr><td><code>marketplace list</code></td><td><span class="d">Browse installable themes.</span></td></tr>
+          <tr><td><code>marketplace info &lt;theme&gt;</code></td><td><span class="d">Show a theme's versions and installs.</span></td></tr>
+          <tr><td><code>marketplace install &lt;theme&gt;[@ver]</code></td><td><span class="d">Install a registry theme into a store and make it live.</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted" style="font-size:.88rem; margin-top:12px">Any command that targets a store accepts <code class="inline">--store &lt;slug&gt;</code>; omit it to use your default.</p>
+  </section>
+
+  <!-- MARKETPLACE -->
+  <section>
+    <div class="sec-h"><span class="num">08</span><div><span class="eyebrow">Distribution</span><h2>The marketplace</h2></div></div>
+    <div class="col"><p>Build a theme once, install it into many stores. <code class="inline">marketplace publish</code> promotes a store's built version into a shared registry as an <strong>immutable</strong> <code class="inline">theme@version</code>. Anyone can then install it into a store they own — the artifact is copied into that store's own history, so installs stay isolated and roll back independently.</p></div>
+    <div class="term" style="margin-top:8px"><div class="term__bar"><i></i><i></i><i></i><span>bash</span></div><pre><code><span class="c"># publish the build you just pushed</span>
+<span class="p">$</span> kurumera marketplace publish
+<span class="o">✓ Published aurora@1.0.0 to the marketplace.</span>
+
+<span class="c"># install it into another store you own</span>
+<span class="p">$</span> kurumera marketplace install aurora --store north-cafe
+<span class="o">✓ Installed aurora@1.0.0 into "north-cafe" — it's now live.</span></code></pre></div>
+  </section>
+
+  <!-- UNDER THE HOOD -->
+  <section>
+    <div class="sec-h"><span class="num">09</span><div><span class="eyebrow">Guarantees</span><h2>What the platform handles for you</h2></div></div>
+    <div class="grid two">
+      <div class="card"><span class="k">Security</span><h3>Sandboxed builds</h3><p>Your build and runtime run unprivileged, capabilities dropped, on a read-only filesystem. Builds run on an isolated network with no route to internal services.</p></div>
+      <div class="card"><span class="k">Isolation</span><h3>Per-store versioning</h3><p>Each store gets its own versioned build and container. One store's theme can never affect another; every version is immutable once built.</p></div>
+      <div class="card"><span class="k">Efficiency</span><h3>Scale-to-zero</h3><p>Idle stores are paused and woken on the next request (~a few seconds cold), so one host serves far more stores than it could keep hot.</p></div>
+      <div class="card"><span class="k">Durability</span><h3>Self-healing state</h3><p>Publish state lives in Postgres and reconciles continuously — a crashed container is restarted and the record always reflects what's actually running.</p></div>
+    </div>
+  </section>
+
+  <!-- TROUBLESHOOTING -->
+  <section style="border-bottom:0">
+    <div class="sec-h"><span class="num">10</span><div><span class="eyebrow">If something's off</span><h2>Common answers</h2></div></div>
+    <div class="col">
+      <ul class="clean">
+        <li><b>“theme check failed”</b> — read the grouped output; each finding has a <code class="inline">→</code> fix hint. Push stays blocked until it's clean.</li>
+        <li><b>“Push rejected (403)”</b> — the target store isn't one you staff. Use <code class="inline">--store</code> with a store you own, or <code class="inline">kurumera login</code> as the right account.</li>
+        <li><b>First load after idle is slow</b> — expected. An idle store cold-starts in a few seconds, then stays warm.</li>
+        <li><b>Build failed</b> — run <code class="inline">kurumera theme logs</code> to see the exact <code class="inline">npm install</code> / <code class="inline">next build</code> output.</li>
+        <li><b>Need to undo a publish</b> — <code class="inline">theme rollback</code>, or <code class="inline">theme publish --off</code> to return to the visual builder.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="mono">KURUMERA · THEME FRAMEWORK</span>
+    <span>Build cleanly · publish confidently · roll back safely.</span>
+  </div>
+</footer>
+</body>
+</html>

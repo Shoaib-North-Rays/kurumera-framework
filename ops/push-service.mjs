@@ -558,6 +558,18 @@ const server = http.createServer((req, res) => {
   const json = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
   const readBody = () => new Promise((resolve) => { const c = []; req.on("data", (d) => c.push(d)); req.on("end", () => resolve(Buffer.concat(c))); });
 
+  // ── Public developer guide (served from the mounted /ops dir) ────────────────
+  if (p === "/guide" || p === "/guide/") {
+    try {
+      const html = readFileSync(join(import.meta.dirname, "guide.html"), "utf8");
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" });
+      return res.end(html);
+    } catch {
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      return res.end("guide not found");
+    }
+  }
+
   // ── API ──────────────────────────────────────────────────────────────────
   if (p.endsWith("/_push/published")) return json(200, { stores: livePublishedStores() });
   if (p.endsWith("/_push/status")) return json(200, store(getState(), u.searchParams.get("store") || "").build);
