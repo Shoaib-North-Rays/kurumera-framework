@@ -39,11 +39,36 @@ export async function themePublish(args: string[]): Promise<number> {
   }
 
   if (off) {
-    console.log(`✓ Rolled back — "${store}" is back on the visual builder.`);
+    console.log(`✓ Unpublished — "${store}" is back on the visual builder.`);
   } else {
     console.log(`✓ Published — "${store}" now serves your code theme.`);
     console.log(`  Live: https://${store}.${ROOT}`);
   }
+  return 0;
+}
+
+/** `kurumera theme rollback` — restore the store's PREVIOUS live version. */
+export async function themeRollback(args: string[]): Promise<number> {
+  const cfg = readConfig();
+  if (!cfg.authToken) { console.error("Not signed in. Run `kurumera login` first."); return 1; }
+  const store = flag(args, "--store") || cfg.defaultStore;
+  if (!store) { console.error("Which store? Pass --store <slug>."); return 1; }
+
+  let res: Response;
+  try {
+    res = await fetch(`${PUSH_URL}/rollback`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${cfg.authToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ store }),
+    });
+  } catch (e) {
+    console.error(`Request failed: ${(e as Error).message}`);
+    return 1;
+  }
+  const d = (await res.json().catch(() => ({}))) as { error?: string; reverted?: string; version?: string };
+  if (!res.ok) { console.error(`Failed (${res.status}): ${d.error || "unknown error"}`); return 1; }
+  console.log(`✓ "${store}" rolled back to ${d.reverted}${d.version ? ` (${d.version})` : ""}.`);
+  console.log(`  Live: https://${store}.${ROOT}`);
   return 0;
 }
 
