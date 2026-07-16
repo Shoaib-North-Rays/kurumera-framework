@@ -3,6 +3,7 @@ import { KurumeraError } from "@kurumera/storefront";
 import { getStore } from "@/lib/kurumera";
 import { Price } from "@/components/Price";
 import { AddToCart } from "@/components/AddToCart";
+import { TruckIcon, RefreshIcon, ShieldIcon } from "@/components/Icon";
 
 /** product template */
 export default async function ProductPage({
@@ -53,10 +54,15 @@ export default async function ProductPage({
         ) : null}
         <AddToCart variantId={defaultVariantId} available={!!product.available} />
         {hasVariants && (
-          <p className="muted pdp__variant-note">
+          <p className="pdp__variant-note">
             This product has multiple options — extend this template with a variant selector.
           </p>
         )}
+        <div className="trust">
+          <div className="trust__row"><TruckIcon /> <span><b>Free shipping</b> on qualifying orders</span></div>
+          <div className="trust__row"><RefreshIcon /> <span><b>Easy returns</b> within 30 days</span></div>
+          <div className="trust__row"><ShieldIcon /> <span><b>Secure checkout</b> — encrypted payment</span></div>
+        </div>
       </div>
     </article>
   );

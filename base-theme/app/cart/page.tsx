@@ -6,6 +6,7 @@ import {
   cartSubtotal, lineTotal, type CartLine,
 } from "@/lib/cart-client";
 import { Price } from "@/components/Price";
+import { TrashIcon, ArrowRight } from "@/components/Icon";
 
 /** cart template — live cart backed by the storefront cart API. */
 export default function CartPage() {
@@ -74,7 +75,7 @@ export default function CartPage() {
             </label>
             <Price amount={String(lineTotal(l))} />
             <button className="cart__remove" disabled={working} onClick={() => mutate(() => removeLine(l.id))}>
-              Remove
+              <TrashIcon /> Remove
             </button>
           </li>
         ))}
@@ -85,8 +86,8 @@ export default function CartPage() {
           <span className="muted">Subtotal</span>
           <Price amount={String(subtotal)} />
         </div>
-        <a className="btn btn--primary" href={checkoutHref()}>Checkout</a>
-        <p className="muted cart__note">Taxes and shipping are calculated at checkout.</p>
+        <a className="btn btn--primary btn--block" href={checkoutHref()}>Checkout <ArrowRight /></a>
+        <p className="cart__note">Taxes and shipping are calculated at checkout.</p>
       </div>
     </section>
   );

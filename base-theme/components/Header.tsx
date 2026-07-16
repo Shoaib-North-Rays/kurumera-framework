@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Menu } from "@kurumera/storefront";
 import { getStore } from "@/lib/kurumera";
+import { SearchIcon, CartIcon } from "@/components/Icon";
 
 /** Store header — logo + the store's own "main-menu" (falls back to the first menu). */
 export async function Header() {
@@ -24,9 +25,14 @@ export async function Header() {
           </Link>
         ))}
       </nav>
-      <Link href="/cart" className="site-header__cart" aria-label="Cart">
-        Cart
-      </Link>
+      <div className="site-header__actions">
+        <Link href="/search" className="icon-btn" aria-label="Search">
+          <SearchIcon />
+        </Link>
+        <Link href="/cart" className="icon-btn" aria-label="Cart">
+          <CartIcon />
+        </Link>
+      </div>
     </header>
   );
 }
