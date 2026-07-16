@@ -77,10 +77,17 @@ export async function removeLine(lineId: string) {
   return cart;
 }
 
-/** Where "Checkout" sends the shopper — the platform checkout, with the cart token. */
+/** Where "Checkout" sends the shopper: the platform's proven checkout, hosted on
+ *  checkout.<root> so it serves its own assets (no /_next collision with the
+ *  theme). Carries the store + cart token (cross-origin, so both go in the URL). */
 export function checkoutHref(): string {
   const token = getCartToken();
-  return token ? `/checkout?cart_token=${encodeURIComponent(token)}` : "/checkout";
+  const slug = tenantSlug();
+  if (typeof window === "undefined" || !slug) return "/cart";
+  // <slug>.kurumera.com → checkout.kurumera.com
+  const host = window.location.hostname.replace(/^[^.]+\./, "checkout.");
+  const qs = new URLSearchParams({ store: slug, ...(token ? { cart_token: token } : {}) });
+  return `https://${host}/checkout?${qs.toString()}`;
 }
 
 /** Cart line as returned by the storefront API (loose, matches the live store). */
