@@ -570,6 +570,18 @@ const server = http.createServer((req, res) => {
     }
   }
 
+  // ── Public storefront API reference (served from the mounted /ops dir) ───────
+  if (p === "/api" || p === "/api/" || p === "/api-reference" || p === "/api-reference/") {
+    try {
+      const html = readFileSync(join(import.meta.dirname, "api-reference.html"), "utf8");
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" });
+      return res.end(html);
+    } catch {
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      return res.end("api reference not found");
+    }
+  }
+
   // ── API ──────────────────────────────────────────────────────────────────
   if (p.endsWith("/_push/published")) return json(200, { stores: livePublishedStores() });
   if (p.endsWith("/_push/status")) return json(200, store(getState(), u.searchParams.get("store") || "").build);
