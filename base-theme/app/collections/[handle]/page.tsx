@@ -18,9 +18,12 @@ export default async function CollectionPage({
 
   return (
     <section className="section">
-      <h1 className="section__title">{collection.title}</h1>
+      <div className="section__head">
+        <h1 className="section__title">{collection.title}</h1>
+        <span className="section__count">{products.length} product{products.length === 1 ? "" : "s"}</span>
+      </div>
       {collection.description ? (
-        <div className="prose" dangerouslySetInnerHTML={{ __html: collection.description }} />
+        <div className="prose collection__desc" dangerouslySetInnerHTML={{ __html: collection.description }} />
       ) : null}
       <div className="grid">
         {products.map((p) => (
