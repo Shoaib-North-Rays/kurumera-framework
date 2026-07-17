@@ -58,6 +58,10 @@ const previewName = (s) => `kurumera-preview-${slug(s)}`;
 const liveName = (s) => `kurumera-store-${slug(s)}`;
 // A published marketplace theme's immutable built artifact.
 const marketDir = (theme, version) => join(MARKET, slug(theme), String(version).replace(/[^a-zA-Z0-9._-]/g, ""));
+// A marketplace theme's own preview container (renders the theme against a demo
+// store so shoppers can see it live before installing).
+const marketName = (theme) => `kurumera-market-${slug(theme)}`;
+const DEMO_STORE = slug(process.env.KURUMERA_DEMO_STORE || "luxe-commerece");
 
 function getState() {
   try { return JSON.parse(readFileSync(STATE, "utf8")); } catch { return { stores: {} }; }
@@ -422,6 +426,26 @@ async function wakePreview(s) {
   }
   return false;   // absent (never built) — nothing to wake
 }
+// Ensure a marketplace theme's preview container is running — run its latest
+// registry artifact on demand (scale-to-zero, reaped like store previews).
+async function wakeMarketPreview(theme) {
+  theme = slug(theme);
+  const e = getMarket().themes[theme];
+  if (!e || !e.latest) return false;
+  touch(theme, "market");
+  const name = marketName(theme);
+  const status = await containerExists(name);
+  if (status === "running") return true;
+  if (status === "exited" || status === "created") {
+    await sh("docker", ["start", name]);
+    return waitReady(name, DEMO_STORE);
+  }
+  const dir = marketDir(theme, e.latest);
+  if (!existsSync(dir)) return false;
+  const r = await runContainer(name, dir);
+  if (r.code !== 0) return false;
+  return waitReady(name, DEMO_STORE);
+}
 // Stop containers idle longer than IDLE_MS (scale to zero). Live and preview are
 // tracked independently so a hot preview doesn't keep the live container up.
 let reaping = false;
@@ -439,6 +463,15 @@ async function reap() {
           await sh("docker", ["stop", "-t", "5", name]);
           stopped.push(name);
         }
+      }
+    }
+    // Marketplace preview containers scale to zero the same way.
+    for (const theme of Object.keys(getMarket().themes)) {
+      const name = marketName(theme);
+      const last = access.get(`${theme}:market`) || BOOT_TIME;
+      if (now - last > IDLE_MS && (await containerExists(name)) === "running") {
+        await sh("docker", ["stop", "-t", "5", name]);
+        stopped.push(name);
       }
     }
   } finally {
@@ -550,6 +583,16 @@ function livePublishedStores() {
 function cookieStore(req) {
   const m = (req.headers.cookie || "").match(/(?:^|;\s*)kurumera_store=([^;]+)/);
   return m ? decodeURIComponent(m[1]) : "";
+}
+function cookieMarket(req) {
+  const m = (req.headers.cookie || "").match(/(?:^|;\s*)kurumera_market=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+// A theme preview's /_next/* asset requests carry no ?market, but their Referer
+// is the previewing page (…/?market=<theme>) — a cookie-free stickiness signal.
+function marketFromReferer(req) {
+  const m = (req.headers.referer || "").match(/[?&]market=([a-z0-9-]+)/i);
+  return m ? slug(m[1]) : "";
 }
 
 const server = http.createServer((req, res) => {
@@ -693,13 +736,45 @@ const server = http.createServer((req, res) => {
     }
   }
 
+  // ── Marketplace live preview: ?market=<theme> renders the theme (against a
+  //    demo store) so shoppers see it live before installing. Sticky via cookie
+  //    + Referer so the theme's absolute /_next/* assets hit the same container.
+  //    Explicit ?store below wins and clears the market cookie. ────────────────
+  const qMarket = slug(u.searchParams.get("market") || "");
+  const qStore = slug(u.searchParams.get("store") || "");
+  const mkt = qMarket || (!qStore && (cookieMarket(req) || marketFromReferer(req)));
+  if (mkt && getMarket().themes[mkt]) {
+    wakeMarketPreview(mkt).finally(() => {
+      const preq = http.request(
+        { hostname: marketName(mkt), port: 3000, path: req.url, method: req.method,
+          headers: { ...req.headers, host: `${DEMO_STORE}.kurumera.com` } },
+        (pr) => {
+          const cookies = [].concat(pr.headers["set-cookie"] || []);
+          if (qMarket) cookies.push(`kurumera_market=${encodeURIComponent(mkt)}; Path=/; SameSite=Lax`);
+          const h = { ...pr.headers }; if (cookies.length) h["set-cookie"] = cookies;
+          res.writeHead(pr.statusCode || 502, h);
+          pr.pipe(res);
+        },
+      );
+      preq.on("error", () => { res.writeHead(502, { "Content-Type": "text/html" }); res.end(`<h1>Preview for "${mkt}" is warming up — refresh in a moment.</h1>`); });
+      req.pipe(preq);
+    });
+    return;
+  }
+
   // ── PREVIEW proxy (store+version scoped, wake-on-request) ──────────────────
-  const s = slug(u.searchParams.get("store") || cookieStore(req));
-  if (!s) { res.writeHead(400, { "Content-Type": "text/html" }); return res.end("<h1>Add ?store=&lt;slug&gt;</h1>"); }
+  const s = qStore || slug(cookieStore(req));
+  if (!s) { res.writeHead(400, { "Content-Type": "text/html" }); return res.end("<h1>Add ?store=&lt;slug&gt;, or browse the <a href='/marketplace'>theme marketplace</a>.</h1>"); }
   wakePreview(s).finally(() => {
     const preq = http.request(
       { hostname: previewName(s), port: 3000, path: req.url, method: req.method, headers: { ...req.headers, host: `${s}.kurumera.com` } },
-      (pr) => { res.writeHead(pr.statusCode || 502, pr.headers); pr.pipe(res); },
+      (pr) => {
+        const cookies = [].concat(pr.headers["set-cookie"] || []);
+        if (qStore) cookies.push("kurumera_market=; Path=/; Max-Age=0");   // leaving any market preview
+        const h = { ...pr.headers }; if (cookies.length) h["set-cookie"] = cookies;
+        res.writeHead(pr.statusCode || 502, h);
+        pr.pipe(res);
+      },
     );
     preq.on("error", () => { res.writeHead(502, { "Content-Type": "text/html" }); res.end(`<h1>No preview for "${s}" yet — run \`kurumera theme push\`.</h1>`); });
     req.pipe(preq);

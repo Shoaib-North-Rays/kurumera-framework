@@ -49,6 +49,10 @@
   .thumb{aspect-ratio:16/10;position:relative;display:grid;place-items:center;overflow:hidden}
   .thumb img{width:100%;height:100%;object-fit:cover}
   .thumb .mono-mark{font-family:var(--mono);font-weight:700;font-size:2.4rem;color:#fff;opacity:.92;letter-spacing:-.03em}
+  .thumb__frame{position:absolute;inset:0;overflow:hidden;background:#fff}
+  .thumb__frame iframe{border:0;background:#fff;transform-origin:top left;pointer-events:none;display:block;opacity:0;transition:opacity .4s ease}
+  .thumb__frame iframe.ready{opacity:1}
+  .card:hover .thumb__frame iframe{filter:brightness(.98)}
   .price-tag{position:absolute;top:10px;right:10px;background:rgba(6,20,16,.72);color:#fff;font-family:var(--mono);font-size:.72rem;font-weight:600;padding:4px 9px;border-radius:6px;backdrop-filter:blur(4px)}
   .price-tag.free{background:rgba(14,145,132,.9)}
   .card__body{padding:15px 17px 17px;display:flex;flex-direction:column;gap:6px;flex:1}
@@ -144,7 +148,8 @@
     var tags=(t.tags||[]).slice(0,2).map(function(x){return '<span class="tag">'+esc(x)+'</span>';}).join(" ");
     return '<div class="card" data-slug="'+esc(t.slug)+'">'
       + '<div class="thumb" style="background:linear-gradient(135deg,'+c+',#0b6f65)">'
-      + (img?'<img src="'+esc(img)+'" alt="'+esc(t.name)+'">':'<span class="mono-mark">'+esc((t.name||"?").slice(0,1).toUpperCase())+'</span>')
+      + '<span class="mono-mark">'+esc((t.name||"?").slice(0,1).toUpperCase())+'</span>'
+      + '<div class="thumb__frame"><iframe loading="lazy" scrolling="no" tabindex="-1" title="'+esc(t.name)+' preview" src="/?market='+encodeURIComponent(t.slug)+'"></iframe></div>'
       + '<span class="price-tag'+(pl.free?" free":"")+'">'+pl.txt+'</span></div>'
       + '<div class="card__body">'
       + '<div class="card__title">'+esc(t.name||t.slug)+'</div>'
@@ -154,6 +159,16 @@
       + '</div></div>';
   }
 
+  // Scale each live-preview iframe (rendered at a desktop width) to fit its frame,
+  // producing a crisp Webflow-style thumbnail of the real theme.
+  function fitFrames(scope){
+    Array.prototype.forEach.call((scope||document).querySelectorAll(".thumb__frame"), function(fr){
+      var w=fr.clientWidth, h=fr.clientHeight; if(!w||!h) return;
+      var base=1280, scale=w/base, ifr=fr.querySelector("iframe"); if(!ifr) return;
+      ifr.style.width=base+"px"; ifr.style.height=Math.ceil(h/scale)+"px"; ifr.style.transform="scale("+scale+")";
+      if(!ifr.__wired){ ifr.__wired=true; ifr.addEventListener("load", function(){ ifr.classList.add("ready"); }); }
+    });
+  }
   function render(list){
     var grid=document.getElementById("grid");
     document.getElementById("count").textContent = list.length+" theme"+(list.length===1?"":"s");
@@ -161,7 +176,9 @@
     Array.prototype.forEach.call(grid.querySelectorAll(".card"), function(el){
       el.addEventListener("click", function(){ openDetail(el.getAttribute("data-slug")); });
     });
+    fitFrames(grid);
   }
+  var rt; window.addEventListener("resize", function(){ clearTimeout(rt); rt=setTimeout(function(){ fitFrames(); }, 150); });
 
   function openDetail(slug){
     var t = THEMES.filter(function(x){return x.slug===slug;})[0]; if(!t) return;
@@ -170,7 +187,8 @@
     var vers = (t.versions||[t.latest]).map(function(v){ return '<span class="'+(v===t.latest?"latest":"")+'">v'+esc(v)+'</span>'; }).join("");
     modal.innerHTML =
         '<div class="modal__hero" style="background:linear-gradient(135deg,'+c+',#0b6f65)">'
-      + (img?'<img src="'+esc(img)+'" style="width:100%;height:100%;object-fit:cover">':'<span class="mono-mark">'+esc((t.name||"?").slice(0,1).toUpperCase())+'</span>')
+      + '<span class="mono-mark">'+esc((t.name||"?").slice(0,1).toUpperCase())+'</span>'
+      + '<div class="thumb__frame"><iframe scrolling="no" tabindex="-1" title="'+esc(t.name)+' live preview" src="/?market='+encodeURIComponent(slug)+'"></iframe></div>'
       + '<button class="modal__close" aria-label="Close">×</button></div>'
       + '<div class="modal__body">'
       + '<div class="modal__head"><div><h2>'+esc(t.name||slug)+'</h2>'
@@ -180,7 +198,7 @@
       + '<p style="color:var(--muted)">'+esc(t.description||"A Kurumera code theme — install it to your store, then clone the source to customise every page.")+'</p>'
       + '<div class="btnrow">'
       + '<button class="btn btn--buy" id="getBtn">'+(pl.free?'Get this theme':'Buy '+pl.txt)+'</button>'
-      + (demo?'<a class="btn btn--ghost" href="'+esc(demo)+'" target="_blank" rel="noreferrer">Live preview</a>':'')
+      + '<a class="btn btn--ghost" href="/?market='+encodeURIComponent(slug)+'" target="_blank" rel="noreferrer">Live preview ↗</a>'
       + '</div>'
       + '<div id="getFlow" style="display:none">'
       + '<h4>1 · Install into your store (live)</h4>'
@@ -193,6 +211,7 @@
       + '</div>'
       + '</div>';
     overlay.classList.add("open"); document.body.style.overflow="hidden";
+    requestAnimationFrame(function(){ fitFrames(modal); });
     modal.querySelector(".modal__close").addEventListener("click", close);
     modal.querySelector("#getBtn").addEventListener("click", function(){
       document.getElementById("getFlow").style.display="block";
