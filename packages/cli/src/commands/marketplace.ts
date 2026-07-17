@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
 import { readConfig, writeConfig } from "../util/config.js";
 
@@ -38,12 +39,13 @@ export async function marketplace(args: string[]): Promise<number> {
     case "info": return info(rest);
     case "install": case "add": return install(rest);
     case "buy": return buy(rest);
+    case "clone": return clone(rest);
     case "owns": return owns(rest);
     case "mine": return mine(rest);
     case "update": return update(rest);
     case "unpublish": case "delist": return unpublish(rest);
     default:
-      console.error("Usage: kurumera marketplace <publish|list|info|install|buy|owns|mine|update|unpublish>");
+      console.error("Usage: kurumera marketplace <publish|list|info|install|clone|buy|owns|mine|update|unpublish>");
       return 1;
   }
 }
@@ -155,6 +157,51 @@ async function buy(args: string[]): Promise<number> {
   console.log(`Complete your purchase of "${theme}" here:\n  ${d.url}`);
   console.log(`\nAfter paying you'll get a license key. Then install with:`);
   console.log(`  kurumera marketplace install ${theme} --store <slug> --license <key>`);
+  return 0;
+}
+
+/**
+ * Download a theme's editable SOURCE (license-gated for paid themes) and extract
+ * it locally so you can customize it and re-publish. Paid themes need --license
+ * (or a saved one); free themes clone freely.
+ */
+async function clone(args: string[]): Promise<number> {
+  const ref = args.find((a) => !a.startsWith("--"));
+  if (!ref) { console.error("Which theme? kurumera marketplace clone <theme>[@version] [--dir <folder>] [--license <key>]"); return 1; }
+  const [theme, version] = ref.split("@");
+  const license = flag(args, "--license") || savedLicense(theme);
+  const dir = flag(args, "--dir") || `my-${theme}`;
+  if (existsSync(dir)) { console.error(`"${dir}" already exists — pass --dir <folder> for a fresh location.`); return 1; }
+
+  const qs = new URLSearchParams({ theme });
+  if (version) qs.set("version", version);
+  if (license) qs.set("license", license);
+
+  let res: Response;
+  try { res = await fetch(`${PUSH_URL}/market/source?${qs.toString()}`); }
+  catch (e) { console.error(`Request failed: ${(e as Error).message}`); return 1; }
+  if (res.status === 402) {
+    console.error(`"${theme}" is a paid theme — buy it, then clone with a license key.`);
+    console.error(`  Buy it:  kurumera marketplace buy ${theme}`);
+    return 1;
+  }
+  if (!res.ok) { console.error(`Clone failed: ${(await res.text().catch(() => "")) || `HTTP ${res.status}`}`); return 1; }
+
+  // Pipe the gzipped tarball straight into `tar` (bsdtar on Windows/macOS, GNU on Linux).
+  mkdirSync(dir, { recursive: true });
+  const tar = spawn("tar", ["-xzf", "-", "-C", dir], { stdio: ["pipe", "inherit", "inherit"] });
+  const failed = await new Promise<boolean>((resolve) => {
+    tar.on("error", () => resolve(true));
+    tar.on("close", (code) => resolve(code !== 0));
+    res.arrayBuffer().then((b) => { tar.stdin.write(Buffer.from(b)); tar.stdin.end(); }).catch(() => resolve(true));
+  });
+  if (failed) { console.error("Couldn't extract the source — is `tar` installed and on your PATH?"); return 1; }
+
+  if (license) saveLicense(theme, license);
+  console.log(`✓ Cloned "${theme}"${version ? `@${version}` : ""} → ${dir}`);
+  console.log(`  Set up:    cd ${dir} && npm install`);
+  console.log(`  Develop:   kurumera theme dev --store <your-store>`);
+  console.log(`  Re-ship:   kurumera theme push  →  kurumera marketplace publish --store <your-store>`);
   return 0;
 }
 

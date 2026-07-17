@@ -49,6 +49,8 @@ function help(): void {
   console.log("  marketplace buy <theme>              Start a purchase (returns a Stripe payment link)");
   console.log("  marketplace install <theme>[@ver] --store <slug> [--license <key>]");
   console.log("                                       Install a registry theme into a store (live)");
+  console.log("  marketplace clone <theme> [--dir <folder>] [--license <key>]");
+  console.log("                                       Download a theme's source to edit + re-publish");
   console.log("  marketplace owns <theme>             Check whether you own a theme");
   console.log("  marketplace mine --store <slug>      List the listings you've published");
   console.log("  marketplace update <theme> [--price N --currency USD --tags a,b …]");
