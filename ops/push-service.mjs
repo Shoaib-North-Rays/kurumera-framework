@@ -825,7 +825,8 @@ const server = http.createServer((req, res) => {
     if (!existsSync(dir)) { res.writeHead(404, { "Content-Type": "text/plain" }); return res.end(`${t}@${ver} not found`); }
     res.writeHead(200, { "Content-Type": "application/gzip", "Content-Disposition": `attachment; filename="${t}-${ver}.tar.gz"` });
     const tar = spawn("tar", ["-czf", "-", "-C", dir,
-      "--exclude=node_modules", "--exclude=.next", "--exclude=.git", "--exclude=dist", "--exclude=.turbo", "."],
+      "--exclude=node_modules", "--exclude=.next", "--exclude=.git", "--exclude=dist",
+      "--exclude=.turbo", "--exclude=.npm", "--exclude=.cache", "."],
       { stdio: ["ignore", "pipe", "ignore"] });
     tar.stdout.pipe(res);
     tar.on("error", () => { try { res.end(); } catch { /* */ } });
