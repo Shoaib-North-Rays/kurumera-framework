@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { Search, Bolt } from "@/components/Icons";
 import { SignInButton } from "@/components/SignInButton";
+import { MobileNav } from "@/components/MobileNav";
 
-const NAV = [
+// Every item resolves to a real page (no dead `#`/sign-in-wall links).
+export const NAV = [
   { label: "Templates", href: "/templates" },
-  { label: "Categories", href: "/templates" },
   { label: "Free", href: "/templates/free" },
-  { label: "Creators", href: "/creator" },
-  { label: "Pricing", href: "#" },
-  { label: "Resources", href: "#" },
+  { label: "Paid", href: "/templates/paid" },
+  { label: "For Creators", href: "/creator" },
 ];
 
 export function Header() {
@@ -27,7 +27,8 @@ export function Header() {
         <div className="header-actions">
           <Link href="/templates" className="icon-btn" aria-label="Search templates"><Search /></Link>
           <SignInButton />
-          <Link href="#" className="btn btn--primary"><Bolt /> Start Building</Link>
+          <Link href="/templates" className="btn btn--primary header-cta"><Bolt /> Start Building</Link>
+          <MobileNav items={NAV} />
         </div>
       </div>
     </header>

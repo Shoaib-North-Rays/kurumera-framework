@@ -3,7 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { getSession, signOut, startSignIn, type Session } from "@/lib/session";
 import { LivePreview } from "@/components/LivePreview";
+import { CATEGORIES } from "@/lib/registry";
 import { Check, Bolt } from "@/components/Icons";
+
+// Must mirror the push-service currency whitelist (bogus codes break checkout).
+const CURRENCIES = ["USD", "EUR", "GBP", "PKR", "INR", "AED", "SAR", "AUD", "CAD", "SGD", "JPY", "KRW"];
 
 interface CTheme { slug: string; name: string; description: string; price: number; currency: string; tags: string[]; category: string; installs: number; latest: string }
 
@@ -59,20 +63,30 @@ export function CreatorDashboard() {
           </p>
         )}
         <div className="creator-list">
-          {themes.map((t) => <ThemeRow key={t.slug} theme={t} token={session.token} store={store} />)}
+          {themes.map((t) => (
+            <ThemeRow
+              key={t.slug}
+              theme={t}
+              token={session.token}
+              store={store}
+              onRemove={() => setThemes((prev) => prev.filter((x) => x.slug !== t.slug))}
+            />
+          ))}
         </div>
       </div>
     </>
   );
 }
 
-function ThemeRow({ theme, token, store }: { theme: CTheme; token: string; store: string }) {
+function ThemeRow({ theme, token, store, onRemove }: { theme: CTheme; token: string; store: string; onRemove: () => void }) {
   const [price, setPrice] = useState(String(theme.price || 0));
   const [currency, setCurrency] = useState(theme.currency || "USD");
+  const [category, setCategory] = useState(theme.category || "");
   const [description, setDescription] = useState(theme.description || "");
   const [tags, setTags] = useState((theme.tags || []).join(", "));
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [msg, setMsg] = useState("");
+  const [removing, setRemoving] = useState(false);
 
   async function save() {
     setState("saving"); setMsg("");
@@ -82,7 +96,7 @@ function ThemeRow({ theme, token, store }: { theme: CTheme; token: string; store
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           store, theme: theme.slug,
-          price: Number(price) || 0, currency,
+          price: Number(price) || 0, currency, category,
           description,
           tags: tags.split(",").map((x) => x.trim()).filter(Boolean),
         }),
@@ -91,6 +105,21 @@ function ThemeRow({ theme, token, store }: { theme: CTheme; token: string; store
       if (!r.ok || d?.ok === false) { setState("error"); setMsg(d?.error || "Save failed."); return; }
       setState("saved"); setTimeout(() => setState("idle"), 2200);
     } catch { setState("error"); setMsg("Network error."); }
+  }
+
+  async function unpublish() {
+    if (!window.confirm(`Delist "${theme.name}" from the marketplace? Existing installs keep working; new shoppers won't see it. You can re-publish anytime.`)) return;
+    setRemoving(true); setMsg("");
+    try {
+      const r = await fetch(`/api/market/unpublish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ store, theme: theme.slug }),
+      });
+      const d = await r.json();
+      if (!r.ok || d?.ok === false) { setRemoving(false); setState("error"); setMsg(d?.error || "Delist failed."); return; }
+      onRemove();
+    } catch { setRemoving(false); setState("error"); setMsg("Network error."); }
   }
 
   return (
@@ -108,11 +137,20 @@ function ThemeRow({ theme, token, store }: { theme: CTheme; token: string; store
         <div className="crow__form">
           <div className="field">
             <label htmlFor={`p-${theme.slug}`}>Price (0 = free)</label>
-            <input id={`p-${theme.slug}`} className="input" type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} />
+            <input id={`p-${theme.slug}`} className="input" type="number" min={0} max={999999} step="1" value={price} onChange={(e) => setPrice(e.target.value)} />
           </div>
           <div className="field">
             <label htmlFor={`c-${theme.slug}`}>Currency</label>
-            <input id={`c-${theme.slug}`} className="input" value={currency} onChange={(e) => setCurrency(e.target.value)} maxLength={3} />
+            <select id={`c-${theme.slug}`} className="input" value={currency} onChange={(e) => setCurrency(e.target.value)}>
+              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor={`cat-${theme.slug}`}>Category</label>
+            <select id={`cat-${theme.slug}`} className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="">— none —</option>
+              {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+            </select>
           </div>
           <div className="field">
             <label htmlFor={`t-${theme.slug}`}>Tags (comma-separated)</label>
@@ -127,7 +165,10 @@ function ThemeRow({ theme, token, store }: { theme: CTheme; token: string; store
 
         <div className="crow__row2">
           <span>{state === "error" ? <span className="err">{msg}</span> : state === "saved" ? <span className="crow__saved"><Check width={15} height={15} /> Saved — live on the marketplace</span> : <span className="crow__stat">Edits go live on the marketplace immediately.</span>}</span>
-          <button className="btn btn--primary" onClick={save} disabled={state === "saving"}>{state === "saving" ? "Saving…" : "Save changes"}</button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn btn--danger" onClick={unpublish} disabled={removing || state === "saving"}>{removing ? "Delisting…" : "Delist"}</button>
+            <button className="btn btn--primary" onClick={save} disabled={state === "saving" || removing}>{state === "saving" ? "Saving…" : "Save changes"}</button>
+          </div>
         </div>
       </div>
     </div>

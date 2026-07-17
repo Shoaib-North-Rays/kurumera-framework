@@ -396,3 +396,39 @@ button { font-family: inherit; }
 @keyframes modal-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modal-pop { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .modal-overlay, .modal { animation: none; } }
+
+/* ── Mobile nav ──────────────────────────────────────────────── */
+.nav-toggle { display: none; }
+@media (max-width: 960px) {
+  .nav-toggle {
+    display: inline-grid; place-items: center; gap: 4px; width: 40px; height: 40px;
+    border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); cursor: pointer;
+  }
+  .nav-toggle span { display: block; width: 18px; height: 2px; background: var(--ink); border-radius: 2px; }
+}
+@media (max-width: 560px) { .header-cta { display: none; } }
+.mobile-nav { position: fixed; inset: 0; z-index: 90; }
+.mobile-nav__backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, .45); backdrop-filter: blur(2px); }
+.mobile-nav__panel {
+  position: absolute; top: 0; right: 0; height: 100%; width: min(84vw, 320px);
+  background: var(--surface); border-left: 1px solid var(--border); box-shadow: var(--shadow-lift);
+  padding: 72px 20px 24px; display: flex; flex-direction: column; gap: 2px; animation: mnav-in .18s ease;
+}
+.mobile-nav__panel a { padding: 12px; border-radius: 10px; font-weight: 600; color: var(--ink); }
+.mobile-nav__panel a:hover { background: var(--sunken); }
+.mobile-nav__panel .btn { margin-top: 12px; justify-content: center; }
+@keyframes mnav-in { from { transform: translateX(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mobile-nav__panel { animation: none; } }
+
+/* ── Footer legal row + legal pages ──────────────────────────── */
+.footer__legal { display: inline-flex; gap: 16px; flex-wrap: wrap; }
+.footer__legal a { color: var(--muted); }
+.footer__legal a:hover { color: var(--ink); }
+.legal { max-width: 760px; padding: 48px 0 72px; }
+.legal h1 { font-family: var(--font-head); font-size: 32px; font-weight: 800; letter-spacing: -.02em; }
+.legal__meta { color: var(--faint); font-size: 13px; margin: 6px 0 28px; }
+.legal h2 { font-family: var(--font-head); font-size: 20px; font-weight: 700; margin: 30px 0 10px; }
+.legal p, .legal li { color: var(--muted); line-height: 1.65; }
+.legal ul { padding-left: 20px; display: grid; gap: 8px; margin: 10px 0; }
+.legal a { color: var(--green-dark); }
+.legal a:hover { color: var(--green-hover); }
