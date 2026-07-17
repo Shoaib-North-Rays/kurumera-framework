@@ -27,8 +27,9 @@ export async function marketplace(args: string[]): Promise<number> {
     case "list": case "ls": return list();
     case "info": return info(rest);
     case "install": case "add": return install(rest);
+    case "buy": return buy(rest);
     default:
-      console.error("Usage: kurumera marketplace <publish|list|info|install>");
+      console.error("Usage: kurumera marketplace <publish|list|info|install|buy>");
       return 1;
   }
 }
@@ -108,12 +109,28 @@ async function install(args: string[]): Promise<number> {
   const [theme, version] = ref.split("@");
   const store = flag(args, "--store") || cfg.defaultStore;
   if (!store) { console.error("Which store? Pass --store <slug>."); return 1; }
+  const license = flag(args, "--license");   // required for paid themes
 
-  const d = await post("/market/install", cfg.authToken, { store, theme, version });
-  if (!d.ok) { console.error(`Install failed: ${d.error}`); return 1; }
+  const d = await post("/market/install", cfg.authToken, { store, theme, version, license });
+  if (!d.ok) {
+    console.error(`Install failed: ${d.error}`);
+    if (/paid theme/i.test(d.error || "")) console.error(`  Buy it:  kurumera marketplace buy ${theme}`);
+    return 1;
+  }
   console.log(`✓ Installed ${d.theme}@${d.version} into "${d.store}" — it's now live.`);
   console.log(`  Live:      https://${d.store}.${ROOT}`);
   console.log(`  Roll back: kurumera theme rollback --store ${d.store}`);
+  return 0;
+}
+
+/** Point the buyer at the marketplace to complete a Stripe purchase → license key. */
+async function buy(args: string[]): Promise<number> {
+  const theme = args.find((a) => !a.startsWith("--"));
+  if (!theme) { console.error("Which theme? kurumera marketplace buy <theme>"); return 1; }
+  const site = (process.env.KURUMERA_MARKET_URL || "https://themekit.kurumera.com").replace(/\/+$/, "");
+  console.log(`Purchase "${theme}" on the marketplace:\n  ${site}/marketplace`);
+  console.log(`\nAfter paying you'll get a license key, then install with:`);
+  console.log(`  kurumera marketplace install ${theme} --store <slug> --license <key>`);
   return 0;
 }
 

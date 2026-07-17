@@ -140,7 +140,7 @@
   var COLORS = ["#0E9184","#3B6FB6","#8A5D9A","#B0642B","#2E7D5B","#B4433B","#4A6FA5","#7A6A38"];
   function hue(s){ var n=0; for(var i=0;i<s.length;i++) n=(n*31+s.charCodeAt(i))>>>0; return COLORS[n%COLORS.length]; }
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
-  function priceLabel(t){ if(t.price==null||t.price===0||t.price==="0") return {txt:"Free",free:true}; var p=typeof t.price==="number"?("$"+t.price):esc(t.price); return {txt:p,free:false}; }
+  function priceLabel(t){ if(!t.price||Number(t.price)===0) return {txt:"Free",free:true}; var cur=(t.currency&&t.currency!=="USD")?(esc(t.currency)+" "):"$"; return {txt:cur+t.price,free:false}; }
   var THEMES=[], overlay=document.getElementById("overlay"), modal=document.getElementById("modal");
 
   function card(t){
@@ -200,23 +200,34 @@
       + '<button class="btn btn--buy" id="getBtn">'+(pl.free?'Get this theme':'Buy '+pl.txt)+'</button>'
       + '<a class="btn btn--ghost" href="/?market='+encodeURIComponent(slug)+'" target="_blank" rel="noreferrer">Live preview ↗</a>'
       + '</div>'
+      + (pl.free?'':'<p style="font-size:.82rem;color:var(--faint);margin:-8px 0 8px"><a href="#" id="ownLink">Already purchased? Show install commands →</a></p>')
       + '<div id="getFlow" style="display:none">'
       + '<h4>1 · Install into your store (live)</h4>'
-      + '<div class="code"><div class="code__bar"><span>install</span><button data-copy="kurumera marketplace install '+esc(slug)+' --store &lt;your-store&gt;">copy</button></div>'
-      + '<pre><code><span class="p">$</span> kurumera marketplace install '+esc(slug)+' --store &lt;your-store&gt;</code></pre></div>'
+      + '<div class="code"><div class="code__bar"><span>install</span><button data-copy="kurumera marketplace install '+esc(slug)+' --store &lt;your-store&gt;'+(pl.free?'':' --license &lt;your-key&gt;')+'">copy</button></div>'
+      + '<pre><code><span class="p">$</span> kurumera marketplace install '+esc(slug)+' --store &lt;your-store&gt;'+(pl.free?'':' --license &lt;your-key&gt;')+'</code></pre></div>'
       + '<h4>2 · Or clone the source to edit</h4>'
-      + '<div class="code"><div class="code__bar"><span>clone &amp; edit</span><button data-copy="mkdir my-'+esc(slug)+' &amp;&amp; curl -sL &quot;https://themekit.kurumera.com/_push/market/source?theme='+esc(slug)+'&quot; | tar xz -C my-'+esc(slug)+'">copy</button></div>'
-      + '<pre><code><span class="p">$</span> mkdir my-'+esc(slug)+' &amp;&amp; curl -sL "https://themekit.kurumera.com/_push/market/source?theme='+esc(slug)+'" | tar xz -C my-'+esc(slug)+'\n<span class="p">$</span> cd my-'+esc(slug)+' &amp;&amp; npm install\n<span class="p">$</span> kurumera theme dev --store &lt;your-store&gt;</code></pre></div>'
+      + '<div class="code"><div class="code__bar"><span>clone &amp; edit</span><button data-copy="mkdir my-'+esc(slug)+' &amp;&amp; curl -sL &quot;https://themekit.kurumera.com/_push/market/source?theme='+esc(slug)+(pl.free?'':'&amp;license=&lt;your-key&gt;')+'&quot; | tar xz -C my-'+esc(slug)+'">copy</button></div>'
+      + '<pre><code><span class="p">$</span> mkdir my-'+esc(slug)+' &amp;&amp; curl -sL "https://themekit.kurumera.com/_push/market/source?theme='+esc(slug)+(pl.free?'':'&amp;license=&lt;your-key&gt;')+'" | tar xz -C my-'+esc(slug)+'\n<span class="p">$</span> cd my-'+esc(slug)+' &amp;&amp; npm install\n<span class="p">$</span> kurumera theme dev --store &lt;your-store&gt;</code></pre></div>'
       + '<h4>Versions</h4><div class="vers">'+vers+'</div>'
       + '</div>'
       + '</div>';
     overlay.classList.add("open"); document.body.style.overflow="hidden";
     requestAnimationFrame(function(){ fitFrames(modal); });
     modal.querySelector(".modal__close").addEventListener("click", close);
+    var showFlow=function(){ document.getElementById("getFlow").style.display="block"; };
     modal.querySelector("#getBtn").addEventListener("click", function(){
-      document.getElementById("getFlow").style.display="block";
-      this.scrollIntoView({behavior:"smooth",block:"nearest"});
+      if(pl.free){ showFlow(); this.scrollIntoView({behavior:"smooth",block:"nearest"}); return; }
+      var email=prompt("Enter your email for the receipt & license key:");
+      if(email===null) return;
+      var btn=this; btn.disabled=true; btn.textContent="Starting checkout…";
+      fetch("/_push/market/checkout",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({theme:slug,email:email})})
+        .then(function(r){return r.json();}).then(function(d){
+          if(d&&d.ok&&d.url){ window.location.href=d.url; return; }
+          alert((d&&d.error)||"Checkout is unavailable right now."); btn.disabled=false; btn.textContent="Buy "+pl.txt;
+        }).catch(function(){ alert("Checkout failed. Please try again."); btn.disabled=false; btn.textContent="Buy "+pl.txt; });
     });
+    var ownLink=modal.querySelector("#ownLink");
+    if(ownLink) ownLink.addEventListener("click", function(e){ e.preventDefault(); showFlow(); });
     Array.prototype.forEach.call(modal.querySelectorAll("[data-copy]"), function(b){
       b.addEventListener("click", function(){ var v=b.getAttribute("data-copy").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&amp;/g,"&"); navigator.clipboard&&navigator.clipboard.writeText(v); b.textContent="copied"; setTimeout(function(){b.textContent="copy";},1200); });
     });

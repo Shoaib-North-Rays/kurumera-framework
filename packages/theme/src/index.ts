@@ -39,6 +39,26 @@ export interface ThemeSettings {
   [key: string]: boolean | undefined;
 }
 
+/**
+ * Marketplace listing metadata — read by `kurumera marketplace publish` and shown
+ * on the storefront at themekit.kurumera.com/marketplace. All optional; a theme
+ * with no `price` (or price 0) is free to install and clone.
+ */
+export interface ThemeMarketplace {
+  /** One-time price in the smallest currency unit's whole amount (e.g. 49 = $49). 0/undefined = free. */
+  price?: number;
+  /** ISO currency for `price` (default "USD"). */
+  currency?: string;
+  /** Search/browse tags, e.g. ["pharmacy", "medical"]. */
+  tags?: string[];
+  /** Grouping, e.g. "Health", "Fashion". */
+  category?: string;
+  /** Store slug to render the live preview against (its catalog fills the demo). */
+  demoStore?: string;
+  /** Optional screenshot URLs (used instead of the live-iframe thumbnail). */
+  screenshots?: string[];
+}
+
 export interface ThemeConfig {
   name: string;
   version: string;
@@ -46,6 +66,12 @@ export interface ThemeConfig {
   compatibility?: ThemeCompatibility;
   routes: ThemeRoute[];
   settings?: ThemeSettings;
+  /** One-line marketplace description. */
+  description?: string;
+  /** Author / studio name shown on the listing. */
+  author?: string;
+  /** Marketplace listing + pricing. */
+  marketplace?: ThemeMarketplace;
 }
 
 /**

@@ -122,6 +122,97 @@ function readManifest(dir) {
   return { name: pick("name"), version: pick("version"), description: pick("description") };
 }
 
+// Marketplace listing metadata from an artifact's theme.config (typed
+// `marketplace: {…}` block, or comment lines the regex still reads).
+function readMarketMeta(dir) {
+  const f = ["theme.config.ts", "theme.config.js"].map((n) => join(dir, n)).find((p) => existsSync(p));
+  if (!f) return {};
+  let src = ""; try { src = readFileSync(f, "utf8"); } catch { return {}; }
+  const str = (k) => { const m = src.match(new RegExp(`\\b${k}\\s*:\\s*["'\`]([^"'\`]+)`)); return m ? m[1] : undefined; };
+  const num = (k) => { const m = src.match(new RegExp(`\\b${k}\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)`)); return m ? Number(m[1]) : undefined; };
+  const arr = (k) => { const m = src.match(new RegExp(`\\b${k}\\s*:\\s*\\[([^\\]]*)\\]`)); return m ? m[1].split(",").map((x) => x.replace(/["'\`\s]/g, "")).filter(Boolean) : undefined; };
+  return {
+    description: str("description"), author: str("author"),
+    price: num("price"), currency: str("currency"),
+    category: str("category"), demoStore: str("demoStore"), tags: arr("tags"),
+  };
+}
+
+// ── Purchases / licenses ─────────────────────────────────────────────────────
+// A paid theme needs a license key (issued after a completed Stripe payment) to
+// install or clone. Free themes (no price) are unrestricted.
+const LICENSE_STATE = join(ROOT, "licenses.json");
+const STRIPE_SECRET = process.env.KURUMERA_STRIPE_SECRET || "";
+const MARKET_PUBLIC_URL = (process.env.KURUMERA_MARKET_URL || "https://themekit.kurumera.com").replace(/\/+$/, "");
+function getLicenses() { try { return JSON.parse(readFileSync(LICENSE_STATE, "utf8")); } catch { return { keys: {} }; } }
+function setLicenses(l) { writeFileSync(LICENSE_STATE, JSON.stringify(l)); }
+function themePrice(theme) { const e = getMarket().themes[slug(theme)]; return e && Number(e.price) > 0 ? { price: Number(e.price), currency: e.currency || "USD" } : null; }
+function issueLicense(theme, email, session) {
+  const l = getLicenses();
+  const key = `KURU-${slug(theme).toUpperCase().replace(/-/g, "").slice(0, 6)}-${Math.random().toString(36).slice(2, 8).toUpperCase()}${Date.now().toString(36).slice(-4).toUpperCase()}`;
+  l.keys[key] = { theme: slug(theme), email: email || "", session: session || "", created: Date.now() };
+  setLicenses(l);
+  return key;
+}
+function licenseValid(key, theme) {
+  if (!key) return false;
+  const rec = getLicenses().keys[String(key).trim()];
+  return !!rec && rec.theme === slug(theme);
+}
+/** Free themes are always owned; paid themes need a valid license. */
+function ownsTheme(theme, license) { return !themePrice(theme) || licenseValid(license, theme); }
+
+// ── Stripe (platform account — collects theme purchases) ─────────────────────
+// Minimal REST calls (form-encoded), no SDK. Activated by KURUMERA_STRIPE_SECRET
+// (sk_test_… works with Stripe test cards). Absent ⇒ purchasing is disabled.
+function stripeForm(obj, prefix = "") {
+  const parts = [];
+  for (const [k, v] of Object.entries(obj)) {
+    const key = prefix ? `${prefix}[${k}]` : k;
+    if (v && typeof v === "object") parts.push(stripeForm(v, key));
+    else parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(v))}`);
+  }
+  return parts.join("&");
+}
+async function stripe(path, method, body) {
+  const r = await fetch(`https://api.stripe.com/v1${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${STRIPE_SECRET}`, "Content-Type": "application/x-www-form-urlencoded" },
+    body: body ? stripeForm(body) : undefined,
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d?.error?.message || `stripe ${r.status}`);
+  return d;
+}
+async function createCheckout(theme, email) {
+  const p = themePrice(theme);
+  if (!p) return { ok: false, error: "this theme is free — no purchase needed" };
+  if (!STRIPE_SECRET) return { ok: false, error: "purchasing isn't enabled yet (the platform owner must connect Stripe)" };
+  const e = getMarket().themes[slug(theme)];
+  const session = await stripe("/checkout/sessions", "POST", {
+    mode: "payment",
+    success_url: `${MARKET_PUBLIC_URL}/_push/market/complete?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${MARKET_PUBLIC_URL}/marketplace`,
+    "line_items[0][quantity]": 1,
+    "line_items[0][price_data][currency]": (p.currency || "USD").toLowerCase(),
+    "line_items[0][price_data][unit_amount]": Math.round(p.price * 100),
+    "line_items[0][price_data][product_data][name]": `${e.name || theme} theme`,
+    "metadata[theme]": slug(theme),
+    ...(email ? { customer_email: email } : {}),
+  });
+  return { ok: true, url: session.url, id: session.id };
+}
+function licenseHtml(theme, key) {
+  return `<!doctype html><meta charset=utf-8><title>Purchase complete</title>`
+    + `<body style="font-family:system-ui,sans-serif;max-width:560px;margin:60px auto;padding:0 20px;color:#16211E">`
+    + `<h1 style="font-size:1.5rem">✓ You now own “${theme}”</h1>`
+    + `<p style="color:#586964">Keep this license key — you'll need it to install or clone the theme.</p>`
+    + `<pre style="background:#0E1512;color:#37D3BE;padding:14px 16px;border-radius:8px;overflow:auto">${key}</pre>`
+    + `<h3 style="margin-top:24px">Install it</h3>`
+    + `<pre style="background:#0E1512;color:#D7E0DC;padding:14px 16px;border-radius:8px;overflow:auto">kurumera marketplace install ${theme} --store &lt;your-store&gt; --license ${key}</pre>`
+    + `<p><a href="/marketplace">← Back to the marketplace</a></p></body>`;
+}
+
 // Fire-and-forget POST to the control plane. Never throws.
 async function control(path, body) {
   if (!SERVICE_KEY) return; // fail closed: no key ⇒ don't attempt (backend rejects anyway)
@@ -428,23 +519,25 @@ async function wakePreview(s) {
 }
 // Ensure a marketplace theme's preview container is running — run its latest
 // registry artifact on demand (scale-to-zero, reaped like store previews).
+function marketDemo(theme) { const e = getMarket().themes[slug(theme)]; return (e && slug(e.demoStore)) || DEMO_STORE; }
 async function wakeMarketPreview(theme) {
   theme = slug(theme);
   const e = getMarket().themes[theme];
   if (!e || !e.latest) return false;
+  const demo = marketDemo(theme);
   touch(theme, "market");
   const name = marketName(theme);
   const status = await containerExists(name);
   if (status === "running") return true;
   if (status === "exited" || status === "created") {
     await sh("docker", ["start", name]);
-    return waitReady(name, DEMO_STORE);
+    return waitReady(name, demo);
   }
   const dir = marketDir(theme, e.latest);
   if (!existsSync(dir)) return false;
   const r = await runContainer(name, dir);
   if (r.code !== 0) return false;
-  return waitReady(name, DEMO_STORE);
+  return waitReady(name, demo);
 }
 // Stop containers idle longer than IDLE_MS (scale to zero). Live and preview are
 // tracked independently so a hot preview doesn't keep the live container up.
@@ -518,9 +611,15 @@ async function publishToMarket(s, meta) {
   const c = await copyDir(versionDir(s, latest), dest);
   if (c.code !== 0) return { ok: false, error: "failed to stage artifact", log: c.out.slice(-400) };
 
+  const md = readMarketMeta(versionDir(s, latest));   // richer listing meta from the artifact's theme.config
   entry.name = meta.name || entry.name;
-  if (meta.description) entry.description = meta.description;
-  if (meta.author) entry.author = meta.author;
+  if (meta.description || md.description) entry.description = meta.description || md.description;
+  if (meta.author || md.author) entry.author = meta.author || md.author;
+  if (md.price != null) entry.price = md.price;
+  if (md.currency) entry.currency = md.currency;
+  if (md.tags && md.tags.length) entry.tags = md.tags;
+  if (md.category) entry.category = md.category;
+  if (md.demoStore) entry.demoStore = md.demoStore;
   entry.versions.push({ version, id: latest, published: Date.now(), installs: 0 });
   entry.latest = version;
   setMarket(m);
@@ -529,11 +628,14 @@ async function publishToMarket(s, meta) {
 
 // Install <theme>@<version> into store <s>: copy the registry artifact into a new
 // per-store version, then make it live. Returns the new store version id.
-async function installFromMarket(s, theme, version, actor) {
+async function installFromMarket(s, theme, version, actor, license) {
   s = slug(s); theme = slug(theme);
   const m = getMarket();
   const entry = m.themes[theme];
   if (!entry) return { ok: false, error: `no marketplace theme "${theme}"` };
+  if (!ownsTheme(theme, license)) {
+    return { ok: false, status: 402, error: `"${entry.name || theme}" is a paid theme — buy it, then install with --license <key>` };
+  }
   const ver = version && version !== "latest" ? String(version) : entry.latest;
   const found = entry.versions.find((v) => v.version === ver);
   if (!found) return { ok: false, error: `${theme}@${ver} not found` };
@@ -573,6 +675,9 @@ function marketListing() {
     slug: themeSlug, name: e.name, description: e.description, author: e.author,
     latest: e.latest, versions: e.versions.map((v) => v.version),
     installs: e.versions.reduce((n, v) => n + (v.installs || 0), 0),
+    price: Number(e.price) > 0 ? Number(e.price) : 0,
+    currency: e.currency || "USD",
+    tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "",
   }));
 }
 
@@ -669,12 +774,51 @@ const server = http.createServer((req, res) => {
     const e = getMarket().themes[t];
     return e ? json(200, { slug: t, ...e }) : json(404, { error: `no marketplace theme "${t}"` });
   }
+  // Does the caller own this theme? (free ⇒ always; paid ⇒ needs a valid license)
+  if (p.endsWith("/_push/market/owns")) {
+    const t = slug(u.searchParams.get("theme") || "");
+    return json(200, { theme: t, paid: !!themePrice(t), owned: ownsTheme(t, u.searchParams.get("license") || "") });
+  }
+  // Start a purchase — returns a Stripe Checkout URL for a paid theme.
+  if (p.endsWith("/_push/market/checkout") && req.method === "POST") {
+    readBody().then(async (buf) => {
+      let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
+      if (!body.theme) return json(400, { ok: false, error: "theme is required" });
+      try { json(200, await createCheckout(slug(body.theme), body.email)); }
+      catch (e) { json(400, { ok: false, error: e.message || "checkout failed" }); }
+    });
+    return;
+  }
+  // Stripe success redirect — verify payment, issue a license, show it.
+  if (p.endsWith("/_push/market/complete") && req.method === "GET") {
+    const sid = u.searchParams.get("session_id") || "";
+    (async () => {
+      try {
+        if (!STRIPE_SECRET || !sid) throw new Error("missing session");
+        const sess = await stripe(`/checkout/sessions/${encodeURIComponent(sid)}`, "GET");
+        if (sess.payment_status !== "paid") throw new Error("payment not completed");
+        const theme = slug((sess.metadata && sess.metadata.theme) || "");
+        const prior = Object.entries(getLicenses().keys).find(([, r]) => r.session === sid);
+        const key = prior ? prior[0] : issueLicense(theme, sess.customer_email || (sess.customer_details && sess.customer_details.email) || "", sid);
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(licenseHtml(theme, key));
+      } catch (e) {
+        res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(`<body style="font-family:system-ui;padding:40px;max-width:520px;margin:auto"><h2>Purchase couldn't be verified</h2><p style="color:#586964">${e.message || ""}</p><p><a href="/marketplace">Back to the marketplace</a></p></body>`);
+      }
+    })();
+    return;
+  }
   // Clone-to-edit: stream a marketplace theme's SOURCE as a tarball (no runtime
   // artifacts) so a developer can `curl … | tar xz` it, edit, and re-publish.
   if (p.endsWith("/_push/market/source") && req.method === "GET") {
     const t = slug(u.searchParams.get("theme") || "");
     const e = getMarket().themes[t];
     if (!e) { res.writeHead(404, { "Content-Type": "text/plain" }); return res.end(`no marketplace theme "${t}"`); }
+    if (!ownsTheme(t, u.searchParams.get("license") || "")) {
+      res.writeHead(402, { "Content-Type": "text/plain" });
+      return res.end(`"${e.name || t}" is a paid theme — buy it, then clone with ?license=<key>`);
+    }
     const raw = u.searchParams.get("version");
     const ver = raw && raw !== "latest" ? String(raw).replace(/[^a-zA-Z0-9._-]/g, "") : e.latest;
     const dir = marketDir(t, ver);
@@ -706,8 +850,8 @@ const server = http.createServer((req, res) => {
       const s = slug(body.store);
       const az = await authorizeMutation(req, s, body.actor_email);   // merchant (backend) or dev (CLI)
       if (!az.ok) return json(az.status || 403, { error: az.error });
-      const r = await installFromMarket(s, body.theme, body.version, az.actor);
-      json(r.ok === false ? 400 : 200, { ...r, stores: livePublishedStores() });
+      const r = await installFromMarket(s, body.theme, body.version, az.actor, body.license);
+      json(r.ok === false ? (r.status || 400) : 200, { ...r, stores: livePublishedStores() });
     });
     return;
   }
@@ -747,7 +891,7 @@ const server = http.createServer((req, res) => {
     wakeMarketPreview(mkt).finally(() => {
       const preq = http.request(
         { hostname: marketName(mkt), port: 3000, path: req.url, method: req.method,
-          headers: { ...req.headers, host: `${DEMO_STORE}.kurumera.com` } },
+          headers: { ...req.headers, host: `${marketDemo(mkt)}.kurumera.com` } },
         (pr) => {
           const cookies = [].concat(pr.headers["set-cookie"] || []);
           if (qMarket) cookies.push(`kurumera_market=${encodeURIComponent(mkt)}; Path=/; SameSite=Lax`);
