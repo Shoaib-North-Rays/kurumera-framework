@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { MARKET_ORIGIN } from "@/lib/registry";
 import { getSession, signOut, startSignIn, type Session } from "@/lib/session";
 import { LivePreview } from "@/components/LivePreview";
 import { Check, Bolt } from "@/components/Icons";
@@ -20,7 +19,7 @@ export function CreatorDashboard() {
   const load = useCallback(async (token: string, store: string) => {
     setLoading(true); setError("");
     try {
-      const r = await fetch(`${MARKET_ORIGIN}/_push/market/mine?store=${encodeURIComponent(store)}`, { headers: { Authorization: `Bearer ${token}` } });
+      const r = await fetch(`/api/market/mine?store=${encodeURIComponent(store)}`, { headers: { Authorization: `Bearer ${token}` } });
       const d = await r.json();
       if (!r.ok) { setError(d?.error || "Couldn't load your templates."); setLoading(false); return; }
       setThemes(d.themes || []); setLoading(false);
@@ -78,7 +77,7 @@ function ThemeRow({ theme, token, store }: { theme: CTheme; token: string; store
   async function save() {
     setState("saving"); setMsg("");
     try {
-      const r = await fetch(`${MARKET_ORIGIN}/_push/market/update`, {
+      const r = await fetch(`/api/market/update`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({

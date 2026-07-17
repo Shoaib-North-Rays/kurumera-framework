@@ -32,7 +32,7 @@ export function GetTemplate({ slug, free, priceLabel }: { slug: string; free: bo
     if (email === null) return;
     setBusy(true); setErr("");
     try {
-      const r = await fetch(`${MARKET_ORIGIN}/_push/market/checkout`, {
+      const r = await fetch(`/api/market/checkout`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ theme: slug, email }),
       });
