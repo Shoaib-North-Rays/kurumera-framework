@@ -360,18 +360,29 @@ async function verifyOwnership(authHeader, store) {
     return { ok: false, status: 401, error: "sign in first (kurumera login)" };
   }
   if (!store) return { ok: false, status: 400, error: "no store — pass --store or run `kurumera login`" };
-  try {
-    const res = await fetch(`${AUTHZ_URL}/?store=${encodeURIComponent(store)}`, { headers: { Authorization: bearer } });
-    const d = await res.json().catch(() => ({}));
-    if (res.status === 200 && d.authorized) return { ok: true, actor: d.actor };
-    if (res.status === 200) return { ok: false, status: 403, error: d.detail || "not authorized for this store" };
-    if (res.status === 401) return { ok: false, status: 401, error: "invalid or expired session — run `kurumera login`" };
-    if (res.status === 403) return { ok: false, status: 403, error: d.detail || "you do not have access to this store" };
-    if (res.status === 404) return { ok: false, status: 404, error: d.detail || `no store "${store}"` };
-    return { ok: false, status: 502, error: `ownership check failed (${res.status})` };
-  } catch {
-    return { ok: false, status: 503, error: "ownership check unavailable — try again shortly" };
+  // Retry a transient network blip / 5xx a couple of times (with a per-attempt
+  // timeout) before failing closed — one hiccup reaching the auth backend must not
+  // fail a publish/install. A definitive 200/401/403/404 returns immediately.
+  let lastErr = "ownership check unavailable";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, 400 * attempt));
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(`${AUTHZ_URL}/?store=${encodeURIComponent(store)}`, { headers: { Authorization: bearer }, signal: ctrl.signal });
+      clearTimeout(timer);
+      const d = await res.json().catch(() => ({}));
+      if (res.status === 200 && d.authorized) return { ok: true, actor: d.actor };
+      if (res.status === 200) return { ok: false, status: 403, error: d.detail || "not authorized for this store" };
+      if (res.status === 401) return { ok: false, status: 401, error: "invalid or expired session — run `kurumera login`" };
+      if (res.status === 403) return { ok: false, status: 403, error: d.detail || "you do not have access to this store" };
+      if (res.status === 404) return { ok: false, status: 404, error: d.detail || `no store "${store}"` };
+      lastErr = `ownership check failed (${res.status})`;   // 5xx / unexpected → retry
+    } catch (e) {
+      lastErr = e?.name === "AbortError" ? "ownership check timed out" : "ownership check unavailable";
+    }
   }
+  return { ok: false, status: 503, error: `${lastErr} — try again shortly` };
 }
 
 // Authorize a store mutation from EITHER the trusted backend control plane
