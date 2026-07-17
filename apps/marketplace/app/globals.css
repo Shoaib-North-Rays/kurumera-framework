@@ -432,3 +432,15 @@ button { font-family: inherit; }
 .legal ul { padding-left: 20px; display: grid; gap: 8px; margin: 10px 0; }
 .legal a { color: var(--green-dark); }
 .legal a:hover { color: var(--green-hover); }
+
+/* ── Purchase complete / cancel ──────────────────────────────── */
+.purchase { max-width: 560px; margin: 0 auto; padding: 56px 0 72px; text-align: center; }
+.purchase__badge { width: 56px; height: 56px; border-radius: 50%; background: var(--mint); color: var(--green-dark); display: grid; place-items: center; margin: 0 auto 18px; }
+.purchase h1 { font-family: var(--font-head); font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
+.purchase p { color: var(--muted); margin: 8px 0; line-height: 1.55; }
+.purchase .code { text-align: left; margin: 16px 0; }
+.purchase a { color: var(--green-dark); }
+.purchase__note { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--faint); margin-top: 10px; }
+.purchase__note svg { width: 14px; height: 14px; }
+.purchase__actions { display: flex; gap: 10px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
+.purchase__actions a { color: inherit; }

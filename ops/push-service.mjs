@@ -26,7 +26,7 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync, renameSync, rmSync, existsSync } from "node:fs";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 
 const PORT = Number(process.env.PORT || 9200);
@@ -174,6 +174,15 @@ const STRIPE_SECRET = process.env.KURUMERA_STRIPE_SECRET || (() => {
   try { return readFileSync(join(ROOT, ".stripe-secret"), "utf8").trim(); } catch { return ""; }
 })();
 const MARKET_PUBLIC_URL = (process.env.KURUMERA_MARKET_URL || "https://themekit.kurumera.com").replace(/\/+$/, "");
+// The public marketplace web app — Stripe success/cancel land here (branded), and
+// the app renders the license from /market/license?session_id=.
+const MARKET_APP_URL = (process.env.KURUMERA_MARKET_APP_URL || "https://marketplace.kurumera.com").replace(/\/+$/, "");
+// Stripe webhook signing secret (whsec_…). When set, /market/webhook becomes the
+// source of truth for issuance (survives a closed tab) + refund/dispute revocation.
+// Absent ⇒ the webhook endpoint is disabled (returns 400), so it's safe to ship inert.
+const STRIPE_WEBHOOK_SECRET = process.env.KURUMERA_STRIPE_WEBHOOK_SECRET || (() => {
+  try { return readFileSync(join(ROOT, ".stripe-webhook-secret"), "utf8").trim(); } catch { return ""; }
+})();
 // Fail SAFE: a corrupt/unreadable licenses.json must not silently erase every
 // buyer's entitlement, so fall back to the last good copy when the file exists.
 let _licenseCache = null;
@@ -186,20 +195,36 @@ function getLicenses() {
 }
 function setLicenses(l) { _licenseCache = l; writeJson(LICENSE_STATE, l); }
 function themePrice(theme) { const e = getMarket().themes[slug(theme)]; return e && Number(e.price) > 0 ? { price: Number(e.price), currency: e.currency || "USD" } : null; }
-function issueLicense(theme, email, session) {
+function issueLicense(theme, email, session, pi) {
   const l = getLicenses();
   // Cryptographically-random, non-guessable suffix (was Math.random — a weak PRNG
   // whose output is recoverable and enumerable via the /owns oracle).
   const rand = randomBytes(16).toString("base64url").replace(/[-_]/g, "").toUpperCase().slice(0, 14);
   const key = `KURU-${slug(theme).toUpperCase().replace(/-/g, "").slice(0, 6)}-${rand}`;
-  l.keys[key] = { theme: slug(theme), email: email || "", session: session || "", created: Date.now() };
+  // `pi` (Stripe payment_intent) lets a later refund/dispute webhook find + revoke.
+  l.keys[key] = { theme: slug(theme), email: email || "", session: session || "", pi: pi || "", created: Date.now() };
   setLicenses(l);
   return key;
 }
 function licenseValid(key, theme) {
   if (!key) return false;
   const rec = getLicenses().keys[String(key).trim()];
-  return !!rec && rec.theme === slug(theme);
+  return !!rec && rec.theme === slug(theme) && !rec.revoked;
+}
+/** Revoke every license matching a predicate (e.g. by Stripe session or payment_intent). */
+function revokeLicenses(match, reason) {
+  const l = getLicenses();
+  let n = 0;
+  for (const r of Object.values(l.keys)) {
+    if (!r.revoked && match(r)) { r.revoked = Date.now(); r.revokedReason = reason || "revoked"; n++; }
+  }
+  if (n) setLicenses(l);
+  return n;
+}
+/** Idempotent issuance for a paid Stripe session — reuse an existing key if any. */
+function licenseForSession(theme, email, session, pi) {
+  const prior = Object.entries(getLicenses().keys).find(([, r]) => r.session === session);
+  return prior ? prior[0] : issueLicense(theme, email, session, pi);
 }
 /** Free themes are always owned; paid themes need a valid license. */
 function ownsTheme(theme, license) { return !themePrice(theme) || licenseValid(license, theme); }
@@ -237,6 +262,17 @@ async function stripe(path, method, body) {
   if (!r.ok) throw new Error(d?.error?.message || `stripe ${r.status}`);
   return d;
 }
+// Verify a Stripe webhook signature (t=…,v1=… → HMAC-SHA256 of `${t}.${rawBody}`).
+function verifyStripeSig(rawBody, sigHeader) {
+  if (!STRIPE_WEBHOOK_SECRET || !sigHeader) return false;
+  const parts = Object.fromEntries(String(sigHeader).split(",").map((kv) => { const i = kv.indexOf("="); return [kv.slice(0, i), kv.slice(i + 1)]; }));
+  if (!parts.t || !parts.v1) return false;
+  const expected = createHmac("sha256", STRIPE_WEBHOOK_SECRET).update(`${parts.t}.${rawBody}`).digest("hex");
+  try {
+    const a = Buffer.from(parts.v1), b = Buffer.from(expected);
+    return a.length === b.length && timingSafeEqual(a, b);
+  } catch { return false; }
+}
 async function createCheckout(theme, email) {
   const p = themePrice(theme);
   if (!p) return { ok: false, error: "this theme is free — no purchase needed" };
@@ -244,8 +280,8 @@ async function createCheckout(theme, email) {
   const e = getMarket().themes[slug(theme)];
   const session = await stripe("/checkout/sessions", "POST", {
     mode: "payment",
-    success_url: `${MARKET_PUBLIC_URL}/_push/market/complete?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${MARKET_PUBLIC_URL}/marketplace`,
+    success_url: `${MARKET_APP_URL}/purchase/complete?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${MARKET_APP_URL}/purchase/cancel?theme=${encodeURIComponent(slug(theme))}`,
     "line_items[0][quantity]": 1,
     "line_items[0][price_data][currency]": (p.currency || "USD").toLowerCase(),
     "line_items[0][price_data][unit_amount]": stripeAmount(p.price, p.currency || "USD"),
@@ -931,6 +967,28 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
+  // Stripe webhook — the source of truth: issues a license on a completed payment
+  // (survives the buyer closing the tab) and revokes on refund/dispute. Disabled
+  // (400) until KURUMERA_STRIPE_WEBHOOK_SECRET is configured, so it ships inert.
+  if (p.endsWith("/_push/market/webhook") && req.method === "POST") {
+    readBody().then((buf) => {
+      const raw = buf.toString("utf8");
+      if (!verifyStripeSig(raw, req.headers["stripe-signature"])) return json(400, { error: "invalid signature" });
+      let evt = {}; try { evt = JSON.parse(raw); } catch { return json(400, { error: "bad json" }); }
+      try {
+        const obj = evt.data && evt.data.object;
+        if (evt.type === "checkout.session.completed" && obj && obj.payment_status === "paid") {
+          const theme = slug((obj.metadata && obj.metadata.theme) || "");
+          if (theme) licenseForSession(theme, obj.customer_email || (obj.customer_details && obj.customer_details.email) || "", obj.id, obj.payment_intent || "");
+        } else if ((evt.type === "charge.refunded" || evt.type === "charge.dispute.created") && obj && obj.payment_intent) {
+          const n = revokeLicenses((r) => r.pi && r.pi === obj.payment_intent, evt.type);
+          if (n) console.log(`revoked ${n} license(s) for ${evt.type} pi=${obj.payment_intent}`);
+        }
+      } catch (e) { console.error(`webhook ${evt.type}: ${e?.message}`); }
+      json(200, { received: true });   // always ack so Stripe doesn't retry-storm
+    });
+    return;
+  }
   // Stripe success redirect — verify payment, issue a license, show it.
   if (p.endsWith("/_push/market/complete") && req.method === "GET") {
     const sid = u.searchParams.get("session_id") || "";
@@ -940,14 +998,30 @@ const server = http.createServer((req, res) => {
         const sess = await stripe(`/checkout/sessions/${encodeURIComponent(sid)}`, "GET");
         if (sess.payment_status !== "paid") throw new Error("payment not completed");
         const theme = slug((sess.metadata && sess.metadata.theme) || "");
-        const prior = Object.entries(getLicenses().keys).find(([, r]) => r.session === sid);
-        const key = prior ? prior[0] : issueLicense(theme, sess.customer_email || (sess.customer_details && sess.customer_details.email) || "", sid);
+        const key = licenseForSession(theme, sess.customer_email || (sess.customer_details && sess.customer_details.email) || "", sid, sess.payment_intent || "");
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(licenseHtml(theme, key));
       } catch (e) {
         res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
         res.end(`<body style="font-family:system-ui;padding:40px;max-width:520px;margin:auto"><h2>Purchase couldn't be verified</h2><p style="color:#586964">${e.message || ""}</p><p><a href="/marketplace">Back to the marketplace</a></p></body>`);
       }
+    })();
+    return;
+  }
+  // JSON variant for the marketplace app's branded success page: verify the paid
+  // session, idempotently issue the license, and return the key + install command.
+  if (p.endsWith("/_push/market/license") && req.method === "GET") {
+    const sid = u.searchParams.get("session_id") || "";
+    (async () => {
+      try {
+        if (!STRIPE_SECRET || !sid) return json(400, { ok: false, error: "missing session" });
+        const sess = await stripe(`/checkout/sessions/${encodeURIComponent(sid)}`, "GET");
+        if (sess.payment_status !== "paid") return json(402, { ok: false, error: "payment not completed" });
+        const theme = slug((sess.metadata && sess.metadata.theme) || "");
+        const key = licenseForSession(theme, sess.customer_email || (sess.customer_details && sess.customer_details.email) || "", sid, sess.payment_intent || "");
+        const e = getMarket().themes[theme];
+        json(200, { ok: true, theme, name: (e && e.name) || theme, key, email: sess.customer_email || (sess.customer_details && sess.customer_details.email) || "" });
+      } catch (e) { json(400, { ok: false, error: e.message || "could not verify purchase" }); }
     })();
     return;
   }
