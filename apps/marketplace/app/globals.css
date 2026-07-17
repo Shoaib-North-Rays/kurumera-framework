@@ -166,6 +166,7 @@ button { font-family: inherit; }
 .frame iframe { border: 0; background: #fff; transform-origin: top left; pointer-events: none; opacity: 0; transition: opacity .4s ease; }
 .frame iframe.ready { opacity: 1; }
 .frame__ph { position: absolute; inset: 0; display: grid; place-items: center; background: linear-gradient(135deg, var(--mint), #fff); color: var(--green-dark); font-family: var(--font-head); font-weight: 800; font-size: 2rem; }
+.frame__img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
 
 /* ── Category cards ──────────────────────────────────────────── */
 .cat-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
@@ -452,3 +453,8 @@ button { font-family: inherit; }
 .pcard__link { color: var(--green-dark); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .pcard__link:hover { color: var(--green-hover); }
 .pcard .code { margin: 8px 0; }
+
+/* ── Pagination ──────────────────────────────────────────────── */
+.pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 36px; }
+.pager__info { color: var(--muted); font-size: 14px; font-weight: 600; }
+.pager__disabled { opacity: .45; pointer-events: none; }

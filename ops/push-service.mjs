@@ -46,11 +46,16 @@ const AUTHZ_URL = CONTROL_URL.replace(/\/control$/, "/authz");
 const HOST_NAME = process.env.KURUMERA_HOST_NAME || "host-1";
 const MARKET = join(ROOT, "_market");            // shared theme registry (published built artifacts)
 const MARKET_STATE = join(ROOT, "market.json");  // { themes: { <slug>: { name, description, author, latest, versions:[{version,id,published,installs}] } } }
+const SHOTS = join(ROOT, "_shots");              // static theme screenshots (thumbnails), <slug>.jpg
 const API_URL = "https://admin.kurumera.com/api/v1";
 const NET = "website-builder_web";
 
 mkdirSync(ROOT, { recursive: true });
 mkdirSync(MARKET, { recursive: true });
+mkdirSync(SHOTS, { recursive: true });
+
+const shotPath = (theme) => join(SHOTS, `${slug(theme)}.jpg`);
+const coverUrl = (theme) => existsSync(shotPath(theme)) ? `${MARKET_PUBLIC_URL}/_push/market/shot?theme=${slug(theme)}` : "";
 
 const slug = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9-]/g, "");
 const storeDir = (s) => join(ROOT, slug(s));
@@ -783,6 +788,7 @@ function marketListing() {
     price: Number(e.price) > 0 ? Number(e.price) : 0,
     currency: e.currency || "USD",
     tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "",
+    coverImage: coverUrl(themeSlug),
   }));
 }
 
@@ -885,8 +891,16 @@ const server = http.createServer((req, res) => {
       latest: e.latest, versions: (e.versions || []).map((v) => ({ version: v.version, installs: v.installs || 0 })),
       installs: (e.versions || []).reduce((n, v) => n + (v.installs || 0), 0),
       price: Number(e.price) > 0 ? Number(e.price) : 0, currency: e.currency || "USD",
-      tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "",
+      tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "", coverImage: coverUrl(t),
     });
+  }
+  // Serve a theme's static screenshot thumbnail (populated by the capture script).
+  if (p.endsWith("/_push/market/shot")) {
+    const t = slug(u.searchParams.get("theme") || "");
+    const fp = shotPath(t);
+    if (!existsSync(fp)) { res.writeHead(404, { "Content-Type": "text/plain" }); return res.end("not found"); }
+    res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=86400" });
+    return res.end(readFileSync(fp));
   }
   // Does the caller own this theme? (free ⇒ always; paid ⇒ needs a valid license)
   if (p.endsWith("/_push/market/owns")) {

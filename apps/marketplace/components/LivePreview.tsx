@@ -1,18 +1,32 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { previewUrl } from "@/lib/registry";
 
 /**
  * A scaled, non-interactive live render of the real theme (via the existing
- * ?market=<slug> preview). Rendered at a desktop width and scaled to fit its
- * frame — a "screenshot" of the actual site. Lazy so off-screen cards don't
- * wake theme containers. (Static screenshots replace this in the fast-follow.)
+ * ?market=<slug> preview), used only when a theme has no static screenshot yet.
+ * The iframe is mounted lazily — only when the card comes within 300px of the
+ * viewport — so a long grid never wakes dozens of theme containers at once.
  */
 export function LivePreview({ slug, name = "", base = 1280 }: { slug: string; name?: string; base?: number }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
 
+  // Mount the iframe only once the frame nears the viewport.
   useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { setVisible(true); io.disconnect(); }
+    }, { rootMargin: "300px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  // Scale the (desktop-width) iframe to fit its frame, once mounted.
+  useEffect(() => {
+    if (!visible) return;
     const el = ref.current;
     if (!el) return;
     const iframe = el.querySelector("iframe") as HTMLIFrameElement | null;
@@ -31,12 +45,12 @@ export function LivePreview({ slug, name = "", base = 1280 }: { slug: string; na
     const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => { ro.disconnect(); iframe.removeEventListener("load", onLoad); };
-  }, [base]);
+  }, [base, visible]);
 
   return (
     <div className="frame" ref={ref}>
       <span className="frame__ph" aria-hidden="true">{(name || slug).slice(0, 1).toUpperCase()}</span>
-      <iframe src={previewUrl(slug)} title={`${name || slug} preview`} loading="lazy" scrolling="no" tabIndex={-1} />
+      {visible && <iframe src={previewUrl(slug)} title={`${name || slug} preview`} loading="lazy" scrolling="no" tabIndex={-1} />}
     </div>
   );
 }

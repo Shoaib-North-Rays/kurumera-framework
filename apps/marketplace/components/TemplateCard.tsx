@@ -19,7 +19,9 @@ export function TemplateCard({ t }: { t: Template }) {
           </div>
         )}
         <SaveButton slug={t.slug} />
-        <LivePreview slug={t.slug} name={t.name} />
+        {t.coverImage
+          ? <div className="frame"><img className="frame__img" src={t.coverImage} alt={`${t.name} preview`} loading="lazy" /></div>
+          : <LivePreview slug={t.slug} name={t.name} />}
         <div className="tpl-card__hover">
           <a href={previewUrl(t.slug)} target="_blank" rel="noreferrer" className="tpl-card__preview">Live Preview</a>
           <Link href={href} className="tpl-card__preview" style={{ marginLeft: 8 }}>View Details</Link>

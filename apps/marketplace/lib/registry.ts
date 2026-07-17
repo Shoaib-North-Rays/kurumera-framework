@@ -18,12 +18,13 @@ export interface Template {
   tags: string[];
   category: string;
   demoStore: string;
+  coverImage: string;  // static screenshot URL; "" ⇒ fall back to the live preview
 }
 
 interface RawTheme {
   slug: string; name?: string; description?: string; author?: string;
   latest?: string; versions?: string[]; installs?: number;
-  price?: number; currency?: string; tags?: string[]; category?: string; demoStore?: string;
+  price?: number; currency?: string; tags?: string[]; category?: string; demoStore?: string; coverImage?: string;
 }
 
 function normalize(t: RawTheme): Template {
@@ -40,6 +41,7 @@ function normalize(t: RawTheme): Template {
     tags: (t.tags || []).map((x) => String(x).toLowerCase()),
     category: (t.category || "").toLowerCase(),
     demoStore: t.demoStore || "",
+    coverImage: t.coverImage || "",
   };
 }
 

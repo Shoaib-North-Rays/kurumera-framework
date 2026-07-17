@@ -31,6 +31,20 @@ export async function DiscoveryView({ params, forced = {} }: { params: SP; force
     sort: spGet(effective, "sort"),
   };
   const results = applyFilters(templates, f);
+
+  // Paginate so a large registry never renders dozens of previews at once.
+  const PAGE_SIZE = 12;
+  const pages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+  const page = Math.min(Math.max(1, parseInt(spGet(effective, "page") || "1", 10) || 1), pages);
+  const shown = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageHref = (n: number) => {
+    const q = new URLSearchParams();
+    (["category", "price", "style", "tag", "author", "q", "sort"] as const).forEach((k) => { if (f[k]) q.set(k, String(f[k])); });
+    if (n > 1) q.set("page", String(n));
+    const s = q.toString();
+    return `/templates${s ? `?${s}` : ""}`;
+  };
+
   const sidebar = <FilterSidebar templates={templates} params={effective} counts={counts} />;
 
   return (
@@ -67,7 +81,16 @@ export async function DiscoveryView({ params, forced = {} }: { params: SP; force
           </div>
 
           {results.length ? (
-            <div className="tpl-grid tpl-grid--4">{results.map((t) => <TemplateCard key={t.slug} t={t} />)}</div>
+            <>
+              <div className="tpl-grid tpl-grid--4">{shown.map((t) => <TemplateCard key={t.slug} t={t} />)}</div>
+              {pages > 1 && (
+                <nav className="pager" aria-label="Pagination">
+                  {page > 1 ? <Link className="btn btn--secondary" href={pageHref(page - 1)}>← Previous</Link> : <span className="btn btn--secondary pager__disabled">← Previous</span>}
+                  <span className="pager__info">Page {page} of {pages}</span>
+                  {page < pages ? <Link className="btn btn--secondary" href={pageHref(page + 1)}>Next →</Link> : <span className="btn btn--secondary pager__disabled">Next →</span>}
+                </nav>
+              )}
+            </>
           ) : (
             <div className="empty">
               <h3>We couldn&rsquo;t find a template matching {f.q ? `“${f.q}”` : "those filters"}.</h3>
