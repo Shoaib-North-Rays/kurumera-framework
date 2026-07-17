@@ -756,7 +756,12 @@ const server = http.createServer((req, res) => {
           pr.pipe(res);
         },
       );
-      preq.on("error", () => { res.writeHead(502, { "Content-Type": "text/html" }); res.end(`<h1>Preview for "${mkt}" is warming up — refresh in a moment.</h1>`); });
+      // Cold start (scale-to-zero): the container is booting. Auto-refresh so an
+      // embedded preview iframe heals itself once the theme is ready.
+      preq.on("error", () => {
+        res.writeHead(503, { "Content-Type": "text/html; charset=utf-8", "Retry-After": "2" });
+        res.end(`<!doctype html><meta http-equiv="refresh" content="2"><body style="font-family:system-ui,sans-serif;display:grid;place-items:center;height:100vh;margin:0;color:#586964;background:#F5F7F6"><p>Warming up the “${mkt}” preview…</p></body>`);
+      });
       req.pipe(preq);
     });
     return;
