@@ -6,6 +6,7 @@
  * Planned  (P2+):   stores list, theme check/push/preview/publish, browser login.
  */
 import { login } from "./commands/login.js";
+import { logout } from "./commands/logout.js";
 import { themeInit } from "./commands/init.js";
 import { themeDev } from "./commands/dev.js";
 import { themeCheck } from "./commands/check.js";
@@ -24,6 +25,7 @@ function help(): void {
   console.log("Usage: kurumera <command> [options]\n");
   console.log("Available now:");
   console.log("  login                                Sign in via the browser");
+  console.log("  logout [--store <slug>]              Clear saved credentials (sign out)");
   console.log("  theme init <name>                    Scaffold the base Next.js theme");
   console.log("  theme dev --store <slug>             Run the theme against live store data");
   console.log("  theme check                          Validate the route contract + safety rules");
@@ -55,6 +57,7 @@ const [a, b, ...rest] = argv;
 
 async function dispatch(): Promise<number> {
   if (a === "login") return login(argv.slice(1));
+  if (a === "logout") return logout(argv.slice(1));
   if (a === "theme" && b === "init") return themeInit(rest[0]);
   if (a === "theme" && b === "check") return themeCheck();
   if (a === "theme" && b === "push") return themePush(rest);
