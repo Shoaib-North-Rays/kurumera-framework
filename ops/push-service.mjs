@@ -25,7 +25,8 @@
  */
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, renameSync, rmSync, existsSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 
 const PORT = Number(process.env.PORT || 9200);
@@ -63,10 +64,35 @@ const marketDir = (theme, version) => join(MARKET, slug(theme), String(version).
 const marketName = (theme) => `kurumera-market-${slug(theme)}`;
 const DEMO_STORE = slug(process.env.KURUMERA_DEMO_STORE || "luxe-commerece");
 
+// Atomic JSON write: serialize to a temp file, then rename(2) over the target.
+// rename is atomic on the same filesystem, so a crash or overlapping write can
+// never leave a half-written (corrupt) state/market/license file — the failure
+// mode that would otherwise silently turn every paid theme free or wipe licenses.
+function writeJson(file, obj) {
+  const tmp = `${file}.tmp`;
+  writeFileSync(tmp, JSON.stringify(obj));
+  renameSync(tmp, file);
+}
+
+// Best-effort per-client rate limiting (defense-in-depth for the unauthenticated
+// license-check surface). Client IP via X-Forwarded-For, which Caddy/Cloudflare set.
+const _rate = new Map();
+function clientIp(req) {
+  const xff = req.headers["x-forwarded-for"];
+  return (xff ? String(xff).split(",")[0].trim() : req.socket?.remoteAddress) || "unknown";
+}
+function rateLimited(key, max = 40, windowMs = 60_000) {
+  const now = Date.now();
+  if (_rate.size > 10_000) _rate.clear();   // crude cap so the map can't grow unbounded
+  let r = _rate.get(key);
+  if (!r || now > r.resetAt) { r = { count: 0, resetAt: now + windowMs }; _rate.set(key, r); }
+  return ++r.count > max;
+}
+
 function getState() {
   try { return JSON.parse(readFileSync(STATE, "utf8")); } catch { return { stores: {} }; }
 }
-function setState(st) { writeFileSync(STATE, JSON.stringify(st)); }
+function setState(st) { writeJson(STATE, st); }
 function store(st, s) { return (st.stores[slug(s)] ||= { build: { status: "idle" }, versions: [], live: null, history: [] }); }
 
 // ── Sandbox ──────────────────────────────────────────────────────────────────
@@ -148,12 +174,24 @@ const STRIPE_SECRET = process.env.KURUMERA_STRIPE_SECRET || (() => {
   try { return readFileSync(join(ROOT, ".stripe-secret"), "utf8").trim(); } catch { return ""; }
 })();
 const MARKET_PUBLIC_URL = (process.env.KURUMERA_MARKET_URL || "https://themekit.kurumera.com").replace(/\/+$/, "");
-function getLicenses() { try { return JSON.parse(readFileSync(LICENSE_STATE, "utf8")); } catch { return { keys: {} }; } }
-function setLicenses(l) { writeFileSync(LICENSE_STATE, JSON.stringify(l)); }
+// Fail SAFE: a corrupt/unreadable licenses.json must not silently erase every
+// buyer's entitlement, so fall back to the last good copy when the file exists.
+let _licenseCache = null;
+function getLicenses() {
+  try { _licenseCache = JSON.parse(readFileSync(LICENSE_STATE, "utf8")); return _licenseCache; }
+  catch (e) {
+    if (existsSync(LICENSE_STATE) && _licenseCache) { console.error(`licenses.json unreadable, using cache: ${e?.message}`); return _licenseCache; }
+    return { keys: {} };
+  }
+}
+function setLicenses(l) { _licenseCache = l; writeJson(LICENSE_STATE, l); }
 function themePrice(theme) { const e = getMarket().themes[slug(theme)]; return e && Number(e.price) > 0 ? { price: Number(e.price), currency: e.currency || "USD" } : null; }
 function issueLicense(theme, email, session) {
   const l = getLicenses();
-  const key = `KURU-${slug(theme).toUpperCase().replace(/-/g, "").slice(0, 6)}-${Math.random().toString(36).slice(2, 8).toUpperCase()}${Date.now().toString(36).slice(-4).toUpperCase()}`;
+  // Cryptographically-random, non-guessable suffix (was Math.random — a weak PRNG
+  // whose output is recoverable and enumerable via the /owns oracle).
+  const rand = randomBytes(16).toString("base64url").replace(/[-_]/g, "").toUpperCase().slice(0, 14);
+  const key = `KURU-${slug(theme).toUpperCase().replace(/-/g, "").slice(0, 6)}-${rand}`;
   l.keys[key] = { theme: slug(theme), email: email || "", session: session || "", created: Date.now() };
   setLicenses(l);
   return key;
@@ -169,6 +207,17 @@ function ownsTheme(theme, license) { return !themePrice(theme) || licenseValid(l
 // ── Stripe (platform account — collects theme purchases) ─────────────────────
 // Minimal REST calls (form-encoded), no SDK. Activated by KURUMERA_STRIPE_SECRET
 // (sk_test_… works with Stripe test cards). Absent ⇒ purchasing is disabled.
+
+// Currencies a creator may price in — validated so a bogus code can't be saved
+// and then silently break every buyer's checkout later.
+const CURRENCIES = new Set(["USD", "EUR", "GBP", "PKR", "INR", "AED", "SAR", "AUD", "CAD", "SGD", "JPY", "KRW"]);
+// Stripe zero-decimal currencies take the amount as-is (no ×100). Charging JPY 100
+// as 10000 would be a 100× overcharge.
+const STRIPE_ZERO_DECIMAL = new Set(["JPY", "KRW", "VND", "CLP", "BIF", "DJF", "GNF", "KMF", "MGA", "PYG", "RWF", "UGX", "VUV", "XAF", "XOF", "XPF"]);
+function stripeAmount(price, currency) {
+  return STRIPE_ZERO_DECIMAL.has(String(currency).toUpperCase()) ? Math.round(price) : Math.round(price * 100);
+}
+
 function stripeForm(obj, prefix = "") {
   const parts = [];
   for (const [k, v] of Object.entries(obj)) {
@@ -199,7 +248,7 @@ async function createCheckout(theme, email) {
     cancel_url: `${MARKET_PUBLIC_URL}/marketplace`,
     "line_items[0][quantity]": 1,
     "line_items[0][price_data][currency]": (p.currency || "USD").toLowerCase(),
-    "line_items[0][price_data][unit_amount]": Math.round(p.price * 100),
+    "line_items[0][price_data][unit_amount]": stripeAmount(p.price, p.currency || "USD"),
     "line_items[0][price_data][product_data][name]": `${e.name || theme} theme`,
     "metadata[theme]": slug(theme),
     ...(email ? { customer_email: email } : {}),
@@ -582,10 +631,18 @@ async function reap() {
 // A developer publishes a store's latest BUILT version into a shared registry;
 // any store can install it (copied into that store's own version history, then
 // made live — so installs stay per-store isolated and roll back independently).
+// Fail SAFE, not open: if the file exists but momentarily won't parse, return the
+// last good in-memory copy rather than an empty market (which would make every
+// paid theme read as free/ownable). Only a truly missing file yields empty.
+let _marketCache = null;
 function getMarket() {
-  try { return JSON.parse(readFileSync(MARKET_STATE, "utf8")); } catch { return { themes: {} }; }
+  try { _marketCache = JSON.parse(readFileSync(MARKET_STATE, "utf8")); return _marketCache; }
+  catch (e) {
+    if (existsSync(MARKET_STATE) && _marketCache) { console.error(`market.json unreadable, using cache: ${e?.message}`); return _marketCache; }
+    return { themes: {} };
+  }
 }
-function setMarket(m) { writeFileSync(MARKET_STATE, JSON.stringify(m)); }
+function setMarket(m) { _marketCache = m; writeJson(MARKET_STATE, m); }
 
 function copyDir(src, dest) {
   return sh("sh", ["-c", `rm -rf '${dest}' && mkdir -p '${dest}' && cp -a '${src}/.' '${dest}/'`]);
@@ -608,6 +665,13 @@ async function publishToMarket(s, meta) {
   const dest = marketDir(theme, version);
   const m = getMarket();
   const entry = (m.themes[theme] ||= { name: meta.name || theme, description: "", author: "", latest: null, versions: [] });
+  // Ownership lock: once a slug belongs to a store, only THAT store may publish new
+  // versions to it. Without this, any store owner could publish `name: "Apotheca"`,
+  // reassign sourceStore to themselves, and repoint `latest` at their own artifact
+  // — a listing-takeover / supply-chain vector.
+  if (entry.sourceStore && slug(entry.sourceStore) !== s) {
+    return { ok: false, status: 409, error: `the theme name "${theme}" is already taken by another creator — choose a different \`name\` in theme.config` };
+  }
   if (entry.versions.some((v) => v.version === version)) {
     return { ok: false, error: `${theme}@${version} is already published — bump the version in theme.config` };
   }
@@ -777,10 +841,20 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/market/info")) {
     const t = slug(u.searchParams.get("theme") || "");
     const e = getMarket().themes[t];
-    return e ? json(200, { slug: t, ...e }) : json(404, { error: `no marketplace theme "${t}"` });
+    if (!e) return json(404, { error: `no marketplace theme "${t}"` });
+    // Explicit public projection — never spread the raw entry (it holds the internal
+    // owner store `sourceStore` and per-version build ids).
+    return json(200, {
+      slug: t, name: e.name, description: e.description || "", author: e.author || "",
+      latest: e.latest, versions: (e.versions || []).map((v) => ({ version: v.version, installs: v.installs || 0 })),
+      installs: (e.versions || []).reduce((n, v) => n + (v.installs || 0), 0),
+      price: Number(e.price) > 0 ? Number(e.price) : 0, currency: e.currency || "USD",
+      tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "",
+    });
   }
   // Does the caller own this theme? (free ⇒ always; paid ⇒ needs a valid license)
   if (p.endsWith("/_push/market/owns")) {
+    if (rateLimited(`owns:${clientIp(req)}`)) return json(429, { error: "too many requests — slow down" });
     const t = slug(u.searchParams.get("theme") || "");
     return json(200, { theme: t, paid: !!themePrice(t), owned: ownsTheme(t, u.searchParams.get("license") || "") });
   }
@@ -811,18 +885,39 @@ const server = http.createServer((req, res) => {
       const m = getMarket();
       const entry = m.themes[theme];
       if (!entry) return json(404, { error: `no marketplace theme "${theme}"` });
-      const store = slug(entry.sourceStore || body.store || "");
-      if (!store) return json(400, { error: "this listing has no owner store recorded — re-publish it once" });
+      // Authorize ONLY against the recorded owner store — never a caller-supplied
+      // store, which would let a non-owner edit (e.g. set price 0) any listing that
+      // is missing sourceStore. If ownership isn't recorded, force a re-publish.
+      const store = slug(entry.sourceStore || "");
+      if (!store) return json(400, { error: "this listing has no owner store recorded — re-publish it once to claim ownership" });
       const az = await verifyOwnership(req.headers["authorization"], store);
       if (!az.ok) return json(az.status || 403, { error: az.error });
-      // Apply only the editable listing fields.
+      // Apply only the editable listing fields, validated.
       if (typeof body.description === "string") entry.description = body.description.slice(0, 400);
-      if (body.price != null && !isNaN(Number(body.price))) entry.price = Math.max(0, Number(body.price));
-      if (typeof body.currency === "string" && body.currency) entry.currency = body.currency.toUpperCase().slice(0, 3);
+      if (body.price != null && Number.isFinite(Number(body.price))) entry.price = Math.min(999999, Math.max(0, Number(body.price)));
+      if (typeof body.currency === "string" && CURRENCIES.has(body.currency.toUpperCase())) entry.currency = body.currency.toUpperCase();
       if (Array.isArray(body.tags)) entry.tags = body.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean).slice(0, 12);
-      if (typeof body.category === "string") entry.category = body.category.toLowerCase().trim();
+      if (typeof body.category === "string") entry.category = body.category.toLowerCase().trim().slice(0, 40);
       setMarket(m);
       json(200, { ok: true, theme, price: entry.price || 0, currency: entry.currency, description: entry.description, tags: entry.tags, category: entry.category });
+    });
+    return;
+  }
+  // Delist a listing from the registry (owner-only). Existing installs are unaffected.
+  if (p.endsWith("/_push/market/unpublish") && req.method === "POST") {
+    readBody().then(async (buf) => {
+      let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
+      const theme = slug(body.theme || "");
+      const m = getMarket();
+      const entry = m.themes[theme];
+      if (!entry) return json(404, { error: `no marketplace theme "${theme}"` });
+      const store = slug(entry.sourceStore || "");
+      if (!store) return json(400, { error: "this listing has no owner store recorded — re-publish it once to claim ownership" });
+      const az = await verifyOwnership(req.headers["authorization"], store);
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      delete m.themes[theme];
+      setMarket(m);
+      json(200, { ok: true, theme, delisted: true });
     });
     return;
   }
@@ -887,7 +982,7 @@ const server = http.createServer((req, res) => {
       const az = await verifyOwnership(req.headers["authorization"], s);   // must own the source store
       if (!az.ok) return json(az.status || 403, { error: az.error });
       const r = await publishToMarket(s, body);
-      json(r.ok === false ? 400 : 200, r);
+      json(r.ok === false ? (r.status || 400) : 200, r);
     });
     return;
   }
