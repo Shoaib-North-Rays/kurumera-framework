@@ -57,7 +57,12 @@ export function PurchaseComplete() {
       <h1>You now own &ldquo;{data.name}&rdquo;</h1>
       <p className="muted">Save your license key — you&rsquo;ll need it to install or re-install the template.</p>
       <CopyBox label="license key" value={data.key} />
-      <CopyBox label="install into a store" value={`kurumera marketplace install ${data.theme} --store <your-store> --license ${data.key}`} />
+      <CopyBox label="install into a store (go live)" value={`kurumera marketplace install ${data.theme} --store <your-store> --license ${data.key}`} />
+      <CopyBox label="clone the source (customize the code)" value={`kurumera marketplace clone ${data.theme} --license ${data.key}`} />
+      <p className="purchase__guide">
+        To customize: <b>clone</b> → <code>npm install</code> → edit → <code>kurumera theme push</code> → <code>marketplace publish</code>.{" "}
+        <a href="https://themekit.kurumera.com/guide" target="_blank" rel="noreferrer">Full theme guide →</a>
+      </p>
       <p className="purchase__note"><Shield /> Keep this key somewhere safe — it&rsquo;s tied to your purchase.</p>
       <div className="purchase__actions">
         <Link className="btn btn--primary" href={`/templates/${data.theme}`}>View template</Link>

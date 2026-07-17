@@ -439,6 +439,9 @@ button { font-family: inherit; }
 .purchase p { color: var(--muted); margin: 8px 0; line-height: 1.55; }
 .purchase .code { text-align: left; margin: 16px 0; }
 .purchase a { color: var(--green-dark); }
+.purchase__guide { font-size: 13px; color: var(--muted); margin-top: 14px; line-height: 1.7; }
+.purchase__guide code, .getflow code, .note code { background: var(--sunken); padding: 1px 6px; border-radius: 5px; font-size: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--ink); }
+.purchase__guide a { color: var(--green-dark); }
 .purchase__note { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--faint); margin-top: 10px; }
 .purchase__note svg { width: 14px; height: 14px; }
 .purchase__actions { display: flex; gap: 10px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }

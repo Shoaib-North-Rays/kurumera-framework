@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MARKET_ORIGIN, previewUrl } from "@/lib/registry";
+import { previewUrl } from "@/lib/registry";
 import { Cart, Bolt, Shield } from "@/components/Icons";
 
 function Cmd({ label, cmd }: { label: string; cmd: string }) {
@@ -94,9 +94,10 @@ export function GetTemplate({ slug, free, priceLabel }: { slug: string; free: bo
 
       {open && free && (
         <div className="getflow">
-          <p className="note">Install it into your store, or clone the source to edit — a guided create-site flow is coming soon.</p>
-          <Cmd label="install into a store" cmd={`kurumera marketplace install ${slug} --store <your-store>`} />
-          <Cmd label="clone the source" cmd={`curl -sL "${MARKET_ORIGIN}/_push/market/source?theme=${slug}" | tar xz -C my-${slug}`} />
+          <p className="note">Install it into your store to go live, or clone the source to customize the code.</p>
+          <Cmd label="install into a store (go live)" cmd={`kurumera marketplace install ${slug} --store <your-store>`} />
+          <Cmd label="clone the source (customize)" cmd={`kurumera marketplace clone ${slug}`} />
+          <p className="note">Then <code>npm install</code>, edit, and <code>kurumera theme push</code> to ship your version. <a href="https://themekit.kurumera.com/guide" target="_blank" rel="noreferrer" style={{ color: "var(--green-dark)" }}>Full guide →</a></p>
         </div>
       )}
 

@@ -74,6 +74,7 @@ export function Purchases() {
             </div>
             <CopyBox label="license key" value={it.key} />
             <CopyBox label="install into a store" value={`kurumera marketplace install ${it.theme} --store <your-store> --license ${it.key}`} />
+            <CopyBox label="clone to customize" value={`kurumera marketplace clone ${it.theme} --license ${it.key}`} />
           </div>
         ))}
       </div>
