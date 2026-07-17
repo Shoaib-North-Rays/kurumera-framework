@@ -616,6 +616,7 @@ async function publishToMarket(s, meta) {
   if (c.code !== 0) return { ok: false, error: "failed to stage artifact", log: c.out.slice(-400) };
 
   const md = readMarketMeta(versionDir(s, latest));   // richer listing meta from the artifact's theme.config
+  entry.sourceStore = s;   // who owns this listing → gates creator-dashboard edits
   entry.name = meta.name || entry.name;
   if (meta.description || md.description) entry.description = meta.description || md.description;
   if (meta.author || md.author) entry.author = meta.author || md.author;
@@ -782,6 +783,48 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/market/owns")) {
     const t = slug(u.searchParams.get("theme") || "");
     return json(200, { theme: t, paid: !!themePrice(t), owned: ownsTheme(t, u.searchParams.get("license") || "") });
+  }
+  // ── Creator dashboard: list + edit a creator's own listings ──────────────────
+  // A creator authenticates with their Kurumera token and manages the listings
+  // published from a store they own (verified against the backend authz).
+  if (p.endsWith("/_push/market/mine") && req.method === "GET") {
+    const store = slug(u.searchParams.get("store") || "");
+    verifyOwnership(req.headers["authorization"], store).then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      const m = getMarket();
+      const mine = Object.entries(m.themes)
+        .filter(([, e]) => slug(e.sourceStore) === store)
+        .map(([s, e]) => ({
+          slug: s, name: e.name, description: e.description || "", author: e.author || "",
+          price: Number(e.price) > 0 ? Number(e.price) : 0, currency: e.currency || "USD",
+          tags: e.tags || [], category: e.category || "", latest: e.latest,
+          installs: (e.versions || []).reduce((n, v) => n + (v.installs || 0), 0),
+        }));
+      json(200, { store, themes: mine });
+    });
+    return;
+  }
+  if (p.endsWith("/_push/market/update") && req.method === "POST") {
+    readBody().then(async (buf) => {
+      let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
+      const theme = slug(body.theme || "");
+      const m = getMarket();
+      const entry = m.themes[theme];
+      if (!entry) return json(404, { error: `no marketplace theme "${theme}"` });
+      const store = slug(entry.sourceStore || body.store || "");
+      if (!store) return json(400, { error: "this listing has no owner store recorded — re-publish it once" });
+      const az = await verifyOwnership(req.headers["authorization"], store);
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      // Apply only the editable listing fields.
+      if (typeof body.description === "string") entry.description = body.description.slice(0, 400);
+      if (body.price != null && !isNaN(Number(body.price))) entry.price = Math.max(0, Number(body.price));
+      if (typeof body.currency === "string" && body.currency) entry.currency = body.currency.toUpperCase().slice(0, 3);
+      if (Array.isArray(body.tags)) entry.tags = body.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean).slice(0, 12);
+      if (typeof body.category === "string") entry.category = body.category.toLowerCase().trim();
+      setMarket(m);
+      json(200, { ok: true, theme, price: entry.price || 0, currency: entry.currency, description: entry.description, tags: entry.tags, category: entry.category });
+    });
+    return;
   }
   // Start a purchase — returns a Stripe Checkout URL for a paid theme.
   if (p.endsWith("/_push/market/checkout") && req.method === "POST") {
