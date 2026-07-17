@@ -29,12 +29,24 @@ export function GetTemplate({ slug, free, priceLabel }: { slug: string; free: bo
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-  // While the modal is open: autofocus the field, close on Escape, lock body scroll.
+  // While the modal is open: autofocus the field, close on Escape, lock body scroll,
+  // trap Tab within the dialog, and restore focus to the opener on close (a11y).
   useEffect(() => {
     if (!modal) return;
+    const opener = document.activeElement as HTMLElement | null;
     const focus = setTimeout(() => inputRef.current?.focus(), 40);
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeModal(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { closeModal(); return; }
+      if (e.key === "Tab" && dialogRef.current) {
+        const els = dialogRef.current.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])');
+        if (!els.length) return;
+        const first = els[0], last = els[els.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
     document.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -42,6 +54,7 @@ export function GetTemplate({ slug, free, priceLabel }: { slug: string; free: bo
       clearTimeout(focus);
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
+      opener?.focus?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal]);
@@ -90,6 +103,7 @@ export function GetTemplate({ slug, free, priceLabel }: { slug: string; free: bo
       {modal && (
         <div className="modal-overlay" onMouseDown={closeModal} role="presentation">
           <div
+            ref={dialogRef}
             className="modal"
             role="dialog"
             aria-modal="true"

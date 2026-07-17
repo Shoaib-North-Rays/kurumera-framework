@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { getSession, signOut, startSignIn, type Session } from "@/lib/session";
 import { LivePreview } from "@/components/LivePreview";
 import { CATEGORIES } from "@/lib/registry";
@@ -52,7 +53,10 @@ export function CreatorDashboard() {
     <>
       <div className="wrap" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 20, gap: 12, flexWrap: "wrap" }}>
         <span className="muted" style={{ fontSize: 14 }}>Signed in{store ? <> — store <b style={{ color: "var(--ink)" }}>{store}</b></> : ""}</span>
-        <button className="btn btn--tertiary" onClick={() => { signOut(); setSession(null); setThemes([]); }}>Sign out</button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <Link href="/purchases" className="btn btn--tertiary">My purchases</Link>
+          <button className="btn btn--tertiary" onClick={() => { signOut(); setSession(null); setThemes([]); }}>Sign out</button>
+        </div>
       </div>
       <div className="wrap">
         {loading && <p className="muted" style={{ padding: "20px 0" }}>Loading your templates…</p>}

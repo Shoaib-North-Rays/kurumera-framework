@@ -16,7 +16,7 @@
   /* neutrals */
   --ink: #111827;            /* main text */
   --muted: #64748B;          /* secondary text */
-  --faint: #94A3B8;
+  --faint: #6B7280;          /* darkened to meet WCAG AA (4.5:1) for small text */
   --border: #E2E8F0;
   --border-strong: #CBD5E1;
   --page: #F8FAFC;           /* page background */
@@ -116,8 +116,6 @@ button { font-family: inherit; }
 .badge--green { background: var(--mint); color: var(--green-dark); }
 .badge--free { background: var(--mint); color: var(--green-dark); }
 .badge--pop { background: #FEF3C7; color: #92400E; }
-.badge--new { background: #DBEAFE; color: #1E40AF; }
-.badge--best { background: var(--green-dark); color: #fff; }
 .badge--soft { background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
 
 /* ── Header ──────────────────────────────────────────────────── */
@@ -444,3 +442,13 @@ button { font-family: inherit; }
 .purchase__note svg { width: 14px; height: 14px; }
 .purchase__actions { display: flex; gap: 10px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
 .purchase__actions a { color: inherit; }
+
+/* ── My purchases ────────────────────────────────────────────── */
+.purchases__title { font-family: var(--font-head); font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
+.purchases__list { display: grid; gap: 16px; margin-top: 20px; }
+.pcard { border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); padding: 16px; }
+.pcard__top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 12px; }
+.pcard__top b { font-size: 16px; }
+.pcard__link { color: var(--green-dark); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.pcard__link:hover { color: var(--green-hover); }
+.pcard .code { margin: 8px 0; }

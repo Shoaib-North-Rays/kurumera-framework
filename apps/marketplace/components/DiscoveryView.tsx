@@ -55,6 +55,13 @@ export async function DiscoveryView({ params, forced = {} }: { params: SP; force
             <form className="disc-search" action="/templates" role="search">
               <Search />
               <input className="input" type="search" name="q" defaultValue={f.q || ""} placeholder="Search templates…" aria-label="Search templates" />
+              {/* Carry active filters through a search so results stay scoped/shareable. */}
+              {f.category && <input type="hidden" name="category" value={f.category} />}
+              {f.price && <input type="hidden" name="price" value={f.price} />}
+              {f.style && <input type="hidden" name="style" value={f.style} />}
+              {f.tag && <input type="hidden" name="tag" value={f.tag} />}
+              {f.author && <input type="hidden" name="author" value={f.author} />}
+              {f.sort && <input type="hidden" name="sort" value={f.sort} />}
             </form>
             <SortSelect />
           </div>
@@ -67,8 +74,7 @@ export async function DiscoveryView({ params, forced = {} }: { params: SP; force
               <p>Try removing a filter, exploring a related category, or starting from a blank canvas.</p>
               <div className="empty__actions">
                 <Link href="/templates" className="btn btn--secondary">Clear filters</Link>
-                <Link href="/templates/free" className="btn btn--secondary">Browse free templates</Link>
-                <Link href="#" className="btn btn--primary">Start from scratch</Link>
+                <Link href="/templates/free" className="btn btn--primary">Browse free templates</Link>
               </div>
             </div>
           )}

@@ -894,6 +894,24 @@ const server = http.createServer((req, res) => {
     const t = slug(u.searchParams.get("theme") || "");
     return json(200, { theme: t, paid: !!themePrice(t), owned: ownsTheme(t, u.searchParams.get("license") || "") });
   }
+  // A signed-in buyer's purchases — matched to their VERIFIED account email
+  // (resolved from the token via store authz; `actor` is the proven email). No
+  // email-guessing, so one user can never read another's license keys.
+  if (p.endsWith("/_push/market/purchases") && req.method === "GET") {
+    const store = slug(u.searchParams.get("store") || "");
+    verifyOwnership(req.headers["authorization"], store).then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      const email = String(az.actor || "").toLowerCase();
+      if (!email) return json(200, { email: "", purchases: [] });
+      const m = getMarket();
+      const purchases = Object.entries(getLicenses().keys)
+        .filter(([, r]) => !r.revoked && String(r.email || "").toLowerCase() === email)
+        .map(([key, r]) => { const e = m.themes[r.theme]; return { theme: r.theme, name: (e && e.name) || r.theme, key, created: r.created || 0 }; })
+        .sort((a, b) => b.created - a.created);
+      json(200, { email, purchases });
+    });
+    return;
+  }
   // ── Creator dashboard: list + edit a creator's own listings ──────────────────
   // A creator authenticates with their Kurumera token and manages the listings
   // published from a store they own (verified against the backend authz).
