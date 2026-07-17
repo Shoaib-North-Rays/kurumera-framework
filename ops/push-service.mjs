@@ -25,7 +25,7 @@
  */
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync, readFileSync, renameSync, rmSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, renameSync, rmSync, existsSync, appendFileSync } from "node:fs";
 import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 
@@ -215,6 +215,18 @@ function licenseValid(key, theme) {
   if (!key) return false;
   const rec = getLicenses().keys[String(key).trim()];
   return !!rec && rec.theme === slug(theme) && !rec.revoked;
+}
+// Append-only audit of every source (clone) pull — who (license), what, when —
+// plus a per-license counter. Accountability without blocking customization.
+function logSourcePull(theme, version, license, ip) {
+  try {
+    appendFileSync(join(ROOT, "source-pulls.jsonl"), JSON.stringify({ t: Date.now(), theme, version, license: license || null, ip }) + "\n");
+    if (license) {
+      const l = getLicenses();
+      const rec = l.keys[String(license).trim()];
+      if (rec) { rec.pulls = (rec.pulls || 0) + 1; rec.lastPull = Date.now(); setLicenses(l); }
+    }
+  } catch (e) { console.error(`source-pull log failed: ${e?.message}`); }
 }
 /** Revoke every license matching a predicate (e.g. by Stripe session or payment_intent). */
 function revokeLicenses(match, reason) {
@@ -1092,6 +1104,7 @@ const server = http.createServer((req, res) => {
     const ver = raw && raw !== "latest" ? String(raw).replace(/[^a-zA-Z0-9._-]/g, "") : e.latest;
     const dir = marketDir(t, ver);
     if (!existsSync(dir)) { res.writeHead(404, { "Content-Type": "text/plain" }); return res.end(`${t}@${ver} not found`); }
+    logSourcePull(t, ver, u.searchParams.get("license") || "", clientIp(req));
     res.writeHead(200, { "Content-Type": "application/gzip", "Content-Disposition": `attachment; filename="${t}-${ver}.tar.gz"` });
     const tar = spawn("tar", ["-czf", "-", "-C", dir,
       "--exclude=node_modules", "--exclude=.next", "--exclude=.git", "--exclude=dist",

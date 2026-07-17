@@ -1,7 +1,15 @@
-import { existsSync, readFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
 import { readConfig, writeConfig } from "../util/config.js";
+
+// Minimal ANSI colour helpers (no dependency); no-op when output isn't a TTY.
+const TTY = process.stdout.isTTY;
+const paint = (code: string, s: string) => (TTY ? `\x1b[${code}m${s}\x1b[0m` : s);
+const green = (s: string) => paint("32", s);
+const cyan = (s: string) => paint("36", s);
+const bold = (s: string) => paint("1", s);
+const dim = (s: string) => paint("2", s);
 
 const PUSH_URL = (process.env.KURUMERA_PUSH_URL || "https://themekit.kurumera.com/_push").replace(/\/+$/, "");
 const ROOT = process.env.KURUMERA_ROOT_DOMAIN || "kurumera.com";
@@ -177,31 +185,42 @@ async function clone(args: string[]): Promise<number> {
   if (version) qs.set("version", version);
   if (license) qs.set("license", license);
 
+  process.stdout.write(dim(`  cloning ${theme}… `));
   let res: Response;
   try { res = await fetch(`${PUSH_URL}/market/source?${qs.toString()}`); }
-  catch (e) { console.error(`Request failed: ${(e as Error).message}`); return 1; }
+  catch (e) { console.error(`\nRequest failed: ${(e as Error).message}`); return 1; }
   if (res.status === 402) {
-    console.error(`"${theme}" is a paid theme — buy it, then clone with a license key.`);
+    console.error(`\n"${theme}" is a paid theme — buy it, then clone with a license key.`);
     console.error(`  Buy it:  kurumera marketplace buy ${theme}`);
     return 1;
   }
-  if (!res.ok) { console.error(`Clone failed: ${(await res.text().catch(() => "")) || `HTTP ${res.status}`}`); return 1; }
+  if (!res.ok) { console.error(`\nClone failed: ${(await res.text().catch(() => "")) || `HTTP ${res.status}`}`); return 1; }
 
-  // Pipe the gzipped tarball straight into `tar` (bsdtar on Windows/macOS, GNU on Linux).
+  // Pipe the gzipped tarball straight into `tar` (bundled with Windows 10+, macOS, Linux).
   mkdirSync(dir, { recursive: true });
+  const bytes = Buffer.from(await res.arrayBuffer());
+  process.stdout.write(dim("extracting… "));
   const tar = spawn("tar", ["-xzf", "-", "-C", dir], { stdio: ["pipe", "inherit", "inherit"] });
-  const failed = await new Promise<boolean>((resolve) => {
-    tar.on("error", () => resolve(true));
-    tar.on("close", (code) => resolve(code !== 0));
-    res.arrayBuffer().then((b) => { tar.stdin.write(Buffer.from(b)); tar.stdin.end(); }).catch(() => resolve(true));
+  const ok = await new Promise<boolean>((done) => {
+    tar.on("error", () => done(false));
+    tar.on("close", (code) => done(code === 0));
+    tar.stdin.write(bytes); tar.stdin.end();
   });
-  if (failed) { console.error("Couldn't extract the source — is `tar` installed and on your PATH?"); return 1; }
+
+  const abs = resolve(dir);
+  if (!ok || !existsSync(dir) || !readdirSync(dir).length) {
+    try { if (existsSync(dir)) rmSync(dir, { recursive: true, force: true }); } catch { /* */ }
+    console.error(`\nCouldn't extract the source — make sure \`tar\` is installed (it ships with Windows 10+, macOS and Linux).`);
+    return 1;
+  }
 
   if (license) saveLicense(theme, license);
-  console.log(`✓ Cloned "${theme}"${version ? `@${version}` : ""} → ${dir}`);
-  console.log(`  Set up:    cd ${dir} && npm install`);
-  console.log(`  Develop:   kurumera theme dev --store <your-store>`);
-  console.log(`  Re-ship:   kurumera theme push  →  kurumera marketplace publish --store <your-store>`);
+  const q = abs.includes(" ") ? `"${abs}"` : abs;
+  console.log(`\n${green("✓")} Cloned ${bold(theme)}${version ? `@${version}` : ""}  (${readdirSync(dir).length} items)`);
+  console.log(`  ${dim("Folder:")}  ${cyan(abs)}`);
+  console.log(`  ${dim("Set up:")}  cd ${q} && npm install`);
+  console.log(`  ${dim("Develop:")} kurumera theme dev --store <your-store>`);
+  console.log(`  ${dim("Re-ship:")} kurumera theme push  →  kurumera marketplace publish --store <your-store>`);
   return 0;
 }
 
