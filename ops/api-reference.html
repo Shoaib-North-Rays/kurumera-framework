@@ -21,53 +21,76 @@
     --term-bg:#0A0F0E;--term-fg:#D7E0DC;--term-dim:#788883;--term-prompt:#3FE0CC;
     --get:#57C79A;--post:#D6A24A;--del:#E7736A;--patch:#9AA2F0;}}
   *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:940px;margin:0 auto;padding:0 24px}
+  .wrap{max-width:980px;margin:0 auto;padding:0 24px}
   a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid var(--accent-soft)}
   a:hover{border-bottom-color:currentColor}
-  code.i{font-family:var(--mono);font-size:.86em;background:var(--accent-soft);color:var(--accent-ink);padding:.1em .38em;border-radius:4px;white-space:nowrap}
+  code.i{font-family:var(--mono);font-size:.86em;background:var(--accent-soft);color:var(--accent-ink);padding:.1em .38em;border-radius:4px}
   .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-ink)}
-  h1,h2,h3{line-height:1.12;letter-spacing:-.015em;font-weight:680;text-wrap:balance}
+  h1,h2,h3{line-height:1.14;letter-spacing:-.015em;font-weight:680;text-wrap:balance;scroll-margin-top:16px}
   h1{font-size:clamp(2rem,4.6vw,2.7rem);margin:.3em 0 .2em}
-  h2{font-size:1.5rem;margin:0 0 .4em}
-  h3{font-size:1.02rem;margin:1.4em 0 .4em;font-family:var(--mono);font-weight:600}
+  h2{font-size:1.5rem;margin:0 0 .3em}
+  h3{font-size:1.05rem;margin:1.6em 0 .5em;font-weight:680}
   p{margin:0 0 1em}
   .lead{font-size:1.12rem;color:var(--muted)}
   .muted{color:var(--muted)}
   header.mast{border-bottom:1px solid var(--line);background:radial-gradient(120% 140% at 88% -20%,var(--accent-soft),transparent 60%)}
-  .mast .wrap{padding:52px 24px 36px}
+  .mast .wrap{padding:52px 24px 34px}
   .brand{display:flex;align-items:center;gap:10px;margin-bottom:22px}
   .glyph{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;background:var(--accent);color:#fff;font-family:var(--mono);font-weight:700;font-size:.9rem}
   .brand b{font-family:var(--mono);letter-spacing:.02em;font-weight:600;font-size:.9rem}
   section{padding:38px 0;border-bottom:1px solid var(--line)}
-  .sec-h{margin-bottom:18px}
-  /* terminal / code */
+  .sec-h{margin-bottom:20px}
+  /* code blocks */
   .code{background:var(--term-bg);border-radius:9px;overflow:hidden;margin:0 0 18px;border:1px solid rgba(255,255,255,.06)}
   .code__bar{padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.06);font-family:var(--mono);font-size:.7rem;color:var(--term-dim);letter-spacing:.05em}
   .code pre{margin:0;padding:14px 16px;overflow-x:auto}
-  .code code{font-family:var(--mono);font-size:.82rem;line-height:1.7;color:var(--term-fg);white-space:pre}
-  .code .k{color:#8fd0c6}.code .s{color:#cbb98a}.code .c{color:#6a7c77;font-style:italic}.code .p{color:var(--term-prompt)}
-  /* method rows */
-  .ep{display:grid;grid-template-columns:64px 1fr;gap:12px;align-items:baseline;padding:9px 0;border-top:1px solid var(--line)}
+  .code code{font-family:var(--mono);font-size:.8rem;line-height:1.65;color:var(--term-fg);white-space:pre}
+  .code .k{color:#8fd0c6}.code .s{color:#cbb98a}.code .c{color:#6a7c77;font-style:italic}.code .p{color:var(--term-prompt)}.code .n{color:#c9a4e6}
+  /* schema tables */
+  table.schema{width:100%;border-collapse:collapse;margin:0 0 8px;font-size:.82rem}
+  table.schema th{text-align:left;font-family:var(--mono);font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;padding:0 12px 7px 0;border-bottom:1px solid var(--line)}
+  table.schema td{padding:7px 12px 7px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  table.schema td:last-child{color:var(--muted)}
+  table.schema tr:last-child td{border-bottom:0}
+  .f{font-family:var(--mono);color:var(--ink);font-size:.92em;white-space:nowrap}
+  .t{font-family:var(--mono);color:var(--accent-ink);font-size:.9em;white-space:nowrap}
+  .rq{color:var(--del);font-size:.9em}
+  .model{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px 8px;margin:0 0 16px}
+  .model>h3{margin:0 0 4px;font-family:var(--mono);font-size:.98rem}
+  .model>.note{font-size:.84rem;color:var(--muted);margin:0 0 12px}
+  /* endpoint rows + detail cards */
+  .ep{display:grid;grid-template-columns:60px 1fr;gap:12px;align-items:baseline;padding:9px 0;border-top:1px solid var(--line)}
   .ep:first-of-type{border-top:0}
-  .m{font-family:var(--mono);font-size:.66rem;font-weight:700;letter-spacing:.05em;text-align:center;padding:3px 0;border-radius:5px;color:#fff}
+  .m{font-family:var(--mono);font-size:.64rem;font-weight:700;letter-spacing:.04em;text-align:center;padding:3px 0;border-radius:5px;color:#fff}
   .m.get{background:var(--get)}.m.post{background:var(--post)}.m.del{background:var(--del)}.m.patch{background:var(--patch)}.m.any{background:var(--faint)}
-  .ep .path{font-family:var(--mono);font-size:.84rem;color:var(--ink);word-break:break-word}
-  .ep .d{display:block;color:var(--muted);font-size:.86rem;margin-top:2px}
-  .ep .sdk{font-family:var(--mono);font-size:.76rem;color:var(--accent-ink);margin-top:3px;display:block}
-  .grp{margin:22px 0}
-  .grp h3{font-family:var(--sans);font-size:1.05rem;letter-spacing:-.01em;margin:0 0 6px;font-weight:680}
-  .grp>.note{font-size:.86rem;color:var(--muted);margin:0 0 8px}
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:0 0 14px}
-  .badge{display:inline-block;font-family:var(--mono);font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:5px;border:1px solid var(--line-strong);color:var(--muted)}
+  .ep .path{font-family:var(--mono);font-size:.83rem;color:var(--ink);word-break:break-word}
+  .ep .d{display:block;color:var(--muted);font-size:.85rem;margin-top:2px}
+  .ep .sdk{font-family:var(--mono);font-size:.75rem;color:var(--accent-ink);margin-top:3px;display:block}
+  .detail{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px 18px 14px;margin:0 0 16px}
+  .detail summary{cursor:pointer;list-style:none;padding:13px 0;display:flex;align-items:center;gap:11px;font-family:var(--mono);font-size:.83rem;color:var(--ink)}
+  .detail summary::-webkit-details-marker{display:none}
+  .detail summary::after{content:"▸";margin-left:auto;color:var(--faint)}
+  .detail[open] summary::after{content:"▾"}
+  .detail summary .m{flex:0 0 56px}
+  .detail .body{padding:4px 0 6px;border-top:1px solid var(--line)}
+  .detail .body h4{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:16px 0 8px}
+  .grp{margin:24px 0}
+  .grp>h3{font-size:1.12rem;letter-spacing:-.01em;margin:0 0 4px;font-weight:680}
+  .grp>.note{font-size:.86rem;color:var(--muted);margin:0 0 12px}
+  .badge{display:inline-block;font-family:var(--mono);font-size:.64rem;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:5px;border:1px solid var(--line-strong);color:var(--muted);vertical-align:middle}
   .badge.auth{color:var(--del);border-color:var(--del)}
+  .badge.pub{color:var(--get);border-color:var(--get)}
   .toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
-  .toc a{font-family:var(--mono);font-size:.74rem;border:1px solid var(--line-strong);border-radius:6px;padding:5px 9px;background:var(--surface);color:var(--muted)}
+  .toc a{font-family:var(--mono);font-size:.73rem;border:1px solid var(--line-strong);border-radius:6px;padding:5px 9px;background:var(--surface);color:var(--muted)}
   .toc a:hover{color:var(--ink);border-color:var(--accent)}
   ul.clean{margin:0 0 1em;padding-left:0;list-style:none}
   ul.clean li{position:relative;padding-left:20px;margin-bottom:.4em;color:var(--muted)}
   ul.clean li::before{content:"→";position:absolute;left:0;color:var(--accent);font-family:var(--mono)}
   ul.clean li b{color:var(--ink);font-weight:600}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:0 28px}
+  @media(max-width:640px){.cols{grid-template-columns:1fr}}
   footer{padding:30px 0 56px;color:var(--faint);font-size:.85rem;font-family:var(--mono)}
 </style>
 </head>
@@ -76,195 +99,461 @@
 <header class="mast">
   <div class="wrap">
     <div class="brand"><span class="glyph">K</span><b>KURUMERA · STOREFRONT API</b></div>
-    <span class="eyebrow">Developer reference</span>
-    <h1>The Storefront API</h1>
-    <p class="lead">Every customer-facing endpoint your theme can call — the typed <code class="i">@kurumera/storefront</code> SDK, plus the full REST surface for everything beyond it. All read-only-by-default, tenant-scoped, and safe to call from the browser.</p>
+    <span class="eyebrow">Complete developer reference</span>
+    <h1>Storefront API — models, endpoints &amp; schemas</h1>
+    <p class="lead">Every customer-facing endpoint, with typed request/response schemas grounded in the backend serializers. Read-only-by-default, tenant-scoped, browser-safe. Base URL <code class="i">https://admin.kurumera.com/api/v1</code>.</p>
     <div class="toc">
-      <a href="#start">Getting started</a><a href="#sdk">SDK</a><a href="#catalog">Catalog</a><a href="#cart">Cart</a><a href="#checkout">Checkout</a><a href="#orders">Orders</a><a href="#account">Account</a><a href="#content">Content</a><a href="#engage">Engagement</a><a href="#auth">Auth</a>
+      <a href="#conventions">Conventions</a><a href="#models">Data models</a><a href="#sdk">SDK</a><a href="#catalog">Catalog</a><a href="#cart">Cart</a><a href="#checkout">Checkout</a><a href="#orders">Orders</a><a href="#account">Account</a><a href="#content">Content</a><a href="#engage">Engagement</a><a href="#auth">Auth &amp; errors</a>
     </div>
   </div>
 </header>
 
 <main class="wrap">
 
-  <!-- START -->
-  <section id="start">
-    <div class="sec-h"><span class="eyebrow">01 · Setup</span><h2>Getting started</h2></div>
-    <p>Install the SDK (it's already a dependency in a scaffolded theme) and create a client. The client resolves the store for you — from a read-only <code class="i">ksf_…</code> token, or a <code class="i">tenant</code> slug, or a verified <code class="i">domain</code>.</p>
-    <div class="code"><div class="code__bar">lib/kurumera.ts — server</div><pre><code><span class="k">import</span> { createKurumeraClient } <span class="k">from</span> <span class="s">"@kurumera/storefront"</span>;
+  <!-- CONVENTIONS -->
+  <section id="conventions">
+    <div class="sec-h"><span class="eyebrow">00 · Conventions</span><h2>How the API behaves</h2></div>
+    <table class="schema">
+      <tr><th>Topic</th><th>Detail</th></tr>
+      <tr><td class="f">Base URL</td><td><code class="i">https://admin.kurumera.com/api/v1</code></td></tr>
+      <tr><td class="f">Store resolution</td><td>One header identifies the store: <code class="i">X-Kurumera-Storefront-Token</code> (a read-only <code class="i">ksf_…</code> token) · <code class="i">X-Tenant-ID</code> (store slug) · <code class="i">X-Tenant-Domain</code> (verified custom domain). The SDK sends the right one for you.</td></tr>
+      <tr><td class="f">Customer auth</td><td>Account endpoints need a customer JWT from <code class="i">account/login/</code> as <code class="i">Authorization: Bearer &lt;jwt&gt;</code>. Everything else is public.</td></tr>
+      <tr><td class="f">Money</td><td>Always a <b>decimal string</b> — <code class="i">"1299.00"</code>, never a number. Format at the edge with <code class="i">Intl.NumberFormat</code> + the store currency.</td></tr>
+      <tr><td class="f">IDs</td><td>UUID strings. Timestamps are ISO-8601 (<code class="i">"2026-07-16T13:12:04.749Z"</code>).</td></tr>
+      <tr><td class="f">Pagination</td><td>List endpoints return a DRF page envelope: <code class="i">{ count, next, previous, results[] }</code>. Params: <code class="i">limit</code>, <code class="i">offset</code>, <code class="i">page</code>.</td></tr>
+      <tr><td class="f">Errors</td><td>Non-2xx returns <code class="i">{ "error": { "code", "message" } }</code> with a matching HTTP status. The SDK throws <code class="i">KurumeraError</code> with <code class="i">.status</code> + <code class="i">.body</code>.</td></tr>
+      <tr><td class="f">CORS</td><td>Storefront + cart endpoints allow cross-origin calls, so a theme can call them from the browser.</td></tr>
+    </table>
+  </section>
 
-<span class="k">const</span> kurumera = createKurumeraClient({ token: process.env.KURUMERA_STOREFRONT_TOKEN });
-<span class="k">const</span> { results } = <span class="k">await</span> kurumera.products.list({ limit: <span class="s">12</span> });</code></pre></div>
-    <div class="code"><div class="code__bar">client-side (browser) — resolve by store slug</div><pre><code><span class="c">// On &lt;slug&gt;.kurumera.com the browser resolves the slug from the host.</span>
-<span class="k">const</span> kurumera = createKurumeraClient({ tenant: <span class="s">"my-store"</span> });
-<span class="k">const</span> cart = <span class="k">await</span> kurumera.cart.create();</code></pre></div>
-    <ul class="clean">
-      <li><b>Base URL</b> — <code class="i">https://admin.kurumera.com/api/v1</code> (override with <code class="i">apiUrl</code>).</li>
-      <li><b>Tenant header</b> — the client sends <code class="i">X-Kurumera-Storefront-Token</code>, <code class="i">X-Tenant-ID</code>, or <code class="i">X-Tenant-Domain</code> automatically.</li>
-      <li><b>Errors</b> — non-2xx throws <code class="i">KurumeraError</code> with <code class="i">.status</code> and <code class="i">.body</code>.</li>
-      <li><b>Escape hatch</b> — <code class="i">kurumera.http.get/post/patch/del</code> reaches any endpoint the typed resources don't cover.</li>
-    </ul>
+  <!-- MODELS -->
+  <section id="models">
+    <div class="sec-h"><span class="eyebrow">01 · Schemas</span><h2>Data models</h2></div>
+    <p class="muted"><span class="rq">*</span> marks a required field on input. Fields with a trailing <code class="i">…</code> mean the real payload may carry more (forward-compatible).</p>
+
+    <div class="model"><h3>Money · Paginated&lt;T&gt;</h3>
+      <table class="schema"><tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="f">Money</td><td class="t">string</td><td>Decimal string, e.g. <code class="i">"12.00"</code>.</td></tr>
+        <tr><td class="f">count</td><td class="t">number</td><td>Total items across all pages.</td></tr>
+        <tr><td class="f">next / previous</td><td class="t">string | null</td><td>Page URLs.</td></tr>
+        <tr><td class="f">results</td><td class="t">T[]</td><td>The page of items.</td></tr>
+      </table>
+    </div>
+
+    <div class="model"><h3>ProductImage</h3>
+      <table class="schema"><tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="f">id</td><td class="t">string</td><td></td></tr>
+        <tr><td class="f">src</td><td class="t">string | null</td><td>Absolute image URL.</td></tr>
+        <tr><td class="f">alt</td><td class="t">string | null</td><td></td></tr>
+      </table>
+    </div>
+
+    <div class="model"><h3>ProductListItem <span class="badge">list payload</span></h3>
+      <p class="note">Card-sized product from the list/search/collection endpoints.</p>
+      <table class="schema"><tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="f">id · handle · title</td><td class="t">string</td><td><code class="i">handle</code> is the URL slug.</td></tr>
+        <tr><td class="f">vendor · product_type</td><td class="t">string</td><td>Brand / category.</td></tr>
+        <tr><td class="f">tags</td><td class="t">string[]</td><td>Free-form tags (theme conventions like <code class="i">rx</code> live here).</td></tr>
+        <tr><td class="f">status</td><td class="t">string</td><td><code class="i">ACTIVE</code> / <code class="i">DRAFT</code> / …</td></tr>
+        <tr><td class="f">featured_image</td><td class="t">ProductImage | null</td><td></td></tr>
+        <tr><td class="f">min_price · max_price</td><td class="t">Money</td><td>Price range across variants.</td></tr>
+        <tr><td class="f">min_compare_at_price</td><td class="t">Money | null</td><td>"Was" price when on sale.</td></tr>
+        <tr><td class="f">available</td><td class="t">boolean</td><td>Any variant in stock.</td></tr>
+        <tr><td class="f">is_best_seller · is_deal</td><td class="t">boolean</td><td>Merchandising flags.</td></tr>
+        <tr><td class="f">description</td><td class="t">string</td><td>Plain-text summary.</td></tr>
+        <tr><td class="f">seo_title · seo_description · noindex</td><td class="t">string · string · boolean</td><td>SEO.</td></tr>
+        <tr><td class="f">created_at · updated_at</td><td class="t">string</td><td>ISO timestamps.</td></tr>
+      </table>
+    </div>
+
+    <div class="model"><h3>Product <span class="badge">detail payload</span></h3>
+      <p class="note">Extends <b>ProductListItem</b> with the full PDP data.</p>
+      <table class="schema"><tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="f">body_html</td><td class="t">string</td><td>Rich description HTML.</td></tr>
+        <tr><td class="f">options</td><td class="t">ProductOption[]</td><td>e.g. Size, Color.</td></tr>
+        <tr><td class="f">variants</td><td class="t">ProductVariant[]</td><td>Buyable variants (each has the <code class="i">id</code> for cart lines).</td></tr>
+        <tr><td class="f">images</td><td class="t">ProductImage[]</td><td>Gallery.</td></tr>
+        <tr><td class="f">available_quantity</td><td class="t">number</td><td></td></tr>
+        <tr><td class="f">canonical_url · seo_jsonld · seo_image_url</td><td class="t">string · object · string</td><td>SEO.</td></tr>
+        <tr><td class="f">published_at</td><td class="t">string | null</td><td></td></tr>
+      </table>
+    </div>
+
+    <div class="cols">
+      <div class="model"><h3>ProductOption</h3>
+        <table class="schema"><tr><th>Field</th><th>Type</th></tr>
+          <tr><td class="f">id · name</td><td class="t">string</td></tr>
+          <tr><td class="f">position</td><td class="t">number</td></tr>
+          <tr><td class="f">values</td><td class="t">ProductOptionValue[]</td></tr>
+        </table>
+        <p class="note" style="margin-top:2px">ProductOptionValue: <code class="i">{ id, name, value, position }</code></p>
+      </div>
+      <div class="model"><h3>ProductVariant</h3>
+        <table class="schema"><tr><th>Field</th><th>Type</th></tr>
+          <tr><td class="f">id</td><td class="t">string</td></tr>
+          <tr><td class="f">title · sku</td><td class="t">string</td></tr>
+          <tr><td class="f">price</td><td class="t">Money</td></tr>
+          <tr><td class="f">compare_at_price</td><td class="t">Money | null</td></tr>
+          <tr><td class="f">available</td><td class="t">boolean</td></tr>
+          <tr><td class="f">available_quantity</td><td class="t">number</td></tr>
+          <tr><td class="f">option_values</td><td class="t">Record&lt;string,string&gt;</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="model"><h3>Collection</h3>
+        <table class="schema"><tr><th>Field</th><th>Type</th></tr>
+          <tr><td class="f">id · handle · title</td><td class="t">string</td></tr>
+          <tr><td class="f">description</td><td class="t">string</td></tr>
+          <tr><td class="f">image</td><td class="t">string | null</td></tr>
+          <tr><td class="f">seo_* · canonical_url · noindex</td><td class="t">string · boolean</td></tr>
+          <tr><td class="f">published_at · updated_at</td><td class="t">string | null</td></tr>
+        </table>
+        <p class="note" style="margin-top:2px">Detail adds <code class="i">products: Paginated&lt;ProductListItem&gt; | ProductListItem[]</code>.</p>
+      </div>
+      <div class="model"><h3>Menu · MenuItem</h3>
+        <table class="schema"><tr><th>Field</th><th>Type</th></tr>
+          <tr><td class="f">handle · name</td><td class="t">string</td></tr>
+          <tr><td class="f">items</td><td class="t">MenuItem[]</td></tr>
+        </table>
+        <p class="note" style="margin-top:2px">MenuItem: <code class="i">{ label, href: string|null, link_type, is_broken, children: MenuItem[] }</code></p>
+      </div>
+    </div>
+
+    <div class="model"><h3>Cart</h3>
+      <table class="schema"><tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+        <tr><td class="f">id · token</td><td class="t">string</td><td><b>token</b> identifies the cart — persist it (localStorage/cookie).</td></tr>
+        <tr><td class="f">email · note</td><td class="t">string</td><td></td></tr>
+        <tr><td class="f">currency</td><td class="t">string</td><td>ISO code, e.g. <code class="i">"PKR"</code>.</td></tr>
+        <tr><td class="f">attributes</td><td class="t">object</td><td>Custom key/values.</td></tr>
+        <tr><td class="f">discount_codes</td><td class="t">string[]</td><td></td></tr>
+        <tr><td class="f">items_count</td><td class="t">number</td><td>Sum of line quantities.</td></tr>
+        <tr><td class="f">subtotal_price · total_discount · total_tax · total_price</td><td class="t">Money</td><td></td></tr>
+        <tr><td class="f">lines</td><td class="t">CartLine[]</td><td></td></tr>
+        <tr><td class="f">created_at · updated_at · expires_at</td><td class="t">string</td><td>Carts expire (~14 days).</td></tr>
+      </table>
+    </div>
+
+    <div class="cols">
+      <div class="model"><h3>CartLine</h3>
+        <table class="schema"><tr><th>Field</th><th>Type</th></tr>
+          <tr><td class="f">id · variant_id · product_id</td><td class="t">string</td></tr>
+          <tr><td class="f">product_handle · product_title</td><td class="t">string</td></tr>
+          <tr><td class="f">variant_title · sku</td><td class="t">string</td></tr>
+          <tr><td class="f">image_src</td><td class="t">string | null</td></tr>
+          <tr><td class="f">quantity</td><td class="t">number</td></tr>
+          <tr><td class="f">unit_price · compare_at_price</td><td class="t">Money</td></tr>
+          <tr><td class="f">line_discount · line_total</td><td class="t">Money</td></tr>
+        </table>
+      </div>
+      <div class="model"><h3>CartLineInput <span class="badge">POST body</span></h3>
+        <table class="schema"><tr><th>Field</th><th>Type</th></tr>
+          <tr><td class="f">variant_id <span class="rq">*</span></td><td class="t">string (UUID)</td></tr>
+          <tr><td class="f">quantity</td><td class="t">number ≥ 1</td></tr>
+          <tr><td class="f">attributes</td><td class="t">object</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="model"><h3>Order · OrderLine</h3>
+        <table class="schema"><tr><th>Field</th><th>Type</th></tr>
+          <tr><td class="f">id</td><td class="t">string (UUID)</td></tr>
+          <tr><td class="f">name · order_number</td><td class="t">string · number</td></tr>
+          <tr><td class="f">financial_status</td><td class="t">string</td></tr>
+          <tr><td class="f">fulfillment_status</td><td class="t">string</td></tr>
+          <tr><td class="f">total_price · currency</td><td class="t">Money · string</td></tr>
+          <tr><td class="f">line_items</td><td class="t">OrderLine[]</td></tr>
+          <tr><td class="f">created_at</td><td class="t">string</td></tr>
+        </table>
+        <p class="note" style="margin-top:2px">OrderLine: <code class="i">{ title, variant_title, sku, quantity, price, fulfillment_status }</code></p>
+      </div>
+      <div class="model"><h3>Address</h3>
+        <table class="schema"><tr><th>Field</th><th>Type</th></tr>
+          <tr><td class="f">id</td><td class="t">string (read-only)</td></tr>
+          <tr><td class="f">first_name · last_name</td><td class="t">string</td></tr>
+          <tr><td class="f">address1 <span class="rq">*</span></td><td class="t">string</td></tr>
+          <tr><td class="f">address2</td><td class="t">string</td></tr>
+          <tr><td class="f">city <span class="rq">*</span></td><td class="t">string</td></tr>
+          <tr><td class="f">province · province_code</td><td class="t">string</td></tr>
+          <tr><td class="f">country <span class="rq">*</span> · country_code <span class="rq">*</span></td><td class="t">string · string(2)</td></tr>
+          <tr><td class="f">zip · phone</td><td class="t">string</td></tr>
+          <tr><td class="f">is_default</td><td class="t">boolean</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="model"><h3>Gateway</h3>
+        <table class="schema"><tr><th>Field</th><th>Type</th></tr>
+          <tr><td class="f">id · name</td><td class="t">string</td></tr>
+          <tr><td class="f">provider_type</td><td class="t">string</td></tr>
+          <tr><td class="f">test_mode</td><td class="t">boolean</td></tr>
+          <tr><td class="f">supported_methods</td><td class="t">string[]</td></tr>
+          <tr><td class="f">publishable_key</td><td class="t">string | null</td></tr>
+          <tr><td class="f">supports_recurring · auto_charge_enabled</td><td class="t">boolean</td></tr>
+        </table>
+        <p class="note" style="margin-top:2px"><code class="i">provider_type</code>: <code class="i">cod</code>, <code class="i">stripe</code>, <code class="i">bank_transfer</code>, <code class="i">jazzcash</code>, <code class="i">easypaisa</code>.</p>
+      </div>
+      <div class="model"><h3>Page (CMS)</h3>
+        <table class="schema"><tr><th>Field</th><th>Type</th></tr>
+          <tr><td class="f">id · title · handle</td><td class="t">string</td></tr>
+          <tr><td class="f">body_html</td><td class="t">string</td></tr>
+          <tr><td class="f">seo_title · seo_description</td><td class="t">string</td></tr>
+          <tr><td class="f">image_url · image_alt</td><td class="t">string</td></tr>
+          <tr><td class="f">canonical_url · noindex</td><td class="t">string · boolean</td></tr>
+          <tr><td class="f">published_at · updated_at</td><td class="t">string</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="model"><h3>TenantConfig <span class="badge">store identity</span></h3>
+      <p class="note">One payload describing the store — branding, contact, currency, SEO. Sub-objects:</p>
+      <table class="schema"><tr><th>Key</th><th>Fields</th></tr>
+        <tr><td class="f">tenant</td><td class="t">{ id, slug, name, domain }</td></tr>
+        <tr><td class="f">branding</td><td class="t">{ store_name, tagline, description, logo_url, logo_dark_url, favicon_url, og_image_url, primary_color, secondary_color, accent_color, theme }</td></tr>
+        <tr><td class="f">contact</td><td class="t">{ email, phone, whatsapp_number, company_name, legal_name }</td></tr>
+        <tr><td class="f">address</td><td class="t">{ line1, city, postal_code, country_code, formatted, geo_lat, geo_lng }</td></tr>
+        <tr><td class="f">social</td><td class="t">{ facebook, instagram, twitter, tiktok, youtube }</td></tr>
+        <tr><td class="f">seo</td><td class="t">{ default_meta_title, default_meta_description }</td></tr>
+        <tr><td class="f">commerce</td><td class="t">{ currency_code, timezone, weight_unit, unit_system, country_code }</td></tr>
+        <tr><td class="f">shipping</td><td class="t">{ free_shipping_threshold }</td></tr>
+        <tr><td class="f">opening_hours · seo_jsonld · contact_form</td><td class="t">object</td></tr>
+      </table>
+    </div>
   </section>
 
   <!-- SDK -->
   <section id="sdk">
-    <div class="sec-h"><span class="eyebrow">02 · Typed SDK</span><h2>SDK resources</h2></div>
-    <p class="muted">The recommended surface — fully typed, one method per common need. Each maps to a REST endpoint (shown on the right).</p>
-
-    <div class="grp"><h3>kurumera.products</h3>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">.list(params?)</span><span class="d">Paged product cards. Params: limit, offset, page, collection, vendor, tag, sort.</span><span class="sdk">→ /storefront/products/</span></div></div>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">.getByHandle(handle)</span><span class="d">Full product detail — variants, options, images, price, SEO.</span><span class="sdk">→ /storefront/products/{handle}/</span></div></div>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">.bestSellers(params?)</span><span class="d">Top-selling products.</span><span class="sdk">→ /storefront/best-sellers/</span></div></div>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">.deals(params?)</span><span class="d">Products on sale.</span><span class="sdk">→ /storefront/deals/</span></div></div>
-    </div>
-
-    <div class="grp"><h3>kurumera.collections</h3>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">.list(params?)</span><span class="d">All collections (categories).</span><span class="sdk">→ /storefront/collections/</span></div></div>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">.getByHandle(handle)</span><span class="d">A collection plus its products.</span><span class="sdk">→ /storefront/collections/{handle}/</span></div></div>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">.getBySlot(slot)</span><span class="d">Merchandising-slot lookup (e.g. "homepage-featured").</span><span class="sdk">→ /storefront/collections/by-slot/{slot}/</span></div></div>
-    </div>
-
-    <div class="grp"><h3>kurumera.search</h3>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">.query(q, params?)</span><span class="d">Full search — returns product cards.</span><span class="sdk">→ /storefront/search/?q=</span></div></div>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">.autocomplete(q)</span><span class="d">Type-ahead suggestions.</span><span class="sdk">→ /storefront/search/autocomplete/?q=</span></div></div>
-    </div>
-
-    <div class="grp"><h3>kurumera.cart</h3>
-      <div class="ep"><span class="m post">POST</span><div><span class="path">.create()</span><span class="d">Start a cart; returns its token — persist it (cookie/localStorage).</span><span class="sdk">→ /cart/</span></div></div>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">.get(token)</span><span class="d">Fetch a cart with its lines and totals.</span><span class="sdk">→ /cart/{token}/</span></div></div>
-      <div class="ep"><span class="m post">POST</span><div><span class="path">.addLine(token, {variant_id, quantity})</span><span class="d">Add a variant to the cart.</span><span class="sdk">→ /cart/{token}/lines/</span></div></div>
-      <div class="ep"><span class="m patch">PATCH</span><div><span class="path">.updateLine(token, lineId, {quantity})</span><span class="d">Change a line's quantity.</span><span class="sdk">→ /cart/{token}/lines/{id}/</span></div></div>
-      <div class="ep"><span class="m del">DEL</span><div><span class="path">.removeLine(token, lineId)</span><span class="d">Remove a line.</span><span class="sdk">→ /cart/{token}/lines/{id}/</span></div></div>
-    </div>
-
-    <div class="grp"><h3>kurumera.navigation · pages · config</h3>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">navigation.all()</span><span class="d">Every menu, keyed by handle, hrefs resolved.</span><span class="sdk">→ /storefront/menus/</span></div></div>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">navigation.get(handle)</span><span class="d">One menu by handle (e.g. "main-menu", "footer").</span><span class="sdk">→ /storefront/menus/</span></div></div>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">pages.getByHandle(handle)</span><span class="d">A CMS page (about, contact, policies).</span><span class="sdk">→ /storefront/pages/{handle}/</span></div></div>
-      <div class="ep"><span class="m get">GET</span><div><span class="path">config.get()</span><span class="d">Store branding, colors, contact, SEO defaults.</span><span class="sdk">→ /storefront/tenant-config/</span></div></div>
-    </div>
-
-    <h3 style="font-family:var(--sans);font-size:1.05rem;font-weight:680;letter-spacing:-.01em">The escape hatch — anything else</h3>
-    <p class="muted">For endpoints without a typed method (checkout, account, reviews, blogs…), call them directly through <code class="i">kurumera.http</code> — it carries the tenant + auth headers for you.</p>
-    <div class="code"><div class="code__bar">example — subscribe to the newsletter</div><pre><code><span class="k">await</span> kurumera.http.post(<span class="s">"/storefront/newsletter/subscribe/"</span>, { email });
-
-<span class="c">// GET with query params</span>
-<span class="k">const</span> reviews = <span class="k">await</span> kurumera.http.get(<span class="s">`/storefront/products/${handle}/reviews/`</span>);</code></pre></div>
+    <div class="sec-h"><span class="eyebrow">02 · Typed SDK</span><h2>@kurumera/storefront</h2></div>
+    <div class="code"><div class="code__bar">setup</div><pre><code><span class="k">import</span> { createKurumeraClient } <span class="k">from</span> <span class="s">"@kurumera/storefront"</span>;
+<span class="k">const</span> kurumera = createKurumeraClient({ token: process.env.KURUMERA_STOREFRONT_TOKEN });
+<span class="c">// or { tenant: "my-store" } / { domain: "shop.acme.com" }, optional { apiUrl, fetch }</span></code></pre></div>
+    <table class="schema"><tr><th>Method</th><th>Returns</th><th>Endpoint</th></tr>
+      <tr><td class="f">products.list(params?)</td><td class="t">Paginated&lt;ProductListItem&gt;</td><td>GET /storefront/products/</td></tr>
+      <tr><td class="f">products.getByHandle(handle)</td><td class="t">Product</td><td>GET /storefront/products/{handle}/</td></tr>
+      <tr><td class="f">products.bestSellers(params?)</td><td class="t">Paginated&lt;ProductListItem&gt;</td><td>GET /storefront/best-sellers/</td></tr>
+      <tr><td class="f">products.deals(params?)</td><td class="t">Paginated&lt;ProductListItem&gt;</td><td>GET /storefront/deals/</td></tr>
+      <tr><td class="f">collections.list(params?)</td><td class="t">Paginated&lt;Collection&gt;</td><td>GET /storefront/collections/</td></tr>
+      <tr><td class="f">collections.getByHandle(handle)</td><td class="t">CollectionDetail</td><td>GET /storefront/collections/{handle}/</td></tr>
+      <tr><td class="f">collections.getBySlot(slot)</td><td class="t">CollectionDetail</td><td>GET /storefront/collections/by-slot/{slot}/</td></tr>
+      <tr><td class="f">search.query(q, params?)</td><td class="t">Paginated&lt;ProductListItem&gt;</td><td>GET /storefront/search/?q=</td></tr>
+      <tr><td class="f">search.autocomplete(q)</td><td class="t">object</td><td>GET /storefront/search/autocomplete/?q=</td></tr>
+      <tr><td class="f">navigation.all() · .get(handle)</td><td class="t">Record&lt;string,Menu&gt; · Menu</td><td>GET /storefront/menus/</td></tr>
+      <tr><td class="f">pages.getByHandle(handle)</td><td class="t">CmsPage</td><td>GET /storefront/pages/{handle}/</td></tr>
+      <tr><td class="f">config.get()</td><td class="t">TenantConfig</td><td>GET /storefront/tenant-config/</td></tr>
+      <tr><td class="f">cart.create()</td><td class="t">Cart</td><td>POST /cart/</td></tr>
+      <tr><td class="f">cart.get(token)</td><td class="t">Cart</td><td>GET /cart/{token}/</td></tr>
+      <tr><td class="f">cart.addLine(token, input)</td><td class="t">Cart</td><td>POST /cart/{token}/lines/</td></tr>
+      <tr><td class="f">cart.updateLine(token, id, {quantity})</td><td class="t">Cart</td><td>PATCH /cart/{token}/lines/{id}/</td></tr>
+      <tr><td class="f">cart.removeLine(token, id)</td><td class="t">Cart</td><td>DELETE /cart/{token}/lines/{id}/</td></tr>
+      <tr><td class="f">http.get/post/patch/del(path, body?)</td><td class="t">unknown</td><td>escape hatch — anything below</td></tr>
+    </table>
   </section>
 
   <!-- CATALOG -->
   <section id="catalog">
-    <div class="sec-h"><span class="eyebrow">03 · Reference</span><h2>Catalog</h2></div>
-    <p class="muted">Products, collections, search, merchandising. <span class="badge">public</span></p>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/products/</span><span class="d">List products (paged). Filters: collection, vendor, tag, sort, limit, offset, page.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/products/{handle}/</span><span class="d">Product detail — variants, options, images, pricing, SEO, availability.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/products/{handle}/reviews/</span><span class="d">Product reviews.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/collections/</span><span class="d">List collections.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/collections/{handle}/</span><span class="d">Collection + its products.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/collections/by-slot/{slot}/</span><span class="d">Merchandising-slot lookup.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/search/</span><span class="d">Search products (<code class="i">?q=</code>).</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/search/autocomplete/</span><span class="d">Type-ahead suggestions (<code class="i">?q=</code>).</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/best-sellers/</span><span class="d">Top-selling products.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/deals/</span><span class="d">Products on sale.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/faqs/</span><span class="d">Store FAQs.</span></div></div>
+    <div class="sec-h"><span class="eyebrow">03 · Endpoints</span><h2>Catalog <span class="badge pub">public</span></h2></div>
+
+    <details class="detail"><summary><span class="m get">GET</span> /storefront/products/</summary>
+      <div class="body">
+        <h4>Query params</h4>
+        <table class="schema"><tr><th>Param</th><th>Type</th><th>Notes</th></tr>
+          <tr><td class="f">limit · offset · page</td><td class="t">number</td><td>Pagination.</td></tr>
+          <tr><td class="f">collection</td><td class="t">string</td><td>Filter by collection handle.</td></tr>
+          <tr><td class="f">vendor · tag</td><td class="t">string</td><td>Filter by brand / tag.</td></tr>
+          <tr><td class="f">sort</td><td class="t">string</td><td>e.g. <code class="i">price</code>, <code class="i">-created_at</code>, <code class="i">title</code>.</td></tr>
+        </table>
+        <h4>Returns · Paginated&lt;ProductListItem&gt;</h4>
+        <div class="code"><div class="code__bar">example</div><pre><code>{
+  <span class="n">"count"</span>: <span class="p">1</span>, <span class="n">"next"</span>: <span class="k">null</span>, <span class="n">"previous"</span>: <span class="k">null</span>,
+  <span class="n">"results"</span>: [{
+    <span class="n">"id"</span>: <span class="s">"4c153da2-…"</span>, <span class="n">"title"</span>: <span class="s">"Panadol CFX"</span>, <span class="n">"handle"</span>: <span class="s">"luxe-apple"</span>,
+    <span class="n">"vendor"</span>: <span class="s">"GSK"</span>, <span class="n">"tags"</span>: [], <span class="n">"status"</span>: <span class="s">"ACTIVE"</span>,
+    <span class="n">"featured_image"</span>: { <span class="n">"src"</span>: <span class="s">"https://…/img.webp"</span>, <span class="n">"alt"</span>: <span class="k">null</span> },
+    <span class="n">"min_price"</span>: <span class="s">"12.00"</span>, <span class="n">"min_compare_at_price"</span>: <span class="s">"12434.00"</span>,
+    <span class="n">"available"</span>: <span class="k">true</span>, <span class="n">"is_deal"</span>: <span class="k">true</span>
+  }]
+}</code></pre></div>
+      </div>
+    </details>
+
+    <details class="detail"><summary><span class="m get">GET</span> /storefront/products/{handle}/</summary>
+      <div class="body">
+        <h4>Returns · Product</h4>
+        <p class="muted" style="font-size:.85rem">Full PDP payload — <b>ProductListItem</b> plus <code class="i">body_html</code>, <code class="i">options[]</code>, <code class="i">variants[]</code> (each variant's <code class="i">id</code> is what you add to the cart), <code class="i">images[]</code>, SEO. 404 if the handle doesn't exist.</p>
+      </div>
+    </details>
+
+    <div class="grp">
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/products/{handle}/reviews/</span><span class="d">Product reviews (paginated).</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/collections/</span><span class="d">List collections → Paginated&lt;Collection&gt;.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/collections/{handle}/</span><span class="d">Collection + embedded products page → CollectionDetail.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/collections/by-slot/{slot}/</span><span class="d">Merchandising-slot lookup.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/search/?q=</span><span class="d">Search products → Paginated&lt;ProductListItem&gt;. Params: q, limit, offset.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/search/autocomplete/?q=</span><span class="d">Type-ahead suggestions.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/best-sellers/ · /storefront/deals/</span><span class="d">Curated product lists → Paginated&lt;ProductListItem&gt;.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/faqs/</span><span class="d">Store FAQs → [{ question, answer }].</span></div></div>
+    </div>
   </section>
 
   <!-- CART -->
   <section id="cart">
-    <div class="sec-h"><span class="eyebrow">03 · Reference</span><h2>Cart</h2></div>
-    <p class="muted">Anonymous, identified by a cart token. <span class="badge">public</span></p>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/cart/</span><span class="d">Create a cart → returns <code class="i">token</code>.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/cart/{token}/</span><span class="d">Cart with lines, item count, subtotal, totals.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/cart/{token}/lines/</span><span class="d">Add a line: <code class="i">{variant_id, quantity}</code>.</span></div></div>
-    <div class="ep"><span class="m patch">PATCH</span><div><span class="path">/cart/{token}/lines/{id}/</span><span class="d">Update quantity: <code class="i">{quantity}</code>.</span></div></div>
-    <div class="ep"><span class="m del">DEL</span><div><span class="path">/cart/{token}/lines/{id}/</span><span class="d">Remove a line.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/cart/{token}/discount/</span><span class="d">Apply / remove a discount code.</span></div></div>
+    <div class="sec-h"><span class="eyebrow">03 · Endpoints</span><h2>Cart <span class="badge pub">public</span></h2></div>
+    <p class="muted">Anonymous, identified by <code class="i">token</code>. Note the base is <code class="i">/cart/</code>, not <code class="i">/storefront/</code>.</p>
+
+    <details class="detail"><summary><span class="m post">POST</span> /cart/{token}/lines/</summary>
+      <div class="body">
+        <h4>Body · CartLineInput</h4>
+        <div class="code"><div class="code__bar">request</div><pre><code>{ <span class="n">"variant_id"</span>: <span class="s">"8a9d0443-…"</span>, <span class="n">"quantity"</span>: <span class="p">1</span> }</code></pre></div>
+        <h4>Returns · Cart (full, with the new line)</h4>
+        <div class="code"><div class="code__bar">response</div><pre><code>{
+  <span class="n">"token"</span>: <span class="s">"k9z8GLNs…"</span>, <span class="n">"currency"</span>: <span class="s">"PKR"</span>, <span class="n">"items_count"</span>: <span class="p">1</span>,
+  <span class="n">"subtotal_price"</span>: <span class="s">"12.00"</span>, <span class="n">"total_price"</span>: <span class="s">"12.00"</span>,
+  <span class="n">"lines"</span>: [{
+    <span class="n">"id"</span>: <span class="s">"62172499-…"</span>, <span class="n">"variant_id"</span>: <span class="s">"8a9d0443-…"</span>,
+    <span class="n">"product_title"</span>: <span class="s">"Panadol CFX"</span>, <span class="n">"variant_title"</span>: <span class="s">"456"</span>,
+    <span class="n">"quantity"</span>: <span class="p">1</span>, <span class="n">"unit_price"</span>: <span class="s">"12.00"</span>, <span class="n">"line_total"</span>: <span class="s">"12.00"</span>,
+    <span class="n">"image_src"</span>: <span class="s">"https://…/img.webp"</span>
+  }]
+}</code></pre></div>
+      </div>
+    </details>
+
+    <div class="grp">
+      <div class="ep"><span class="m post">POST</span><div><span class="path">/cart/</span><span class="d">Create a cart → Cart. Optional body: { email, currency, note, lines[] }.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/cart/{token}/</span><span class="d">Fetch a cart → Cart.</span></div></div>
+      <div class="ep"><span class="m patch">PATCH</span><div><span class="path">/cart/{token}/lines/{id}/</span><span class="d">Change quantity: { quantity } (0 removes) → Cart.</span></div></div>
+      <div class="ep"><span class="m del">DEL</span><div><span class="path">/cart/{token}/lines/{id}/</span><span class="d">Remove a line → Cart.</span></div></div>
+      <div class="ep"><span class="m post">POST</span><div><span class="path">/cart/{token}/discount/</span><span class="d">Apply / remove a discount code.</span></div></div>
+    </div>
   </section>
 
   <!-- CHECKOUT -->
   <section id="checkout">
-    <div class="sec-h"><span class="eyebrow">03 · Reference</span><h2>Checkout &amp; shipping</h2></div>
-    <p class="muted">Five steps from cart to paid order. <span class="badge">public</span> · <span class="muted">Most themes hand off to the platform checkout instead of driving this directly.</span></p>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/cart/{token}/checkout/prepare/</span><span class="d">Validate stock, return shipping rates + summary.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/cart/{token}/checkout/apply-discount/</span><span class="d">Apply a discount code.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/cart/{token}/checkout/apply-gift-card/</span><span class="d">Apply a gift card.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/cart/{token}/checkout/set-shipping/</span><span class="d">Set address + chosen shipping rate.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/cart/{token}/checkout/complete/</span><span class="d">Pay + create the order.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/checkout/calculate/</span><span class="d">Live totals (tax, shipping, discounts).</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/shipping/calculate/</span><span class="d">Shipping rates for an address.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/shipping/countries/</span><span class="d">Supported shipping countries.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/gateways/</span><span class="d">Enabled payment methods.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/checkout-settings/</span><span class="d">Checkout configuration.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/payment-status/</span><span class="d">Poll async payment status.</span></div></div>
+    <div class="sec-h"><span class="eyebrow">03 · Endpoints</span><h2>Checkout &amp; shipping <span class="badge pub">public</span></h2></div>
+    <p class="muted">A theme can drive its own checkout with these — no payment code lives in the theme.</p>
+    <div class="grp">
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/gateways/</span><span class="d">Enabled payment methods → Paginated&lt;Gateway&gt;.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/checkout-settings/</span><span class="d">Checkout configuration.</span></div></div>
+      <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/checkout/calculate/</span><span class="d">Live totals (tax, shipping, discounts) for a cart + address.</span></div></div>
+      <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/shipping/calculate/</span><span class="d">Shipping rates for an address.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/shipping/countries/</span><span class="d">Supported shipping countries.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/payment-status/</span><span class="d">Poll async payment status (wallet-push gateways).</span></div></div>
+      <div class="ep"><span class="m post">POST</span><div><span class="path">/cart/{token}/checkout/prepare · apply-discount · apply-gift-card · set-shipping · complete/</span><span class="d">The granular 5-step checkout (alternative to the single order endpoint).</span></div></div>
+    </div>
   </section>
 
   <!-- ORDERS -->
   <section id="orders">
-    <div class="sec-h"><span class="eyebrow">03 · Reference</span><h2>Orders</h2></div>
-    <p class="muted"><span class="badge">public</span> guest flows; <span class="badge auth">customer</span> for account order history.</p>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/orders/</span><span class="d">Create an order (guest checkout).</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/orders/track/</span><span class="d">Track an order by number + email.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/orders/{id}/cancel/</span><span class="d">Cancel an order.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/checkout/{id}/</span><span class="d">Guest order lookup (order-confirmation page).</span></div></div>
+    <div class="sec-h"><span class="eyebrow">03 · Endpoints</span><h2>Orders <span class="badge pub">public</span></h2></div>
+
+    <details class="detail"><summary><span class="m post">POST</span> /storefront/orders/</summary>
+      <div class="body">
+        <h4>Body</h4>
+        <table class="schema"><tr><th>Field</th><th>Type</th><th>Notes</th></tr>
+          <tr><td class="f">cart_token <span class="rq">*</span></td><td class="t">string</td><td>The cart to convert.</td></tr>
+          <tr><td class="f">email <span class="rq">*</span></td><td class="t">string</td><td></td></tr>
+          <tr><td class="f">shipping_address <span class="rq">*</span></td><td class="t">Address</td><td>first_name, last_name, address1, city, country, country_code, zip, phone…</td></tr>
+          <tr><td class="f">payment_method <span class="rq">*</span></td><td class="t">string</td><td><code class="i">cod</code> / <code class="i">stripe</code> / <code class="i">jazzcash</code> / …</td></tr>
+        </table>
+        <h4>Returns (201)</h4>
+        <div class="code"><div class="code__bar">response</div><pre><code>{
+  <span class="n">"order"</span>: { <span class="n">"id"</span>: <span class="s">"2f6a5d54-…"</span>, <span class="n">"order_number"</span>: <span class="p">1009</span> },
+  <span class="n">"payment"</span>: {
+    <span class="n">"method"</span>: <span class="s">"cod"</span>, <span class="n">"required"</span>: <span class="k">false</span>, <span class="n">"redirect_required"</span>: <span class="k">false</span>,
+    <span class="n">"client_secret"</span>: <span class="k">null</span>, <span class="n">"details"</span>: {}
+  },
+  <span class="n">"customer"</span>: { <span class="n">"id"</span>: <span class="s">"d92cb29c-…"</span> }
+}</code></pre></div>
+        <p class="muted" style="font-size:.83rem"><b>Routing:</b> if <code class="i">payment.required</code> — <code class="i">details.action_url</code>+<code class="i">form_data</code> ⇒ auto-POST (JazzCash), <code class="i">redirect_required</code>+<code class="i">details.redirect_url</code> ⇒ redirect, <code class="i">client_secret</code> ⇒ Stripe.js. Otherwise (COD / captured) the order is done.</p>
+      </div>
+    </details>
+
+    <div class="grp">
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/orders/track/?order_number=&amp;email=</span><span class="d">Guest order tracking → Order.</span></div></div>
+      <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/orders/{id}/cancel/</span><span class="d">Cancel an order.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/checkout/{id}/</span><span class="d">Guest order lookup (confirmation page) → Order.</span></div></div>
+    </div>
   </section>
 
   <!-- ACCOUNT -->
   <section id="account">
-    <div class="sec-h"><span class="eyebrow">03 · Reference</span><h2>Customer accounts</h2></div>
-    <p class="muted">Sign-up, login, profile, addresses, wishlist. <span class="badge auth">customer session</span> — send the JWT from <code class="i">login</code> as <code class="i">Authorization: Bearer</code>.</p>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/account/register/</span><span class="d">Create a customer account.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/account/login/</span><span class="d">Log in → returns a customer JWT.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/account/logout/</span><span class="d">Log out.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/account/password-reset/ · /confirm/</span><span class="d">Request + confirm a password reset.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/account/verify-email/ · /resend/</span><span class="d">Verify / resend email verification.</span></div></div>
-    <div class="ep"><span class="m any">GET·PATCH</span><div><span class="path">/storefront/account/</span><span class="d">Read / update the profile.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/account/orders/ · /{id}/</span><span class="d">Order history + detail.</span></div></div>
-    <div class="ep"><span class="m any">CRUD</span><div><span class="path">/storefront/account/addresses/ · /{id}/ · /set-default/</span><span class="d">Manage saved addresses.</span></div></div>
-    <div class="ep"><span class="m any">GET·±</span><div><span class="path">/storefront/account/wishlist/ · /{product_id}/</span><span class="d">Wishlist — list, add, remove.</span></div></div>
+    <div class="sec-h"><span class="eyebrow">03 · Endpoints</span><h2>Customer accounts <span class="badge auth">customer session</span></h2></div>
+    <p class="muted">Call <code class="i">login</code> for a JWT, then send <code class="i">Authorization: Bearer &lt;jwt&gt;</code>. A customer credential — never admin.</p>
+
+    <details class="detail"><summary><span class="m post">POST</span> /storefront/account/register/ · /login/</summary>
+      <div class="body">
+        <h4>register body</h4>
+        <table class="schema"><tr><th>Field</th><th>Type</th></tr>
+          <tr><td class="f">email <span class="rq">*</span> · password <span class="rq">*</span></td><td class="t">string (password ≥ 8)</td></tr>
+          <tr><td class="f">first_name · last_name · phone</td><td class="t">string</td></tr>
+          <tr><td class="f">accepts_marketing</td><td class="t">boolean</td></tr>
+          <tr><td class="f">address1 · city · province · postal_code</td><td class="t">string (optional — seeds a default address)</td></tr>
+        </table>
+        <h4>login body → returns a JWT</h4>
+        <div class="code"><div class="code__bar">request</div><pre><code>{ <span class="n">"email"</span>: <span class="s">"jo@x.com"</span>, <span class="n">"password"</span>: <span class="s">"••••••••"</span> }
+<span class="c">// → { token / access, customer: {…} }</span></code></pre></div>
+      </div>
+    </details>
+
+    <div class="grp">
+      <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/account/logout/</span><span class="d">Invalidate the session.</span></div></div>
+      <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/account/password-reset/ · /confirm/</span><span class="d">Request + confirm a reset.</span></div></div>
+      <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/account/verify-email/ · /resend/</span><span class="d">Email verification.</span></div></div>
+      <div class="ep"><span class="m any">GET·PATCH</span><div><span class="path">/storefront/account/</span><span class="d">Read / update profile → CustomerProfile { email(ro), first_name, last_name, phone, accepts_marketing }.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/account/orders/ · /{id}/</span><span class="d">Order history + detail → Order[].</span></div></div>
+      <div class="ep"><span class="m any">CRUD</span><div><span class="path">/storefront/account/addresses/ · /{id}/ · /set-default/</span><span class="d">Manage addresses → Address[].</span></div></div>
+      <div class="ep"><span class="m any">GET·±</span><div><span class="path">/storefront/account/wishlist/ · /{product_id}/</span><span class="d">Wishlist — list, add, remove.</span></div></div>
+    </div>
   </section>
 
   <!-- CONTENT -->
   <section id="content">
-    <div class="sec-h"><span class="eyebrow">03 · Reference</span><h2>Content &amp; store config</h2></div>
-    <p class="muted">CMS pages, blogs, menus, branding. <span class="badge">public</span></p>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/pages/ · /{handle}/</span><span class="d">CMS pages (about, contact, policies).</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/menus/</span><span class="d">All navigation menus.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/tenant-config/</span><span class="d">Branding, colors, contact, SEO defaults.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/blogs/ · /{blog}/articles/ · /{article}/</span><span class="d">Blog + articles.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/content/pages/{handle}/ · collections/{key}/</span><span class="d">Composed (page-builder) content.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/content/docs/ · /jobs/</span><span class="d">Docs tree + job listings.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/content/forms/{form_key}/</span><span class="d">Submit a custom form.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/sitemap.xml · robots.txt</span><span class="d">SEO files.</span></div></div>
-    <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/active-pixels/</span><span class="d">Enabled analytics/marketing pixels.</span></div></div>
+    <div class="sec-h"><span class="eyebrow">03 · Endpoints</span><h2>Content &amp; store config <span class="badge pub">public</span></h2></div>
+    <div class="grp">
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/tenant-config/</span><span class="d">Store identity → TenantConfig (branding, contact, commerce.currency_code, seo…).</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/menus/</span><span class="d">All navigation menus → Record&lt;handle, Menu&gt;.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/pages/ · /{handle}/</span><span class="d">CMS pages → Page.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/blogs/ · /{blog}/articles/ · /{article}/</span><span class="d">Blog + articles.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/content/pages/{handle}/ · collections/{key}/ · docs/ · jobs/</span><span class="d">Composed / page-builder content.</span></div></div>
+      <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/content/forms/{form_key}/</span><span class="d">Submit a custom form.</span></div></div>
+      <div class="ep"><span class="m get">GET</span><div><span class="path">/storefront/sitemap.xml · robots.txt · active-pixels/</span><span class="d">SEO files + enabled analytics pixels.</span></div></div>
+    </div>
   </section>
 
   <!-- ENGAGE -->
   <section id="engage">
-    <div class="sec-h"><span class="eyebrow">03 · Reference</span><h2>Engagement</h2></div>
-    <p class="muted">Newsletter, contact, waitlist. <span class="badge">public</span></p>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/newsletter/subscribe/ · /unsubscribe/</span><span class="d">Email list opt-in / opt-out.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/contact/</span><span class="d">Submit a contact message.</span></div></div>
-    <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/waitlist/</span><span class="d">Join a product waitlist / back-in-stock.</span></div></div>
+    <div class="sec-h"><span class="eyebrow">03 · Endpoints</span><h2>Engagement <span class="badge pub">public</span></h2></div>
+    <div class="grp">
+      <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/newsletter/subscribe/ · /unsubscribe/</span><span class="d">Email opt-in / opt-out. Body: { email }.</span></div></div>
+      <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/contact/</span><span class="d">Contact message. Body: { name, email, subject, message }.</span></div></div>
+      <div class="ep"><span class="m post">POST</span><div><span class="path">/storefront/waitlist/</span><span class="d">Back-in-stock / waitlist join.</span></div></div>
+    </div>
   </section>
 
   <!-- AUTH -->
   <section id="auth" style="border-bottom:0">
-    <div class="sec-h"><span class="eyebrow">04 · Access</span><h2>Auth model</h2></div>
-    <div class="card">
-      <span class="badge">public</span>
-      <p style="margin:.6em 0 0">Catalog reads, cart, guest checkout, order create/track, newsletter, contact, waitlist. No user identity needed — the <strong>store is resolved</strong> from the storefront token, <code class="i">X-Tenant-ID</code>, or the request host. Safe to call from the browser (the SDK client handles it).</p>
+    <div class="sec-h"><span class="eyebrow">04 · Access</span><h2>Auth &amp; errors</h2></div>
+    <div class="model" style="padding-bottom:16px">
+      <span class="badge pub">public</span>
+      <p style="margin:.6em 0 0">Catalog, cart, guest checkout, order create/track, content, newsletter, contact, waitlist. The <b>store is resolved</b> from the storefront token, <code class="i">X-Tenant-ID</code>, or the request host — safe from the browser.</p>
     </div>
-    <div class="card">
+    <div class="model" style="padding-bottom:16px">
       <span class="badge auth">customer session</span>
-      <p style="margin:.6em 0 0">Everything under <code class="i">/storefront/account/*</code>. Call <code class="i">account/login/</code> to get a customer JWT, then send it as <code class="i">Authorization: Bearer &lt;jwt&gt;</code> on subsequent account requests. This is a <strong>customer</strong> credential — never an admin one; it can only reach that shopper's own data.</p>
+      <p style="margin:.6em 0 0">Everything under <code class="i">/storefront/account/*</code> needs a customer JWT (from <code class="i">login</code>) as <code class="i">Authorization: Bearer</code>. It only reaches that shopper's own data — never an admin surface.</p>
     </div>
+    <h3>Error shape</h3>
+    <div class="code"><div class="code__bar">HTTP 404</div><pre><code>{ <span class="n">"error"</span>: { <span class="n">"code"</span>: <span class="s">"tenant_not_found"</span>, <span class="n">"message"</span>: <span class="s">"No tenant resolved for this host."</span> } }</code></pre></div>
     <ul class="clean">
-      <li><b>Never ship admin credentials in a theme.</b> Themes only ever use the public storefront surface + a customer session the shopper creates.</li>
-      <li><b>Storefront token</b> (<code class="i">ksf_…</code>) is read-only + tenant-locked — safe to expose in a client bundle (like Shopify's Storefront Access Token). Mint it in the dashboard → Themes → Storefront tokens.</li>
+      <li><b>Storefront token</b> (<code class="i">ksf_…</code>) is read-only + tenant-locked — safe in a client bundle (like Shopify's Storefront Access Token).</li>
+      <li><b>Never ship admin credentials in a theme.</b> Themes use only the public surface + a shopper's own session.</li>
+      <li><b>Common codes:</b> <code class="i">400</code> validation, <code class="i">401</code> missing/expired session, <code class="i">404</code> not found / unresolved store, <code class="i">409</code> conflict (e.g. out of stock).</li>
     </ul>
   </section>
 
 </main>
-<footer><div class="wrap">KURUMERA · STOREFRONT API REFERENCE · base https://admin.kurumera.com/api/v1</div></footer>
+<footer><div class="wrap">KURUMERA · STOREFRONT API REFERENCE · base https://admin.kurumera.com/api/v1 · schemas grounded in api/v1/storefront/serializers.py</div></footer>
 </body>
 </html>
