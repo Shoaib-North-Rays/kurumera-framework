@@ -142,7 +142,11 @@ function readMarketMeta(dir) {
 // A paid theme needs a license key (issued after a completed Stripe payment) to
 // install or clone. Free themes (no price) are unrestricted.
 const LICENSE_STATE = join(ROOT, "licenses.json");
-const STRIPE_SECRET = process.env.KURUMERA_STRIPE_SECRET || "";
+// Stripe secret: env var, else a root-only file on the data mount (so the key
+// isn't baked into the container run command — a plain restart activates it).
+const STRIPE_SECRET = process.env.KURUMERA_STRIPE_SECRET || (() => {
+  try { return readFileSync(join(ROOT, ".stripe-secret"), "utf8").trim(); } catch { return ""; }
+})();
 const MARKET_PUBLIC_URL = (process.env.KURUMERA_MARKET_URL || "https://themekit.kurumera.com").replace(/\/+$/, "");
 function getLicenses() { try { return JSON.parse(readFileSync(LICENSE_STATE, "utf8")); } catch { return { keys: {} }; } }
 function setLicenses(l) { writeFileSync(LICENSE_STATE, JSON.stringify(l)); }
