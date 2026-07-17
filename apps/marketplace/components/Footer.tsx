@@ -9,6 +9,7 @@ const COLS = [
       { label: "Free templates", href: "/templates/free" },
       { label: "Paid templates", href: "/templates/paid" },
       { label: "Most installed", href: "/templates?sort=installs" },
+      { label: "Saved", href: "/saved" },
     ],
   },
   {

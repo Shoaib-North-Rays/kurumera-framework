@@ -1,9 +1,19 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { readConfig } from "../util/config.js";
+import { readConfig, writeConfig } from "../util/config.js";
 
 const PUSH_URL = (process.env.KURUMERA_PUSH_URL || "https://themekit.kurumera.com/_push").replace(/\/+$/, "");
 const ROOT = process.env.KURUMERA_ROOT_DOMAIN || "kurumera.com";
+
+/** Persist a license so future install/clone can auto-supply it (keyed by theme). */
+function saveLicense(theme: string, key: string): void {
+  const c = readConfig();
+  c.licenses = { ...c.licenses, [theme]: key };
+  writeConfig(c);
+}
+function savedLicense(theme: string): string | undefined {
+  return readConfig().licenses?.[theme];
+}
 
 /**
  * `kurumera marketplace …` — the theme registry.
@@ -28,8 +38,12 @@ export async function marketplace(args: string[]): Promise<number> {
     case "info": return info(rest);
     case "install": case "add": return install(rest);
     case "buy": return buy(rest);
+    case "owns": return owns(rest);
+    case "mine": return mine(rest);
+    case "update": return update(rest);
+    case "unpublish": case "delist": return unpublish(rest);
     default:
-      console.error("Usage: kurumera marketplace <publish|list|info|install|buy>");
+      console.error("Usage: kurumera marketplace <publish|list|info|install|buy|owns|mine|update|unpublish>");
       return 1;
   }
 }
@@ -109,7 +123,7 @@ async function install(args: string[]): Promise<number> {
   const [theme, version] = ref.split("@");
   const store = flag(args, "--store") || cfg.defaultStore;
   if (!store) { console.error("Which store? Pass --store <slug>."); return 1; }
-  const license = flag(args, "--license");   // required for paid themes
+  const license = flag(args, "--license") || savedLicense(theme);   // paid themes; reuse a saved key
 
   const d = await post("/market/install", cfg.authToken, { store, theme, version, license });
   if (!d.ok) {
@@ -117,6 +131,7 @@ async function install(args: string[]): Promise<number> {
     if (/paid theme/i.test(d.error || "")) console.error(`  Buy it:  kurumera marketplace buy ${theme}`);
     return 1;
   }
+  if (license) saveLicense(theme, license);   // remember it so future installs/clones don't need --license
   console.log(`✓ Installed ${d.theme}@${d.version} into "${d.store}" — it's now live.`);
   console.log(`  Live:      https://${d.store}.${ROOT}`);
   console.log(`  Roll back: kurumera theme rollback --store ${d.store}`);
@@ -140,6 +155,71 @@ async function buy(args: string[]): Promise<number> {
   console.log(`Complete your purchase of "${theme}" here:\n  ${d.url}`);
   console.log(`\nAfter paying you'll get a license key. Then install with:`);
   console.log(`  kurumera marketplace install ${theme} --store <slug> --license <key>`);
+  return 0;
+}
+
+/** Do you own this theme? (free ⇒ always; paid ⇒ needs a valid license). */
+async function owns(args: string[]): Promise<number> {
+  const theme = args.find((a) => !a.startsWith("--"));
+  if (!theme) { console.error("Which theme? kurumera marketplace owns <theme>"); return 1; }
+  const license = flag(args, "--license") || savedLicense(theme);
+  let res: Response;
+  try { res = await fetch(`${PUSH_URL}/market/owns?theme=${encodeURIComponent(theme)}${license ? `&license=${encodeURIComponent(license)}` : ""}`); }
+  catch (e) { console.error(`Request failed: ${(e as Error).message}`); return 1; }
+  const d = (await res.json().catch(() => ({}))) as { paid?: boolean; owned?: boolean };
+  if (d.owned) console.log(`✓ You own "${theme}"${d.paid ? "" : " (it's free)"}.`);
+  else console.log(`✗ You don't own "${theme}" yet — it's paid.\n  Buy it:  kurumera marketplace buy ${theme}`);
+  return 0;
+}
+
+/** List the listings you've published from a store you own. */
+async function mine(args: string[]): Promise<number> {
+  const cfg = readConfig();
+  if (!cfg.authToken) { console.error("Not signed in. Run `kurumera login` first."); return 1; }
+  const store = flag(args, "--store") || cfg.defaultStore;
+  if (!store) { console.error("Which store? Pass --store <slug>."); return 1; }
+  let res: Response;
+  try { res = await fetch(`${PUSH_URL}/market/mine?store=${encodeURIComponent(store)}`, { headers: { Authorization: `Bearer ${cfg.authToken}` } }); }
+  catch (e) { console.error(`Request failed: ${(e as Error).message}`); return 1; }
+  const d = (await res.json().catch(() => ({}))) as { themes?: { slug: string; name: string; price: number; currency: string; installs: number }[]; error?: string };
+  if (!res.ok) { console.error(`Failed: ${d.error || `HTTP ${res.status}`}`); return 1; }
+  const themes = d.themes || [];
+  if (!themes.length) { console.log(`No listings published from "${store}".`); return 0; }
+  console.log(`Your listings (store ${store}):\n`);
+  for (const t of themes) {
+    const price = t.price > 0 ? `${t.price} ${t.currency}` : "Free";
+    console.log(`  ${t.slug.padEnd(20)} ${t.name}  ·  ${price}  ·  ${t.installs} install(s)`);
+  }
+  return 0;
+}
+
+/** Edit a listing you own (price / currency / description / tags / category). */
+async function update(args: string[]): Promise<number> {
+  const cfg = readConfig();
+  if (!cfg.authToken) { console.error("Not signed in. Run `kurumera login` first."); return 1; }
+  const theme = args.find((a) => !a.startsWith("--"));
+  if (!theme) { console.error("Which theme? kurumera marketplace update <theme> [--price N] [--currency USD] [--description …] [--tags a,b] [--category …]"); return 1; }
+  const body: Record<string, unknown> = { theme, store: flag(args, "--store") || cfg.defaultStore };
+  const price = flag(args, "--price"); if (price !== undefined) body.price = Number(price);
+  const currency = flag(args, "--currency"); if (currency) body.currency = currency;
+  const description = flag(args, "--description"); if (description !== undefined) body.description = description;
+  const tags = flag(args, "--tags"); if (tags !== undefined) body.tags = tags.split(",").map((x) => x.trim()).filter(Boolean);
+  const category = flag(args, "--category"); if (category !== undefined) body.category = category;
+  const d = await post("/market/update", cfg.authToken, body);
+  if (!d.ok) { console.error(`Update failed: ${d.error}`); return 1; }
+  console.log(`✓ Updated "${theme}" — live on the marketplace.`);
+  return 0;
+}
+
+/** Delist a listing you own (existing installs keep working). */
+async function unpublish(args: string[]): Promise<number> {
+  const cfg = readConfig();
+  if (!cfg.authToken) { console.error("Not signed in. Run `kurumera login` first."); return 1; }
+  const theme = args.find((a) => !a.startsWith("--"));
+  if (!theme) { console.error("Which theme? kurumera marketplace unpublish <theme>"); return 1; }
+  const d = await post("/market/unpublish", cfg.authToken, { theme, store: flag(args, "--store") || cfg.defaultStore });
+  if (!d.ok) { console.error(`Delist failed: ${d.error}`); return 1; }
+  console.log(`✓ Delisted "${theme}" from the marketplace.`);
   return 0;
 }
 

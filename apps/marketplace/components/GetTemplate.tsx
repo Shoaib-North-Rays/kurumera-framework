@@ -112,7 +112,7 @@ export function GetTemplate({ slug, free, priceLabel }: { slug: string; free: bo
           >
             <button className="modal__x" onClick={closeModal} aria-label="Close" type="button">×</button>
             <h3 id="buy-title" className="modal__title">Complete your purchase</h3>
-            <p className="modal__sub">Enter your email — we&apos;ll send your receipt and license key after checkout.</p>
+            <p className="modal__sub">Enter your email for the receipt. Your license key appears right after payment and is saved to <b>Your purchases</b>.</p>
             <form onSubmit={submitBuy} noValidate>
               <input
                 ref={inputRef}

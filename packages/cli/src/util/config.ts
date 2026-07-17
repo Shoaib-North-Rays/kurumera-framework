@@ -16,6 +16,8 @@ export interface CliConfig {
   token?: string;
   /** Per-store storefront tokens, keyed by store slug. */
   stores?: Record<string, string>;
+  /** Marketplace license keys, keyed by theme slug (saved on purchase/install). */
+  licenses?: Record<string, string>;
 }
 
 export function readConfig(): CliConfig {
@@ -27,8 +29,10 @@ export function readConfig(): CliConfig {
 }
 
 export function writeConfig(cfg: CliConfig): void {
-  if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true });
-  writeFileSync(FILE, JSON.stringify(cfg, null, 2) + "\n");
+  // 0700 dir / 0600 file — the config holds session + storefront tokens and license
+  // keys, so it must not be world-readable on shared machines.
+  if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true, mode: 0o700 });
+  writeFileSync(FILE, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
 }
 
 export const CONFIG_PATH = FILE;

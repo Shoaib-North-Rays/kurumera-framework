@@ -234,6 +234,24 @@ function licenseForSession(theme, email, session, pi) {
 /** Free themes are always owned; paid themes need a valid license. */
 function ownsTheme(theme, license) { return !themePrice(theme) || licenseValid(license, theme); }
 
+// A paid license installs into up to LICENSE_SEATS distinct stores; re-installing
+// into an already-seated store is always free. Prevents one key from being shared
+// to unlimited stores while staying generous for real multi-store use.
+const LICENSE_SEATS = Number(process.env.KURUMERA_LICENSE_SEATS || 5);
+function consumeSeat(key, store) {
+  const l = getLicenses();
+  const rec = l.keys[String(key || "").trim()];
+  if (!rec) return null;                        // free/invalid handled by ownsTheme
+  rec.stores = rec.stores || [];
+  if (rec.stores.includes(store)) return null;  // already seated → free re-install
+  if (rec.stores.length >= LICENSE_SEATS) {
+    return `this license has reached its ${LICENSE_SEATS}-store limit (already on: ${rec.stores.join(", ")}) — contact support to add seats`;
+  }
+  rec.stores.push(store);
+  setLicenses(l);
+  return null;
+}
+
 // ── Stripe (platform account — collects theme purchases) ─────────────────────
 // Minimal REST calls (form-encoded), no SDK. Activated by KURUMERA_STRIPE_SECRET
 // (sk_test_… works with Stripe test cards). Absent ⇒ purchasing is disabled.
@@ -746,6 +764,9 @@ async function installFromMarket(s, theme, version, actor, license) {
   if (!ownsTheme(theme, license)) {
     return { ok: false, status: 402, error: `"${entry.name || theme}" is a paid theme — buy it, then install with --license <key>` };
   }
+  // Enforce the per-license store seat limit for paid themes.
+  const seatErr = consumeSeat(license, s);
+  if (seatErr) return { ok: false, status: 403, error: seatErr };
   const ver = version && version !== "latest" ? String(version) : entry.latest;
   const found = entry.versions.find((v) => v.version === ver);
   if (!found) return { ok: false, error: `${theme}@${ver} not found` };

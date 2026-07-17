@@ -49,6 +49,11 @@ function help(): void {
   console.log("  marketplace buy <theme>              Start a purchase (returns a Stripe payment link)");
   console.log("  marketplace install <theme>[@ver] --store <slug> [--license <key>]");
   console.log("                                       Install a registry theme into a store (live)");
+  console.log("  marketplace owns <theme>             Check whether you own a theme");
+  console.log("  marketplace mine --store <slug>      List the listings you've published");
+  console.log("  marketplace update <theme> [--price N --currency USD --tags a,b …]");
+  console.log("                                       Edit one of your listings");
+  console.log("  marketplace unpublish <theme>        Delist one of your listings");
   console.log("\nComing next:");
   for (const [name, desc] of Object.entries(PLANNED)) {
     console.log(`  ${name.padEnd(36)} ${desc}`);
