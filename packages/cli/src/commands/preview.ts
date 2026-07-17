@@ -20,13 +20,16 @@ function openBrowser(url: string): void {
 export async function themePreview(args: string[]): Promise<number> {
   const cfg = readConfig();
   const store = flag(args, "--store") || cfg.defaultStore || "";
+  if (!store) { console.error("Which store? Pass --store <slug> (or run `kurumera login`)."); return 1; }
 
   process.stdout.write("Waiting for the build");
   let previewUrl = "";
   for (let i = 0; i < 60; i++) {
     let s: { status?: string; preview_url?: string; error?: string } = {};
     try {
-      const r = await fetch(`${PUSH_URL}/status`, { headers: cfg.authToken ? { Authorization: `Bearer ${cfg.authToken}` } : {} });
+      // Build status is keyed per store — without ?store= the server returns a
+      // fresh "idle" forever and the poll always times out.
+      const r = await fetch(`${PUSH_URL}/status?store=${encodeURIComponent(store)}`, { headers: cfg.authToken ? { Authorization: `Bearer ${cfg.authToken}` } : {} });
       s = (await r.json()) as typeof s;
     } catch { /* keep polling */ }
     if (s.status === "ready" && s.preview_url) { previewUrl = s.preview_url; break; }

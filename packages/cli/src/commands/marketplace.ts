@@ -123,13 +123,22 @@ async function install(args: string[]): Promise<number> {
   return 0;
 }
 
-/** Point the buyer at the marketplace to complete a Stripe purchase → license key. */
+/** Start a real Stripe checkout for a paid theme and print the payment link. */
 async function buy(args: string[]): Promise<number> {
   const theme = args.find((a) => !a.startsWith("--"));
-  if (!theme) { console.error("Which theme? kurumera marketplace buy <theme>"); return 1; }
-  const site = (process.env.KURUMERA_MARKET_URL || "https://themekit.kurumera.com").replace(/\/+$/, "");
-  console.log(`Purchase "${theme}" on the marketplace:\n  ${site}/marketplace`);
-  console.log(`\nAfter paying you'll get a license key, then install with:`);
+  if (!theme) { console.error("Which theme? kurumera marketplace buy <theme> [--email you@example.com]"); return 1; }
+  const email = flag(args, "--email");
+  let res: Response;
+  try {
+    res = await fetch(`${PUSH_URL}/market/checkout`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ theme, email }),
+    });
+  } catch (e) { console.error(`Request failed: ${(e as Error).message}`); return 1; }
+  const d = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string };
+  if (!d.ok || !d.url) { console.error(`Can't start checkout: ${d.error || `HTTP ${res.status}`}`); return 1; }
+  console.log(`Complete your purchase of "${theme}" here:\n  ${d.url}`);
+  console.log(`\nAfter paying you'll get a license key. Then install with:`);
   console.log(`  kurumera marketplace install ${theme} --store <slug> --license <key>`);
   return 0;
 }

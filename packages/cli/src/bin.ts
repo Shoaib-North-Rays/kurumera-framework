@@ -5,6 +5,9 @@
  * Implemented (P1): login (save storefront token), theme init, theme dev.
  * Planned  (P2+):   stores list, theme check/push/preview/publish, browser login.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { login } from "./commands/login.js";
 import { logout } from "./commands/logout.js";
 import { themeInit } from "./commands/init.js";
@@ -15,6 +18,11 @@ import { themePreview } from "./commands/preview.js";
 import { themePublish, themeRollback } from "./commands/publish.js";
 import { themeLogs } from "./commands/logs.js";
 import { marketplace } from "./commands/marketplace.js";
+
+const VERSION = (() => {
+  try { return JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8")).version; }
+  catch { return "0.0.0"; }
+})();
 
 const PLANNED: Record<string, string> = {
   "stores list": "List the stores you can develop for.",
@@ -38,7 +46,8 @@ function help(): void {
   console.log("  marketplace publish --store <slug>   Publish this theme's build to the registry");
   console.log("  marketplace list                     Browse published themes");
   console.log("  marketplace info <theme>             Show a theme's versions");
-  console.log("  marketplace install <theme>[@ver] --store <slug>");
+  console.log("  marketplace buy <theme>              Start a purchase (returns a Stripe payment link)");
+  console.log("  marketplace install <theme>[@ver] --store <slug> [--license <key>]");
   console.log("                                       Install a registry theme into a store (live)");
   console.log("\nComing next:");
   for (const [name, desc] of Object.entries(PLANNED)) {
@@ -50,6 +59,11 @@ const argv = process.argv.slice(2);
 
 if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
   help();
+  process.exit(0);
+}
+
+if (argv[0] === "--version" || argv[0] === "-v" || argv[0] === "version") {
+  console.log(VERSION);
   process.exit(0);
 }
 
