@@ -582,6 +582,18 @@ const server = http.createServer((req, res) => {
     }
   }
 
+  // ── Public theme marketplace (browse/preview/install — served from /ops) ─────
+  if (p === "/marketplace" || p === "/marketplace/" || p === "/market" || p === "/market/") {
+    try {
+      const html = readFileSync(join(import.meta.dirname, "marketplace.html"), "utf8");
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=120" });
+      return res.end(html);
+    } catch {
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      return res.end("marketplace not found");
+    }
+  }
+
   // ── API ──────────────────────────────────────────────────────────────────
   if (p.endsWith("/_push/published")) return json(200, { stores: livePublishedStores() });
   if (p.endsWith("/_push/status")) return json(200, store(getState(), u.searchParams.get("store") || "").build);
@@ -613,6 +625,25 @@ const server = http.createServer((req, res) => {
     const t = slug(u.searchParams.get("theme") || "");
     const e = getMarket().themes[t];
     return e ? json(200, { slug: t, ...e }) : json(404, { error: `no marketplace theme "${t}"` });
+  }
+  // Clone-to-edit: stream a marketplace theme's SOURCE as a tarball (no runtime
+  // artifacts) so a developer can `curl … | tar xz` it, edit, and re-publish.
+  if (p.endsWith("/_push/market/source") && req.method === "GET") {
+    const t = slug(u.searchParams.get("theme") || "");
+    const e = getMarket().themes[t];
+    if (!e) { res.writeHead(404, { "Content-Type": "text/plain" }); return res.end(`no marketplace theme "${t}"`); }
+    const raw = u.searchParams.get("version");
+    const ver = raw && raw !== "latest" ? String(raw).replace(/[^a-zA-Z0-9._-]/g, "") : e.latest;
+    const dir = marketDir(t, ver);
+    if (!existsSync(dir)) { res.writeHead(404, { "Content-Type": "text/plain" }); return res.end(`${t}@${ver} not found`); }
+    res.writeHead(200, { "Content-Type": "application/gzip", "Content-Disposition": `attachment; filename="${t}-${ver}.tar.gz"` });
+    const tar = spawn("tar", ["-czf", "-", "-C", dir,
+      "--exclude=node_modules", "--exclude=.next", "--exclude=.git", "--exclude=dist", "--exclude=.turbo", "."],
+      { stdio: ["ignore", "pipe", "ignore"] });
+    tar.stdout.pipe(res);
+    tar.on("error", () => { try { res.end(); } catch { /* */ } });
+    req.on("close", () => { try { tar.kill(); } catch { /* */ } });
+    return;
   }
   if (p.endsWith("/_push/market/publish") && req.method === "POST") {
     readBody().then(async (buf) => {
