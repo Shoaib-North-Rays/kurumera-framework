@@ -12,6 +12,7 @@ FROM node:20-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN mkdir -p public          # ensure it exists even if the app ships no static assets
 RUN npm run build
 
 FROM node:20-alpine AS run
