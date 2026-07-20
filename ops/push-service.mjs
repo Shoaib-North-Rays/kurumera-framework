@@ -220,6 +220,13 @@ function themePrice(theme) { const e = getMarket().themes[slug(theme)]; return e
 // email→account map lives here (keyed by the creator's verified email).
 const CONNECT_STATE = join(ROOT, "connect.json");
 const PLATFORM_FEE_PCT = Math.min(90, Math.max(0, Number(process.env.KURUMERA_PLATFORM_FEE_PCT || 20)));
+// Platform admins (see marketplace-wide analytics). Comma-separated emails; defaults
+// to the platform owner. Override with KURUMERA_ADMIN_EMAILS.
+const ADMIN_EMAILS = new Set(
+  String(process.env.KURUMERA_ADMIN_EMAILS || "sajid@northrays.com")
+    .split(",").map((e) => e.trim().toLowerCase()).filter(Boolean),
+);
+const isAdmin = (email) => ADMIN_EMAILS.has(String(email || "").toLowerCase());
 let _connectCache = null;
 function getConnect() {
   try { _connectCache = JSON.parse(readFileSync(CONNECT_STATE, "utf8")); return _connectCache; }
@@ -1325,6 +1332,45 @@ const server = http.createServer((req, res) => {
       }
       const payout = await refreshConnectStatus(email);
       json(200, { listings, totals: Object.values(totals), installs: installsAll, platformFeePct: PLATFORM_FEE_PCT, payout });
+    });
+    return;
+  }
+  // Platform analytics — marketplace-wide totals (admin only). Templates by type,
+  // installs, sales + gross/fee revenue by currency, creators, top templates.
+  if (p.endsWith("/_push/market/admin/analytics") && req.method === "GET") {
+    const store = slug(u.searchParams.get("store") || "");
+    verifyOwnership(req.headers["authorization"], store).then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
+      const m = getMarket();
+      const licenses = Object.values(getLicenses().keys).filter((l) => !l.revoked);
+      const round2 = (n) => Math.round(n * 100) / 100;
+      const byType = { code: 0, builder: 0 };
+      const revenue = {};
+      const creators = new Set();
+      let installs = 0;
+      const perTemplate = [];
+      for (const [sl, e] of Object.entries(m.themes)) {
+        byType[e.type === "builder" ? "builder" : "code"]++;
+        if (e.sourceStore) creators.add(slug(e.sourceStore));
+        const ins = (e.versions || []).reduce((n, v) => n + (v.installs || 0), 0);
+        installs += ins;
+        const price = Number(e.price) > 0 ? Number(e.price) : 0;
+        const currency = e.currency || "USD";
+        const sales = price > 0 ? licenses.filter((l) => l.theme === sl).length : 0;
+        const gross = round2(price * sales);
+        if (sales > 0) {
+          const t = (revenue[currency] ||= { currency, sales: 0, gross: 0, fee: 0 });
+          t.sales += sales; t.gross = round2(t.gross + gross); t.fee = round2(t.fee + gross * PLATFORM_FEE_PCT / 100);
+        }
+        perTemplate.push({ slug: sl, name: e.name || sl, type: e.type || "code", installs: ins, sales, gross, currency });
+      }
+      json(200, {
+        templates: perTemplate.length, byType, installs, creators: creators.size,
+        revenue: Object.values(revenue), platformFeePct: PLATFORM_FEE_PCT,
+        topByInstalls: [...perTemplate].sort((a, b) => b.installs - a.installs).slice(0, 10),
+        topByRevenue: perTemplate.filter((t) => t.sales > 0).sort((a, b) => b.gross - a.gross).slice(0, 10),
+      });
     });
     return;
   }
