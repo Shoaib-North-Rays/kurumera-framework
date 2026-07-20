@@ -967,6 +967,9 @@ function publishDesignToMarket(s, pkg, meta) {
   entry.author = (meta && meta.author) || entry.author || s;
   // Verified creator email → routes design-sale payouts to their connected account.
   if (meta && meta.creatorEmail) entry.creatorEmail = String(meta.creatorEmail).toLowerCase();
+  // Moderation: an admin's listing goes live immediately; everyone else's enters the
+  // review queue. An already-approved listing stays approved across edits.
+  entry.status = isAdmin(meta && meta.creatorEmail) ? "approved" : (entry.status === "approved" ? "approved" : "submitted");
   if (typeof pkg.description === "string" && pkg.description) entry.description = pkg.description.slice(0, 400);
   else if (meta && typeof meta.description === "string") entry.description = meta.description.slice(0, 400);
   if (meta && meta.price != null && Number.isFinite(Number(meta.price))) entry.price = Math.min(999999, Math.max(0, Number(meta.price)));
@@ -979,7 +982,7 @@ function publishDesignToMarket(s, pkg, meta) {
   entry.versions.push({ version, published: Date.now(), installs: 0 });
   entry.latest = version;
   setMarket(m);
-  return { ok: true, theme, version, type: "builder" };
+  return { ok: true, theme, version, type: "builder", status: entry.status };
 }
 
 // Fire-and-forget cover capture: render the listing's live preview in a throwaway
@@ -1012,7 +1015,9 @@ function captureCover(theme) {
 
 function marketListing() {
   const m = getMarket();
-  return Object.entries(m.themes).map(([themeSlug, e]) => ({
+  return Object.entries(m.themes)
+    .filter(([, e]) => !e.status || e.status === "approved")   // hide pending/rejected from the public catalogue
+    .map(([themeSlug, e]) => ({
     slug: themeSlug, name: e.name, description: e.description, author: e.author,
     latest: e.latest, versions: e.versions.map((v) => v.version),
     installs: e.versions.reduce((n, v) => n + (v.installs || 0), 0),
@@ -1371,6 +1376,46 @@ const server = http.createServer((req, res) => {
         topByInstalls: [...perTemplate].sort((a, b) => b.installs - a.installs).slice(0, 10),
         topByRevenue: perTemplate.filter((t) => t.sales > 0).sort((a, b) => b.gross - a.gross).slice(0, 10),
       });
+    });
+    return;
+  }
+  // Moderation queue — builder listings awaiting review (admin only).
+  if (p.endsWith("/_push/market/admin/review/queue") && req.method === "GET") {
+    const store = slug(u.searchParams.get("store") || "");
+    verifyOwnership(req.headers["authorization"], store).then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
+      const m = getMarket();
+      const pending = Object.entries(m.themes)
+        .filter(([, e]) => e.status === "submitted")
+        .map(([sl, e]) => ({
+          slug: sl, name: e.name || sl, type: e.type || "code", author: e.author || "",
+          creatorEmail: e.creatorEmail || "", price: Number(e.price) > 0 ? Number(e.price) : 0,
+          currency: e.currency || "USD", category: e.category || "", tags: e.tags || [],
+          coverImage: coverUrl(sl), submitted: (e.versions || [])[(e.versions || []).length - 1]?.published || 0,
+        }))
+        .sort((a, b) => b.submitted - a.submitted);
+      json(200, { pending });
+    });
+    return;
+  }
+  // Approve / reject a listing (admin only). Approved → public; rejected → hidden.
+  if (p.endsWith("/_push/market/admin/review") && req.method === "POST") {
+    readBody().then(async (buf) => {
+      let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { return json(400, { error: "bad json" }); }
+      const store = slug(body.store || "");
+      const az = await verifyOwnership(req.headers["authorization"], store);
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
+      const theme = slug(body.theme || "");
+      const action = String(body.action || "");
+      if (action !== "approve" && action !== "reject") return json(400, { error: "action must be approve or reject" });
+      const m = getMarket();
+      const e = m.themes[theme];
+      if (!e) return json(404, { error: "no such listing" });
+      e.status = action === "approve" ? "approved" : "rejected";
+      setMarket(m);
+      json(200, { ok: true, theme, status: e.status });
     });
     return;
   }
