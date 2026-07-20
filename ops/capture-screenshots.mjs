@@ -1,13 +1,16 @@
 /**
  * Capture static screenshot thumbnails for every published marketplace listing.
- * Run inside the Playwright docker image with the shots dir mounted, e.g.:
+ * The playwright IMAGE ships only browsers, so mount a host node_modules that has
+ * `playwright` installed (one-time: `docker run --rm -v /home/ubuntu/pw-capture:/pw
+ * -w /pw <image> bash -lc "npm init -y && npm i playwright@1.49.0"`), as a sibling
+ * of this script:
  *
  *   docker run --rm --network website-builder_web \
- *     -e SHOTS_DIR=/shots \
- *     -e BUILDER_ORIGIN=https://builder.kurumera.com \
+ *     -e SHOTS_DIR=/shots -e BUILDER_ORIGIN=https://builder.kurumera.com \
  *     -v /home/ubuntu/theme-pushes/_shots:/shots \
- *     -v /home/ubuntu/kurumera-framework/ops/capture-screenshots.mjs:/capture.mjs \
- *     mcr.microsoft.com/playwright:v1.49.0-jammy node /capture.mjs
+ *     -v /home/ubuntu/pw-capture/node_modules:/app/node_modules \
+ *     -v /home/ubuntu/kurumera-framework/ops/capture-screenshots.mjs:/app/capture.mjs \
+ *     -w /app mcr.microsoft.com/playwright:v1.49.0-jammy node /app/capture.mjs
  *
  * For each listing it renders the correct preview — code themes via
  * `<market>/?market=<slug>`, builder designs via `<builder>/market-preview/<slug>`

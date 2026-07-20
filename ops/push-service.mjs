@@ -190,6 +190,10 @@ const MARKET_APP_URL = (process.env.KURUMERA_MARKET_APP_URL || "https://marketpl
 // script documents. All host paths so `docker run -v` (host daemon) resolves them.
 const PLAYWRIGHT_IMAGE = process.env.PLAYWRIGHT_IMAGE || "mcr.microsoft.com/playwright:v1.49.0-jammy";
 const CAPTURE_SCRIPT_HOST = process.env.KURUMERA_CAPTURE_SCRIPT || "/home/ubuntu/kurumera-framework/ops/capture-screenshots.mjs";
+// The playwright IMAGE ships only browsers, not the npm package — mount a host
+// node_modules with playwright@<image ver> installed (see ops setup) as a sibling
+// of the script so `import "playwright"` resolves.
+const CAPTURE_NODE_MODULES = process.env.KURUMERA_CAPTURE_NODE_MODULES || "/home/ubuntu/pw-capture/node_modules";
 const BUILDER_ORIGIN = (process.env.KURUMERA_BUILDER_URL || "https://builder.kurumera.com").replace(/\/+$/, "");
 // Stripe webhook signing secret (whsec_…). When set, /market/webhook becomes the
 // source of truth for issuance (survives a closed tab) + refund/dispute revocation.
@@ -910,8 +914,10 @@ function captureCover(theme) {
       "-e", `BUILDER_ORIGIN=${BUILDER_ORIGIN}`,
       "-e", `KURUMERA_MARKET_URL=${MARKET_PUBLIC_URL}`,
       "-v", `${SHOTS}:/shots`,
-      "-v", `${CAPTURE_SCRIPT_HOST}:/capture.mjs`,
-      PLAYWRIGHT_IMAGE, "node", "/capture.mjs",
+      "-v", `${CAPTURE_NODE_MODULES}:/app/node_modules`,
+      "-v", `${CAPTURE_SCRIPT_HOST}:/app/capture.mjs`,
+      "-w", "/app",
+      PLAYWRIGHT_IMAGE, "node", "/app/capture.mjs",
     ], { timeoutMs: 150000, killContainer: name })
       .then((r) => console.log(`[cover] ${s} exit=${r.code}${r.code ? " :: " + r.out.slice(-300) : ""}`))
       .finally(() => _capturing.delete(s));
