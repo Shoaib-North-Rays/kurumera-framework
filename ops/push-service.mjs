@@ -47,15 +47,18 @@ const HOST_NAME = process.env.KURUMERA_HOST_NAME || "host-1";
 const MARKET = join(ROOT, "_market");            // shared theme registry (published built artifacts)
 const MARKET_STATE = join(ROOT, "market.json");  // { themes: { <slug>: { name, description, author, latest, versions:[{version,id,published,installs}] } } }
 const SHOTS = join(ROOT, "_shots");              // static theme screenshots (thumbnails), <slug>.jpg
+const DESIGNS = join(ROOT, "_designs");          // builder-design packages (type=builder listings), <slug>.json
 const API_URL = "https://admin.kurumera.com/api/v1";
 const NET = "website-builder_web";
 
 mkdirSync(ROOT, { recursive: true });
 mkdirSync(MARKET, { recursive: true });
 mkdirSync(SHOTS, { recursive: true });
+mkdirSync(DESIGNS, { recursive: true });
 
 const shotPath = (theme) => join(SHOTS, `${slug(theme)}.jpg`);
 const coverUrl = (theme) => existsSync(shotPath(theme)) ? `${MARKET_PUBLIC_URL}/_push/market/shot?theme=${slug(theme)}` : "";
+const designPath = (theme) => join(DESIGNS, `${slug(theme)}.json`);
 
 const slug = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9-]/g, "");
 const storeDir = (s) => join(ROOT, slug(s));
@@ -823,6 +826,60 @@ async function installFromMarket(s, theme, version, actor, license) {
   return { ok: true, store: s, theme, version: ver, storeVersion: newV };
 }
 
+// ── Builder designs (type=builder marketplace listings) ──────────────────────
+// A visual builder design is sold as a JSON package (BuilderTemplatePackage), not
+// a built code artifact. It's stored at _designs/<slug>.json and listed like a code
+// theme but with type="builder". Full zod validation runs client-side in the
+// builder; here we do a structural + size gate (this service has no TS/zod).
+const MAX_DESIGN_BYTES = 4 * 1024 * 1024;   // 4MB — a design package shouldn't exceed this
+function validateDesignPackage(pkg) {
+  if (!pkg || typeof pkg !== "object") return "missing design package";
+  if (typeof pkg.schemaVersion !== "string" || !pkg.schemaVersion.trim()) return "package missing schemaVersion";
+  if (typeof pkg.name !== "string" || !pkg.name.trim()) return "package missing name";
+  if (!Array.isArray(pkg.pages) || pkg.pages.length === 0) return "package needs at least one page";
+  if (!pkg.theme || typeof pkg.theme !== "object") return "package missing theme";
+  if (!Array.isArray(pkg.media)) return "package missing media manifest";
+  const size = Buffer.byteLength(JSON.stringify(pkg));
+  if (size > MAX_DESIGN_BYTES) return `design too large (${Math.round(size / 1024)}KB, max ${MAX_DESIGN_BYTES / 1024 / 1024}MB)`;
+  return null;
+}
+
+// Publish a builder design package as a type=builder listing owned by store <s>.
+function publishDesignToMarket(s, pkg, meta) {
+  s = slug(s);
+  const theme = slug(pkg.name);
+  if (!theme) return { ok: false, error: "design name is required" };
+  const m = getMarket();
+  const existing = m.themes[theme];
+  if (existing) {
+    // Ownership lock — only the owning store may republish this slug.
+    if (existing.sourceStore && slug(existing.sourceStore) !== s) {
+      return { ok: false, status: 409, error: `the name "${theme}" is already taken by another creator — choose a different name` };
+    }
+    // A builder design must not clobber an existing code-theme slug.
+    if (existing.type !== "builder" && (existing.versions?.length || existing.type === "code")) {
+      return { ok: false, status: 409, error: `"${theme}" already exists as a code theme — choose a different name` };
+    }
+  }
+  const entry = (m.themes[theme] ||= { name: pkg.name, description: "", author: "", latest: null, versions: [], type: "builder" });
+  writeJson(designPath(theme), pkg);   // atomic; source of truth for preview + install
+  const version = String(Date.now());
+  entry.type = "builder";
+  entry.sourceStore = s;
+  entry.name = pkg.name;
+  entry.author = (meta && meta.author) || entry.author || s;
+  if (typeof pkg.description === "string" && pkg.description) entry.description = pkg.description.slice(0, 400);
+  else if (meta && typeof meta.description === "string") entry.description = meta.description.slice(0, 400);
+  if (meta && meta.price != null && Number.isFinite(Number(meta.price))) entry.price = Math.min(999999, Math.max(0, Number(meta.price)));
+  if (meta && typeof meta.currency === "string" && CURRENCIES.has(meta.currency.toUpperCase())) entry.currency = meta.currency.toUpperCase();
+  if (meta && Array.isArray(meta.tags)) entry.tags = meta.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean).slice(0, 12);
+  if (meta && typeof meta.category === "string") entry.category = meta.category.toLowerCase().trim().slice(0, 40);
+  entry.versions.push({ version, published: Date.now(), installs: 0 });
+  entry.latest = version;
+  setMarket(m);
+  return { ok: true, theme, version, type: "builder" };
+}
+
 function marketListing() {
   const m = getMarket();
   return Object.entries(m.themes).map(([themeSlug, e]) => ({
@@ -1133,6 +1190,20 @@ const server = http.createServer((req, res) => {
       const az = await verifyOwnership(req.headers["authorization"], s);   // must own the source store
       if (!az.ok) return json(az.status || 403, { error: az.error });
       const r = await publishToMarket(s, body);
+      json(r.ok === false ? (r.status || 400) : 200, r);
+    });
+    return;
+  }
+  // Publish a visual builder design (JSON package) as a type=builder listing.
+  if (p.endsWith("/_push/market/publish-design") && req.method === "POST") {
+    readBody().then(async (buf) => {
+      let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { return json(400, { error: "bad json" }); }
+      const s = slug(body.store || "");
+      const az = await authorizeMutation(req, s, body.actor_email);   // creator JWT or trusted service key
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      const perr = validateDesignPackage(body.pkg);
+      if (perr) return json(400, { error: perr });
+      const r = publishDesignToMarket(s, body.pkg, { ...body, author: body.author || az.actor });
       json(r.ok === false ? (r.status || 400) : 200, r);
     });
     return;
