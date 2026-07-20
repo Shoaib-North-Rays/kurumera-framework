@@ -213,6 +213,22 @@ function getLicenses() {
 }
 function setLicenses(l) { _licenseCache = l; writeJson(LICENSE_STATE, l); }
 function themePrice(theme) { const e = getMarket().themes[slug(theme)]; return e && Number(e.price) > 0 ? { price: Number(e.price), currency: e.currency || "USD" } : null; }
+
+// ── Creator payouts (Stripe Connect Express) ─────────────────────────────────
+// A creator (verified by email via store authz) onboards a Stripe Express account;
+// design sales then pay them via destination charges, minus the platform fee. The
+// email→account map lives here (keyed by the creator's verified email).
+const CONNECT_STATE = join(ROOT, "connect.json");
+const PLATFORM_FEE_PCT = Math.min(90, Math.max(0, Number(process.env.KURUMERA_PLATFORM_FEE_PCT || 20)));
+let _connectCache = null;
+function getConnect() {
+  try { _connectCache = JSON.parse(readFileSync(CONNECT_STATE, "utf8")); return _connectCache; }
+  catch (e) {
+    if (existsSync(CONNECT_STATE) && _connectCache) { console.error(`connect.json unreadable, using cache: ${e?.message}`); return _connectCache; }
+    return { accounts: {} };
+  }
+}
+function setConnect(c) { _connectCache = c; writeJson(CONNECT_STATE, c); }
 function issueLicense(theme, email, session, pi) {
   const l = getLicenses();
   // Cryptographically-random, non-guessable suffix (was Math.random — a weak PRNG
@@ -335,9 +351,70 @@ async function createCheckout(theme, email) {
     "line_items[0][price_data][unit_amount]": stripeAmount(p.price, p.currency || "USD"),
     "line_items[0][price_data][product_data][name]": `${e.name || theme} theme`,
     "metadata[theme]": slug(theme),
+    ...destinationParams(theme, p),
     ...(email ? { customer_email: email } : {}),
   });
   return { ok: true, url: session.url, id: session.id };
+}
+
+// ── Connect helpers ──────────────────────────────────────────────────────────
+// Get-or-create the creator's Stripe Express account (keyed by their verified email).
+async function ensureConnectAccount(email) {
+  const c = getConnect();
+  const rec = c.accounts[email];
+  if (rec && rec.account) return rec.account;
+  const acct = await stripe("/accounts", "POST", {
+    type: "express",
+    email,
+    capabilities: { transfers: { requested: true } },
+    metadata: { kurumera_creator: email },
+  });
+  c.accounts[email] = { account: acct.id, created: Date.now(), charges_enabled: false, payouts_enabled: false, details_submitted: false };
+  setConnect(c);
+  return acct.id;
+}
+// Refresh a creator's onboarding status from Stripe (cached on the record).
+async function refreshConnectStatus(email) {
+  const c = getConnect();
+  const rec = c.accounts[email];
+  if (!rec || !rec.account) return { connected: false, account: null, charges_enabled: false, payouts_enabled: false, details_submitted: false };
+  try {
+    const a = await stripe(`/accounts/${rec.account}`, "GET");
+    rec.charges_enabled = !!a.charges_enabled;
+    rec.payouts_enabled = !!a.payouts_enabled;
+    rec.details_submitted = !!a.details_submitted;
+    setConnect(c);
+  } catch { /* keep the cached values on a transient Stripe error */ }
+  return { connected: true, account: rec.account, charges_enabled: rec.charges_enabled, payouts_enabled: rec.payouts_enabled, details_submitted: rec.details_submitted };
+}
+// The connected account eligible to receive a listing's payout (creator onboarded + charges enabled).
+function payoutAccountFor(theme) {
+  const e = getMarket().themes[slug(theme)];
+  const email = e && e.creatorEmail ? String(e.creatorEmail).toLowerCase() : "";
+  if (!email) return null;
+  const rec = getConnect().accounts[email];
+  return rec && rec.account && rec.charges_enabled ? rec.account : null;
+}
+// Checkout params that route the creator's share to their account (minus the fee).
+// Returns {} when there's no eligible creator account → charge stays platform-only.
+function destinationParams(theme, p) {
+  const dest = payoutAccountFor(theme);
+  if (!dest) return {};
+  const total = stripeAmount(p.price, p.currency || "USD");
+  const fee = Math.min(total, Math.round((total * PLATFORM_FEE_PCT) / 100));
+  return {
+    "payment_intent_data[transfer_data][destination]": dest,
+    "payment_intent_data[application_fee_amount]": fee,
+    "metadata[creator_account]": dest,
+  };
+}
+// Only allow onboarding return/refresh URLs back to our own domains (no open redirect).
+function safeReturnUrl(url) {
+  try {
+    const u2 = new URL(String(url || ""));
+    if (u2.protocol === "https:" && /(^|\.)kurumera\.com$/.test(u2.hostname)) return `${u2.origin}${u2.pathname}`;
+  } catch { /* fall through */ }
+  return `${MARKET_APP_URL}/creator/payouts`;
 }
 function licenseHtml(theme, key) {
   return `<!doctype html><meta charset=utf-8><title>Purchase complete</title>`
@@ -881,6 +958,8 @@ function publishDesignToMarket(s, pkg, meta) {
   entry.sourceStore = s;
   entry.name = pkg.name;
   entry.author = (meta && meta.author) || entry.author || s;
+  // Verified creator email → routes design-sale payouts to their connected account.
+  if (meta && meta.creatorEmail) entry.creatorEmail = String(meta.creatorEmail).toLowerCase();
   if (typeof pkg.description === "string" && pkg.description) entry.description = pkg.description.slice(0, 400);
   else if (meta && typeof meta.description === "string") entry.description = meta.description.slice(0, 400);
   if (meta && meta.price != null && Number.isFinite(Number(meta.price))) entry.price = Math.min(999999, Math.max(0, Number(meta.price)));
@@ -1181,6 +1260,38 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
+  // Creator payouts — begin/continue Stripe Connect Express onboarding. Returns a
+  // one-time Stripe-hosted onboarding URL. Auth: the creator must own `store`.
+  if (p.endsWith("/_push/market/connect/start") && req.method === "POST") {
+    readBody().then(async (buf) => {
+      let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
+      if (!STRIPE_SECRET) return json(400, { error: "payouts aren't enabled yet (platform Stripe not configured)" });
+      const store = slug(body.store || "");
+      const az = await verifyOwnership(req.headers["authorization"], store);
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      const email = String(az.actor || "").toLowerCase();
+      if (!email) return json(400, { error: "no verified email on your account" });
+      const ret = safeReturnUrl(body.return_to);
+      try {
+        const account = await ensureConnectAccount(email);
+        const link = await stripe("/account_links", "POST", {
+          account, refresh_url: `${ret}?connect=refresh`, return_url: `${ret}?connect=done`, type: "account_onboarding",
+        });
+        json(200, { ok: true, url: link.url });
+      } catch (e) { json(502, { error: e.message || "couldn't start onboarding" }); }
+    });
+    return;
+  }
+  // Creator payouts — onboarding status for the signed-in creator (+ platform fee %).
+  if (p.endsWith("/_push/market/connect/status") && req.method === "GET") {
+    const store = slug(u.searchParams.get("store") || "");
+    verifyOwnership(req.headers["authorization"], store).then(async (az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      const st = await refreshConnectStatus(String(az.actor || "").toLowerCase());
+      json(200, { ...st, platformFeePct: PLATFORM_FEE_PCT });
+    });
+    return;
+  }
   // Stripe webhook — the source of truth: issues a license on a completed payment
   // (survives the buyer closing the tab) and revokes on refund/dispute. Disabled
   // (400) until KURUMERA_STRIPE_WEBHOOK_SECRET is configured, so it ships inert.
@@ -1284,7 +1395,7 @@ const server = http.createServer((req, res) => {
       if (!az.ok) return json(az.status || 403, { error: az.error });
       const perr = validateDesignPackage(body.pkg);
       if (perr) return json(400, { error: perr });
-      const r = publishDesignToMarket(s, body.pkg, { ...body, author: body.author || az.actor });
+      const r = publishDesignToMarket(s, body.pkg, { ...body, author: body.author || az.actor, creatorEmail: az.actor });
       if (r && r.ok !== false && r.theme) { try { captureCover(r.theme); } catch { /* cover is best-effort */ } }
       json(r.ok === false ? (r.status || 400) : 200, r);
     });
