@@ -831,7 +831,10 @@ async function installFromMarket(s, theme, version, actor, license) {
 // a built code artifact. It's stored at _designs/<slug>.json and listed like a code
 // theme but with type="builder". Full zod validation runs client-side in the
 // builder; here we do a structural + size gate (this service has no TS/zod).
-const MAX_DESIGN_BYTES = 4 * 1024 * 1024;   // 4MB — a design package shouldn't exceed this
+// Generous cap (designs may embed images inline). It's an abuse backstop, not a
+// product limit — bump KURUMERA_MAX_DESIGN_MB if real themes need more.
+const MAX_DESIGN_MB = Number(process.env.KURUMERA_MAX_DESIGN_MB || 50);
+const MAX_DESIGN_BYTES = MAX_DESIGN_MB * 1024 * 1024;
 function validateDesignPackage(pkg) {
   if (!pkg || typeof pkg !== "object") return "missing design package";
   if (typeof pkg.schemaVersion !== "string" || !pkg.schemaVersion.trim()) return "package missing schemaVersion";
@@ -840,7 +843,7 @@ function validateDesignPackage(pkg) {
   if (!pkg.theme || typeof pkg.theme !== "object") return "package missing theme";
   if (!Array.isArray(pkg.media)) return "package missing media manifest";
   const size = Buffer.byteLength(JSON.stringify(pkg));
-  if (size > MAX_DESIGN_BYTES) return `design too large (${Math.round(size / 1024)}KB, max ${MAX_DESIGN_BYTES / 1024 / 1024}MB)`;
+  if (size > MAX_DESIGN_BYTES) return `design too large (${Math.round(size / 1024)}KB, max ${MAX_DESIGN_MB}MB)`;
   return null;
 }
 
