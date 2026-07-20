@@ -9,7 +9,7 @@ import { previewUrl } from "@/lib/registry";
  * The iframe is mounted lazily — only when the card comes within 300px of the
  * viewport — so a long grid never wakes dozens of theme containers at once.
  */
-export function LivePreview({ slug, name = "", base = 1280 }: { slug: string; name?: string; base?: number }) {
+export function LivePreview({ slug, name = "", base = 1280, url }: { slug: string; name?: string; base?: number; url?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -50,7 +50,7 @@ export function LivePreview({ slug, name = "", base = 1280 }: { slug: string; na
   return (
     <div className="frame" ref={ref}>
       <span className="frame__ph" aria-hidden="true">{(name || slug).slice(0, 1).toUpperCase()}</span>
-      {visible && <iframe src={previewUrl(slug)} title={`${name || slug} preview`} loading="lazy" scrolling="no" tabIndex={-1} />}
+      {visible && <iframe src={url || previewUrl(slug)} title={`${name || slug} preview`} loading="lazy" scrolling="no" tabIndex={-1} />}
     </div>
   );
 }
