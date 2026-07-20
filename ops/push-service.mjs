@@ -832,7 +832,7 @@ function marketListing() {
     price: Number(e.price) > 0 ? Number(e.price) : 0,
     currency: e.currency || "USD",
     tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "",
-    coverImage: coverUrl(themeSlug),
+    coverImage: coverUrl(themeSlug), type: e.type || "code",
   }));
 }
 
@@ -935,7 +935,7 @@ const server = http.createServer((req, res) => {
       latest: e.latest, versions: (e.versions || []).map((v) => ({ version: v.version, installs: v.installs || 0 })),
       installs: (e.versions || []).reduce((n, v) => n + (v.installs || 0), 0),
       price: Number(e.price) > 0 ? Number(e.price) : 0, currency: e.currency || "USD",
-      tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "", coverImage: coverUrl(t),
+      tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "", coverImage: coverUrl(t), type: e.type || "code",
     });
   }
   // Serve a theme's static screenshot thumbnail (populated by the capture script).

@@ -19,12 +19,16 @@ export interface Template {
   category: string;
   demoStore: string;
   coverImage: string;  // static screenshot URL; "" ⇒ fall back to the live preview
+  /** Product type. "code" = a built Next.js theme (today); "builder" = a visual
+   *  builder design package (Phase 1+). Defaults to "code" for existing listings. */
+  type: "code" | "builder";
 }
 
 interface RawTheme {
   slug: string; name?: string; description?: string; author?: string;
   latest?: string; versions?: string[]; installs?: number;
   price?: number; currency?: string; tags?: string[]; category?: string; demoStore?: string; coverImage?: string;
+  type?: string;
 }
 
 function normalize(t: RawTheme): Template {
@@ -42,6 +46,7 @@ function normalize(t: RawTheme): Template {
     category: (t.category || "").toLowerCase(),
     demoStore: t.demoStore || "",
     coverImage: t.coverImage || "",
+    type: t.type === "builder" ? "builder" : "code",
   };
 }
 
