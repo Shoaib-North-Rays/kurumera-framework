@@ -185,6 +185,12 @@ const MARKET_PUBLIC_URL = (process.env.KURUMERA_MARKET_URL || "https://themekit.
 // The public marketplace web app — Stripe success/cancel land here (branded), and
 // the app renders the license from /market/license?session_id=.
 const MARKET_APP_URL = (process.env.KURUMERA_MARKET_APP_URL || "https://marketplace.kurumera.com").replace(/\/+$/, "");
+// Auto cover-thumbnail capture (a throwaway Playwright container renders the
+// listing's live preview → _shots/<slug>.jpg). Same image the manual capture
+// script documents. All host paths so `docker run -v` (host daemon) resolves them.
+const PLAYWRIGHT_IMAGE = process.env.PLAYWRIGHT_IMAGE || "mcr.microsoft.com/playwright:v1.49.0-jammy";
+const CAPTURE_SCRIPT_HOST = process.env.KURUMERA_CAPTURE_SCRIPT || "/home/ubuntu/kurumera-framework/ops/capture-screenshots.mjs";
+const BUILDER_ORIGIN = (process.env.KURUMERA_BUILDER_URL || "https://builder.kurumera.com").replace(/\/+$/, "");
 // Stripe webhook signing secret (whsec_…). When set, /market/webhook becomes the
 // source of truth for issuance (survives a closed tab) + refund/dispute revocation.
 // Absent ⇒ the webhook endpoint is disabled (returns 400), so it's safe to ship inert.
@@ -886,6 +892,32 @@ function publishDesignToMarket(s, pkg, meta) {
   return { ok: true, theme, version, type: "builder" };
 }
 
+// Fire-and-forget cover capture: render the listing's live preview in a throwaway
+// Playwright container and write _shots/<slug>.jpg (coverUrl then serves it, and
+// cards prefer it over the live iframe). MUST NOT block or fail a publish — a
+// missing cover just falls back to the live iframe.
+const _capturing = new Set();
+function captureCover(theme) {
+  const s = slug(theme);
+  if (!s || _capturing.has(s)) return;          // don't stack captures for one slug
+  _capturing.add(s);
+  const name = `kurumera-shot-${s}`;
+  sh("docker", ["rm", "-f", name]).finally(() => {
+    sh("docker", [
+      "run", "--rm", "--name", name, "--network", NET,
+      "-e", "SHOTS_DIR=/shots",
+      "-e", `ONLY=${s}`,
+      "-e", `BUILDER_ORIGIN=${BUILDER_ORIGIN}`,
+      "-e", `KURUMERA_MARKET_URL=${MARKET_PUBLIC_URL}`,
+      "-v", `${SHOTS}:/shots`,
+      "-v", `${CAPTURE_SCRIPT_HOST}:/capture.mjs`,
+      PLAYWRIGHT_IMAGE, "node", "/capture.mjs",
+    ], { timeoutMs: 150000, killContainer: name })
+      .then((r) => console.log(`[cover] ${s} exit=${r.code}${r.code ? " :: " + r.out.slice(-300) : ""}`))
+      .finally(() => _capturing.delete(s));
+  });
+}
+
 function marketListing() {
   const m = getMarket();
   return Object.entries(m.themes).map(([themeSlug, e]) => ({
@@ -1222,6 +1254,7 @@ const server = http.createServer((req, res) => {
       const perr = validateDesignPackage(body.pkg);
       if (perr) return json(400, { error: perr });
       const r = publishDesignToMarket(s, body.pkg, { ...body, author: body.author || az.actor });
+      if (r && r.ok !== false && r.theme) { try { captureCover(r.theme); } catch { /* cover is best-effort */ } }
       json(r.ok === false ? (r.status || 400) : 200, r);
     });
     return;
