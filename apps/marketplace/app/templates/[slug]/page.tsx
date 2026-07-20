@@ -64,7 +64,10 @@ export default async function TemplateDetail({ params }: { params: Promise<{ slu
           <div className="pdp__facts">
             <div className="pdp__fact"><span>Installs</span><b>{t.installs.toLocaleString()}</b></div>
             {isBuilder(t) ? (
-              <div className="pdp__fact"><span>Type</span><b>Visual builder template</b></div>
+              <>
+                <div className="pdp__fact"><span>Type</span><b>Visual builder template</b></div>
+                <div className="pdp__fact"><span>Versions</span><b>{t.versions.length || 1}</b></div>
+              </>
             ) : (
               <>
                 <div className="pdp__fact"><span>Current version</span><b>v{t.latest}</b></div>

@@ -236,6 +236,19 @@ function getConnect() {
   }
 }
 function setConnect(c) { _connectCache = c; writeJson(CONNECT_STATE, c); }
+
+// Which design version each store has installed — powers "update available" when a
+// creator publishes a newer version. { [store]: { [theme]: { version, at } } }.
+const INSTALLED_STATE = join(ROOT, "installs.json");
+let _installedCache = null;
+function getInstalled() {
+  try { _installedCache = JSON.parse(readFileSync(INSTALLED_STATE, "utf8")); return _installedCache; }
+  catch (e) {
+    if (existsSync(INSTALLED_STATE) && _installedCache) { console.error(`installs.json unreadable, using cache: ${e?.message}`); return _installedCache; }
+    return {};
+  }
+}
+function setInstalled(x) { _installedCache = x; writeJson(INSTALLED_STATE, x); }
 function issueLicense(theme, email, session, pi) {
   const l = getLicenses();
   // Cryptographically-random, non-guessable suffix (was Math.random — a weak PRNG
@@ -1177,7 +1190,34 @@ const server = http.createServer((req, res) => {
       }
       const v = (e.versions || []).find((x) => x.version === e.latest) || (e.versions || [])[(e.versions || []).length - 1];
       if (v) { v.installs = (v.installs || 0) + 1; setMarket(m); }
+      // Remember the version this store now has → powers "update available" later.
+      const inst = getInstalled();
+      (inst[store] ||= {})[theme] = { version: e.latest, at: Date.now() };
+      setInstalled(inst);
       json(200, { ok: true });
+    });
+    return;
+  }
+  // What version of a design has this store installed, vs. the latest? (auth-gated)
+  if (p.endsWith("/_push/market/installed") && req.method === "GET") {
+    const store = slug(u.searchParams.get("store") || "");
+    const theme = slug(u.searchParams.get("theme") || "");
+    verifyOwnership(req.headers["authorization"], store).then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      const e = getMarket().themes[theme];
+      if (!e) return json(404, { error: "no such listing" });
+      const versions = e.versions || [];
+      const rec = (getInstalled()[store] || {})[theme];
+      const installedVersion = rec ? rec.version : null;
+      json(200, {
+        theme,
+        installedVersion,
+        installedAt: rec ? rec.at : 0,
+        installedVersionNo: installedVersion ? versions.findIndex((v) => v.version === installedVersion) + 1 : 0,
+        latestVersion: e.latest,
+        latestVersionNo: versions.length,
+        updateAvailable: !!(installedVersion && installedVersion !== e.latest),
+      });
     });
     return;
   }
