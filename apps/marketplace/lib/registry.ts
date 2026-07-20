@@ -4,6 +4,8 @@
  * fields here are ones the registry actually returns today — nothing faked.
  */
 export const MARKET_ORIGIN = process.env.KURUMERA_MARKET_ORIGIN || "https://themekit.kurumera.com";
+// The visual builder app that renders a builder design's read-only live preview.
+export const BUILDER_ORIGIN = process.env.KURUMERA_BUILDER_ORIGIN || "https://builder.kurumera.com";
 
 export interface Template {
   slug: string;
@@ -78,6 +80,10 @@ export function priceLabel(t: Template): string {
   return t.currency && t.currency !== "USD" ? `${t.currency} ${t.price}` : `$${t.price}`;
 }
 export const previewUrl = (slug: string) => `${MARKET_ORIGIN}/?market=${encodeURIComponent(slug)}`;
+/** Live preview URL for a builder design (rendered read-only by the builder app). */
+export const builderPreviewUrl = (slug: string) => `${BUILDER_ORIGIN}/market-preview/${encodeURIComponent(slug)}`;
+/** The correct live-preview URL for any template, by type. */
+export const livePreviewUrl = (t: Template) => (isBuilder(t) ? builderPreviewUrl(t.slug) : previewUrl(t.slug));
 export const cloneUrl = (slug: string) => `${MARKET_ORIGIN}/_push/market/source?theme=${encodeURIComponent(slug)}`;
 
 /**

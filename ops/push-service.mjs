@@ -1009,6 +1009,18 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=86400" });
     return res.end(readFileSync(fp));
   }
+  // Serve a builder design's package JSON — the source the builder's read-only
+  // render route loads to produce the live preview. Public (a published listing is
+  // already public); only builder listings have a package.
+  if (p.endsWith("/_push/market/design") && req.method === "GET") {
+    const t = slug(u.searchParams.get("theme") || "");
+    const e = getMarket().themes[t];
+    if (!e || e.type !== "builder") { res.writeHead(404, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ error: "no builder design" })); }
+    const fp = designPath(t);
+    if (!existsSync(fp)) { res.writeHead(404, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ error: "design not found" })); }
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "public, max-age=60", "Access-Control-Allow-Origin": "*" });
+    return res.end(readFileSync(fp));
+  }
   // Does the caller own this theme? (free ⇒ always; paid ⇒ needs a valid license)
   if (p.endsWith("/_push/market/owns")) {
     if (rateLimited(`owns:${clientIp(req)}`)) return json(429, { error: "too many requests — slow down" });

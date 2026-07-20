@@ -40,7 +40,7 @@ export default async function TemplateDetail({ params }: { params: Promise<{ slu
 
       <div className="wrap pdp">
         {isBuilder(t)
-          ? <BuilderPreview name={t.name} coverImage={t.coverImage} coverColor={t.coverColor} />
+          ? <BuilderPreview slug={t.slug} name={t.name} />
           : <DetailPreview slug={t.slug} name={t.name} />}
 
         <aside className="pdp__rail">
@@ -55,7 +55,7 @@ export default async function TemplateDetail({ params }: { params: Promise<{ slu
           </div>
 
           {isBuilder(t)
-            ? <GetBuilderTemplate />
+            ? <GetBuilderTemplate slug={t.slug} name={t.name} />
             : <GetTemplate slug={t.slug} free={isFree(t)} priceLabel={priceLabel(t)} />}
           <div style={{ marginTop: 10 }}>
             <SaveButton slug={t.slug} className="btn btn--tertiary" label />

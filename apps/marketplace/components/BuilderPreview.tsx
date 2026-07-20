@@ -1,17 +1,35 @@
-import { BuilderThumb } from "@/components/BuilderThumb";
+"use client";
+
+import { useState } from "react";
+import { Desktop, Tablet, Mobile, Expand } from "@/components/Icons";
+import { builderPreviewUrl } from "@/lib/registry";
+
+const WIDTHS = { desktop: "100%", tablet: "768px", mobile: "390px" } as const;
+type Device = keyof typeof WIDTHS;
 
 /**
- * PDP preview for a builder template — a visual design has no code-theme
- * ?market=<slug> render, so we show its cover screenshot (or a branded,
- * theme-coloured cover until the screenshot is captured) in the .pdp__left slot.
+ * PDP preview for a builder template — a live, read-only render of the actual
+ * design (via the builder's `/market-preview/<slug>` route), with the same device
+ * switcher + full-screen affordance as code themes. No more static placeholder.
  */
-export function BuilderPreview({ name, coverImage, coverColor }: { name: string; coverImage: string; coverColor: string }) {
+export function BuilderPreview({ slug, name }: { slug: string; name: string }) {
+  const [device, setDevice] = useState<Device>("desktop");
+  const url = builderPreviewUrl(slug);
+  const dev: [Device, typeof Desktop, string][] = [["desktop", Desktop, "Desktop"], ["tablet", Tablet, "Tablet"], ["mobile", Mobile, "Mobile"]];
   return (
     <div className="pdp__left">
-      <div className="builder-preview">
-        {coverImage
-          ? <img className="frame__img" src={coverImage} alt={`${name} preview`} />
-          : <BuilderThumb name={name} color={coverColor} />}
+      <div className="pdp__toolbar">
+        <div className="pdp__devices" role="group" aria-label="Preview device">
+          {dev.map(([key, Icon, label]) => (
+            <button key={key} aria-label={label} aria-pressed={device === key} onClick={() => setDevice(key)}><Icon /></button>
+          ))}
+        </div>
+        <a className="btn btn--secondary pdp__open" href={url} target="_blank" rel="noreferrer"><Expand /> Full screen</a>
+      </div>
+      <div className="pdp__stage">
+        <div className="pdp__device" style={{ width: WIDTHS[device] }}>
+          <iframe src={url} title={`${name} live preview`} loading="lazy" />
+        </div>
       </div>
     </div>
   );

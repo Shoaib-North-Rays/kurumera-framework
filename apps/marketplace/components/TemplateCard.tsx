@@ -3,7 +3,7 @@ import { LivePreview } from "@/components/LivePreview";
 import { BuilderThumb } from "@/components/BuilderThumb";
 import { SaveButton } from "@/components/SaveButton";
 import { Download } from "@/components/Icons";
-import { badges, featureLabels, priceLabel, isFree, isBuilder, categoryLabel, previewUrl, type Template } from "@/lib/registry";
+import { badges, featureLabels, priceLabel, isFree, isBuilder, categoryLabel, livePreviewUrl, type Template } from "@/lib/registry";
 
 export function TemplateCard({ t }: { t: Template }) {
   const href = `/templates/${t.slug}`;
@@ -26,8 +26,8 @@ export function TemplateCard({ t }: { t: Template }) {
             ? <div className="frame"><BuilderThumb name={t.name} color={t.coverColor} /></div>
             : <LivePreview slug={t.slug} name={t.name} />}
         <div className="tpl-card__hover">
-          {!isBuilder(t) && <a href={previewUrl(t.slug)} target="_blank" rel="noreferrer" className="tpl-card__preview">Live Preview</a>}
-          <Link href={href} className="tpl-card__preview" style={isBuilder(t) ? undefined : { marginLeft: 8 }}>View Details</Link>
+          <a href={livePreviewUrl(t)} target="_blank" rel="noreferrer" className="tpl-card__preview">Live Preview</a>
+          <Link href={href} className="tpl-card__preview" style={{ marginLeft: 8 }}>View Details</Link>
         </div>
       </div>
       <Link href={href} className="tpl-card__body">
