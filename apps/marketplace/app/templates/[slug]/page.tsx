@@ -55,7 +55,7 @@ export default async function TemplateDetail({ params }: { params: Promise<{ slu
           </div>
 
           {isBuilder(t)
-            ? <GetBuilderTemplate slug={t.slug} name={t.name} />
+            ? <GetBuilderTemplate slug={t.slug} name={t.name} free={isFree(t)} priceLabel={priceLabel(t)} />
             : <GetTemplate slug={t.slug} free={isFree(t)} priceLabel={priceLabel(t)} />}
           <div style={{ marginTop: 10 }}>
             <SaveButton slug={t.slug} className="btn btn--tertiary" label />
