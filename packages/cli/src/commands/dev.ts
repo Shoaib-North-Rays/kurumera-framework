@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { readConfig } from "../util/config.js";
@@ -37,6 +37,23 @@ export function themeDev(args: string[]): number {
   }
 
   const apiUrl = process.env.KURUMERA_API_URL || cfg.apiUrl || DEFAULT_API_URL;
+
+  // A freshly cloned/init'd theme has no node_modules, so `next dev` fails with
+  // "'next' is not recognized". Install deps once, automatically, on first run.
+  const cwd = process.cwd();
+  const hasNext =
+    existsSync(resolve(cwd, "node_modules", "next")) ||
+    existsSync(resolve(cwd, "node_modules", ".bin", "next")) ||
+    existsSync(resolve(cwd, "node_modules", ".bin", "next.cmd"));
+  if (!hasNext) {
+    console.log("▸ Installing theme dependencies (first run — this can take a minute)…");
+    const install = spawnSync("npm", ["install"], { stdio: "inherit", shell: true, cwd });
+    if (install.status !== 0) {
+      console.error("\nDependency install failed. Run `npm install` in this folder, then retry `kurumera theme dev`.");
+      return install.status ?? 1;
+    }
+  }
+
   const how = token ? "token" : `slug "${tenant}"`;
   console.log(`▸ Starting theme dev${store ? ` for "${store}"` : ""} (via ${how}) → http://localhost:3000`);
 
