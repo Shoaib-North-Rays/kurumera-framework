@@ -24,6 +24,7 @@ export async function themePreview(args: string[]): Promise<number> {
 
   process.stdout.write("Waiting for the build");
   let previewUrl = "";
+  let idle = 0;
   for (let i = 0; i < 60; i++) {
     let s: { status?: string; preview_url?: string; error?: string } = {};
     try {
@@ -34,10 +35,21 @@ export async function themePreview(args: string[]): Promise<number> {
     } catch { /* keep polling */ }
     if (s.status === "ready" && s.preview_url) { previewUrl = s.preview_url; break; }
     if (s.status === "failed") { console.error(`\nBuild failed: ${s.error || "see logs"}.`); return 1; }
+    // No build was ever started (idle) — don't poll for 5 minutes; tell the user.
+    if (s.status === "idle" || !s.status) {
+      if (++idle >= 3) {
+        console.error(
+          "\nNo build in progress for this store.\n" +
+            "  • Run `kurumera theme push` first — it builds, then `theme preview` shows it.\n" +
+            `  • Or run \`kurumera theme dev --store ${store}\` for a fast local preview at http://localhost:3000`,
+        );
+        return 1;
+      }
+    } else idle = 0;
     process.stdout.write(".");
     await new Promise((r) => setTimeout(r, 5000));
   }
-  if (!previewUrl) { console.error("\nTimed out waiting for the build."); return 1; }
+  if (!previewUrl) { console.error("\nTimed out waiting for the build (it may still be building — retry `kurumera theme preview`)."); return 1; }
 
   const url = store ? `${previewUrl}${previewUrl.includes("?") ? "&" : "?"}store=${encodeURIComponent(store)}` : previewUrl;
   console.log(`\n✓ Preview ready:\n  ${url}`);
