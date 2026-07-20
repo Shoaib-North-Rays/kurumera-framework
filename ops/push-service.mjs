@@ -1292,6 +1292,42 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
+  // Creator earnings — the signed-in creator's own listings with installs + paid
+  // sales, gross/net (after the platform fee), grouped by currency, + payout status.
+  if (p.endsWith("/_push/market/earnings") && req.method === "GET") {
+    const store = slug(u.searchParams.get("store") || "");
+    verifyOwnership(req.headers["authorization"], store).then(async (az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      const email = String(az.actor || "").toLowerCase();
+      const m = getMarket();
+      const licenses = Object.values(getLicenses().keys).filter((l) => !l.revoked);
+      const keep = 1 - PLATFORM_FEE_PCT / 100;
+      const round2 = (n) => Math.round(n * 100) / 100;
+      const listings = Object.entries(m.themes)
+        .filter(([, e]) => slug(e.sourceStore || "") === store)
+        .map(([sl, e]) => {
+          const price = Number(e.price) > 0 ? Number(e.price) : 0;
+          const currency = e.currency || "USD";
+          const installs = (e.versions || []).reduce((n, v) => n + (v.installs || 0), 0);
+          const sales = price > 0 ? licenses.filter((l) => l.theme === sl).length : 0;
+          const gross = round2(price * sales);
+          return { slug: sl, name: e.name || sl, type: e.type || "code", price, currency, installs, sales, gross, net: round2(gross * keep) };
+        })
+        .sort((a, b) => b.gross - a.gross || b.installs - a.installs);
+      const totals = {};
+      let installsAll = 0;
+      for (const r of listings) {
+        installsAll += r.installs;
+        if (r.sales > 0) {
+          const t = (totals[r.currency] ||= { currency: r.currency, sales: 0, gross: 0, net: 0 });
+          t.sales += r.sales; t.gross = round2(t.gross + r.gross); t.net = round2(t.net + r.net);
+        }
+      }
+      const payout = await refreshConnectStatus(email);
+      json(200, { listings, totals: Object.values(totals), installs: installsAll, platformFeePct: PLATFORM_FEE_PCT, payout });
+    });
+    return;
+  }
   // Stripe webhook — the source of truth: issues a license on a completed payment
   // (survives the buyer closing the tab) and revokes on refund/dispute. Disabled
   // (400) until KURUMERA_STRIPE_WEBHOOK_SECRET is configured, so it ships inert.
