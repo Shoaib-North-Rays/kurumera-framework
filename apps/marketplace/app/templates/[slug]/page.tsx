@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  getTemplate, fetchTemplates, priceLabel, isFree, featureLabels, categoryLabel,
+  getTemplate, fetchTemplates, priceLabel, isFree, isBuilder, featureLabels, categoryLabel,
 } from "@/lib/registry";
 import { DetailPreview } from "@/components/DetailPreview";
+import { BuilderPreview } from "@/components/BuilderPreview";
 import { GetTemplate } from "@/components/GetTemplate";
+import { GetBuilderTemplate } from "@/components/GetBuilderTemplate";
 import { DetailTabs } from "@/components/DetailTabs";
 import { SaveButton } from "@/components/SaveButton";
 import { TemplateCard } from "@/components/TemplateCard";
@@ -37,7 +39,9 @@ export default async function TemplateDetail({ params }: { params: Promise<{ slu
       </div>
 
       <div className="wrap pdp">
-        <DetailPreview slug={t.slug} name={t.name} />
+        {isBuilder(t)
+          ? <BuilderPreview name={t.name} coverImage={t.coverImage} />
+          : <DetailPreview slug={t.slug} name={t.name} />}
 
         <aside className="pdp__rail">
           {t.category && <span className="pdp__cat">{categoryLabel(t.category)}</span>}
@@ -50,16 +54,24 @@ export default async function TemplateDetail({ params }: { params: Promise<{ slu
             {!isFree(t) && <span className="note">one-time · {t.currency}</span>}
           </div>
 
-          <GetTemplate slug={t.slug} free={isFree(t)} priceLabel={priceLabel(t)} />
+          {isBuilder(t)
+            ? <GetBuilderTemplate />
+            : <GetTemplate slug={t.slug} free={isFree(t)} priceLabel={priceLabel(t)} />}
           <div style={{ marginTop: 10 }}>
             <SaveButton slug={t.slug} className="btn btn--tertiary" label />
           </div>
 
           <div className="pdp__facts">
             <div className="pdp__fact"><span>Installs</span><b>{t.installs.toLocaleString()}</b></div>
-            <div className="pdp__fact"><span>Current version</span><b>v{t.latest}</b></div>
-            <div className="pdp__fact"><span>Available versions</span><b>{t.versions.length || 1}</b></div>
-            <div className="pdp__fact"><span>Compatibility</span><b>Visual builder + code</b></div>
+            {isBuilder(t) ? (
+              <div className="pdp__fact"><span>Type</span><b>Visual builder template</b></div>
+            ) : (
+              <>
+                <div className="pdp__fact"><span>Current version</span><b>v{t.latest}</b></div>
+                <div className="pdp__fact"><span>Available versions</span><b>{t.versions.length || 1}</b></div>
+                <div className="pdp__fact"><span>Compatibility</span><b>Visual builder + code</b></div>
+              </>
+            )}
           </div>
 
           {feats.length > 0 && (

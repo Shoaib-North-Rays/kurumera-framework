@@ -116,6 +116,7 @@ button { font-family: inherit; }
 .badge--green { background: var(--mint); color: var(--green-dark); }
 .badge--free { background: var(--mint); color: var(--green-dark); }
 .badge--pop { background: #FEF3C7; color: #92400E; }
+.badge--builder { background: #EEF2FF; color: #4338CA; }
 .badge--soft { background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
 
 /* ── Header ──────────────────────────────────────────────────── */
@@ -461,3 +462,12 @@ button { font-family: inherit; }
 .pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 36px; }
 .pager__info { color: var(--muted); font-size: 14px; font-weight: 600; }
 .pager__disabled { opacity: .45; pointer-events: none; }
+
+/* ── Builder templates (type=builder) ────────────────────────── */
+.builder-preview { position: relative; aspect-ratio: 16 / 10; border-radius: var(--r-card); overflow: hidden; border: 1px solid var(--border); background: var(--sunken); box-shadow: var(--shadow-sm); }
+.builder-preview .frame__img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+.builder-preview .frame__ph { position: absolute; inset: 0; }
+.builder-note { display: flex; gap: 11px; align-items: flex-start; padding: 14px; border-radius: var(--r-card); background: #EEF2FF; border: 1px solid #E0E7FF; }
+.builder-note svg { color: #4338CA; flex: none; margin-top: 2px; }
+.builder-note p { margin: 0; font-size: 13.5px; line-height: 1.5; color: #3730A3; }
+.builder-note b { color: #312E81; }

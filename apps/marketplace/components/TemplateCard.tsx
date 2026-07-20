@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LivePreview } from "@/components/LivePreview";
 import { SaveButton } from "@/components/SaveButton";
 import { Download } from "@/components/Icons";
-import { badges, featureLabels, priceLabel, isFree, categoryLabel, previewUrl, type Template } from "@/lib/registry";
+import { badges, featureLabels, priceLabel, isFree, isBuilder, categoryLabel, previewUrl, type Template } from "@/lib/registry";
 
 export function TemplateCard({ t }: { t: Template }) {
   const href = `/templates/${t.slug}`;
@@ -21,10 +21,12 @@ export function TemplateCard({ t }: { t: Template }) {
         <SaveButton slug={t.slug} />
         {t.coverImage
           ? <div className="frame"><img className="frame__img" src={t.coverImage} alt={`${t.name} preview`} loading="lazy" /></div>
-          : <LivePreview slug={t.slug} name={t.name} />}
+          : isBuilder(t)
+            ? <div className="frame"><span className="frame__ph" aria-hidden="true">{t.name.slice(0, 1).toUpperCase()}</span></div>
+            : <LivePreview slug={t.slug} name={t.name} />}
         <div className="tpl-card__hover">
-          <a href={previewUrl(t.slug)} target="_blank" rel="noreferrer" className="tpl-card__preview">Live Preview</a>
-          <Link href={href} className="tpl-card__preview" style={{ marginLeft: 8 }}>View Details</Link>
+          {!isBuilder(t) && <a href={previewUrl(t.slug)} target="_blank" rel="noreferrer" className="tpl-card__preview">Live Preview</a>}
+          <Link href={href} className="tpl-card__preview" style={isBuilder(t) ? undefined : { marginLeft: 8 }}>View Details</Link>
         </div>
       </div>
       <Link href={href} className="tpl-card__body">

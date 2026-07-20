@@ -69,6 +69,7 @@ export async function getTemplate(slug: string): Promise<Template | null> {
 
 /* ── Presentation helpers ────────────────────────────────────── */
 export const isFree = (t: Template) => !t.price || t.price <= 0;
+export const isBuilder = (t: Template) => t.type === "builder";
 export function priceLabel(t: Template): string {
   if (isFree(t)) return "Free";
   return t.currency && t.currency !== "USD" ? `${t.currency} ${t.price}` : `$${t.price}`;
@@ -83,6 +84,7 @@ export const cloneUrl = (slug: string) => `${MARKET_ORIGIN}/_push/market/source?
  */
 export function badges(t: Template): { label: string; kind: string }[] {
   const out: { label: string; kind: string }[] = [];
+  if (isBuilder(t)) out.push({ label: "Editable in builder", kind: "builder" });
   if (isFree(t)) out.push({ label: "Free", kind: "free" });
   if (t.tags.some((x) => /ecom|store|shop/.test(x))) out.push({ label: "Ecommerce", kind: "green" });
   else if (t.tags.some((x) => /cms|blog/.test(x))) out.push({ label: "CMS", kind: "green" });
