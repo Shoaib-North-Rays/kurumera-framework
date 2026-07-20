@@ -22,13 +22,15 @@ export interface Template {
   /** Product type. "code" = a built Next.js theme (today); "builder" = a visual
    *  builder design package (Phase 1+). Defaults to "code" for existing listings. */
   type: "code" | "builder";
+  /** Design primary colour (builder listings) for a branded cover placeholder. */
+  coverColor: string;
 }
 
 interface RawTheme {
   slug: string; name?: string; description?: string; author?: string;
   latest?: string; versions?: string[]; installs?: number;
   price?: number; currency?: string; tags?: string[]; category?: string; demoStore?: string; coverImage?: string;
-  type?: string;
+  type?: string; coverColor?: string;
 }
 
 function normalize(t: RawTheme): Template {
@@ -47,6 +49,7 @@ function normalize(t: RawTheme): Template {
     demoStore: t.demoStore || "",
     coverImage: t.coverImage || "",
     type: t.type === "builder" ? "builder" : "code",
+    coverColor: t.coverColor || "",
   };
 }
 

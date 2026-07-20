@@ -471,3 +471,5 @@ button { font-family: inherit; }
 .builder-note svg { color: #4338CA; flex: none; margin-top: 2px; }
 .builder-note p { margin: 0; font-size: 13.5px; line-height: 1.5; color: #3730A3; }
 .builder-note b { color: #312E81; }
+.builder-thumb { position: absolute; inset: 0; display: grid; place-items: center; padding: 22px; }
+.builder-thumb span { color: #fff; font-family: var(--font-head); font-weight: 800; font-size: 20px; line-height: 1.2; text-align: center; letter-spacing: -.01em; text-shadow: 0 1px 14px rgba(0, 0, 0, .45); }

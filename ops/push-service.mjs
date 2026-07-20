@@ -874,6 +874,9 @@ function publishDesignToMarket(s, pkg, meta) {
   if (meta && typeof meta.currency === "string" && CURRENCIES.has(meta.currency.toUpperCase())) entry.currency = meta.currency.toUpperCase();
   if (meta && Array.isArray(meta.tags)) entry.tags = meta.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean).slice(0, 12);
   if (meta && typeof meta.category === "string") entry.category = meta.category.toLowerCase().trim().slice(0, 40);
+  // Capture the design's primary colour for a branded cover placeholder (until a
+  // rendered screenshot exists). Validated as a hex string.
+  entry.coverColor = (pkg.theme && typeof pkg.theme.primaryColor === "string" && /^#[0-9a-fA-F]{3,8}$/.test(pkg.theme.primaryColor)) ? pkg.theme.primaryColor : "";
   entry.versions.push({ version, published: Date.now(), installs: 0 });
   entry.latest = version;
   setMarket(m);
@@ -889,7 +892,7 @@ function marketListing() {
     price: Number(e.price) > 0 ? Number(e.price) : 0,
     currency: e.currency || "USD",
     tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "",
-    coverImage: coverUrl(themeSlug), type: e.type || "code",
+    coverImage: coverUrl(themeSlug), type: e.type || "code", coverColor: e.coverColor || "",
   }));
 }
 
@@ -992,7 +995,7 @@ const server = http.createServer((req, res) => {
       latest: e.latest, versions: (e.versions || []).map((v) => ({ version: v.version, installs: v.installs || 0 })),
       installs: (e.versions || []).reduce((n, v) => n + (v.installs || 0), 0),
       price: Number(e.price) > 0 ? Number(e.price) : 0, currency: e.currency || "USD",
-      tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "", coverImage: coverUrl(t), type: e.type || "code",
+      tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "", coverImage: coverUrl(t), type: e.type || "code", coverColor: e.coverColor || "",
     });
   }
   // Serve a theme's static screenshot thumbnail (populated by the capture script).

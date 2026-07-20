@@ -40,7 +40,7 @@ export default async function TemplateDetail({ params }: { params: Promise<{ slu
 
       <div className="wrap pdp">
         {isBuilder(t)
-          ? <BuilderPreview name={t.name} coverImage={t.coverImage} />
+          ? <BuilderPreview name={t.name} coverImage={t.coverImage} coverColor={t.coverColor} />
           : <DetailPreview slug={t.slug} name={t.name} />}
 
         <aside className="pdp__rail">

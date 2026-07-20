@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LivePreview } from "@/components/LivePreview";
+import { BuilderThumb } from "@/components/BuilderThumb";
 import { SaveButton } from "@/components/SaveButton";
 import { Download } from "@/components/Icons";
 import { badges, featureLabels, priceLabel, isFree, isBuilder, categoryLabel, previewUrl, type Template } from "@/lib/registry";
@@ -22,7 +23,7 @@ export function TemplateCard({ t }: { t: Template }) {
         {t.coverImage
           ? <div className="frame"><img className="frame__img" src={t.coverImage} alt={`${t.name} preview`} loading="lazy" /></div>
           : isBuilder(t)
-            ? <div className="frame"><span className="frame__ph" aria-hidden="true">{t.name.slice(0, 1).toUpperCase()}</span></div>
+            ? <div className="frame"><BuilderThumb name={t.name} color={t.coverColor} /></div>
             : <LivePreview slug={t.slug} name={t.name} />}
         <div className="tpl-card__hover">
           {!isBuilder(t) && <a href={previewUrl(t.slug)} target="_blank" rel="noreferrer" className="tpl-card__preview">Live Preview</a>}
