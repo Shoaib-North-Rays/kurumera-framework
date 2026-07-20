@@ -1065,6 +1065,31 @@ const server = http.createServer((req, res) => {
     const t = slug(u.searchParams.get("theme") || "");
     return json(200, { theme: t, paid: !!themePrice(t), owned: ownsTheme(t, u.searchParams.get("license") || "") });
   }
+  // Record a builder-design install into a store (count + seat). The buyer must own
+  // the target store (verified auth). Paid ⇒ a valid, owned license is required and
+  // one of its store seats is consumed (already-seated stores re-install for free).
+  if (p.endsWith("/_push/market/design-installed") && req.method === "POST") {
+    readBody().then(async (buf) => {
+      let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { return json(400, { error: "bad json" }); }
+      const theme = slug(body.theme || "");
+      const store = slug(body.store || "");
+      const m = getMarket();
+      const e = m.themes[theme];
+      if (!e || e.type !== "builder") return json(404, { error: "no builder design" });
+      const az = await verifyOwnership(req.headers["authorization"], store);
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (themePrice(theme)) {
+        const license = String(body.license || "").trim();
+        if (!licenseValid(license, theme)) return json(403, { error: "a valid license is required to install this paid design" });
+        const seatErr = consumeSeat(license, store);   // no-op if this store is already seated
+        if (seatErr) return json(403, { error: seatErr });
+      }
+      const v = (e.versions || []).find((x) => x.version === e.latest) || (e.versions || [])[(e.versions || []).length - 1];
+      if (v) { v.installs = (v.installs || 0) + 1; setMarket(m); }
+      json(200, { ok: true });
+    });
+    return;
+  }
   // A signed-in buyer's purchases — matched to their VERIFIED account email
   // (resolved from the token via store authz; `actor` is the proven email). No
   // email-guessing, so one user can never read another's license keys.
