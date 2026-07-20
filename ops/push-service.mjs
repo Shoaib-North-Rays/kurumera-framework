@@ -1475,6 +1475,17 @@ const server = http.createServer((req, res) => {
         } else if ((evt.type === "charge.refunded" || evt.type === "charge.dispute.created") && obj && obj.payment_intent) {
           const n = revokeLicenses((r) => r.pi && r.pi === obj.payment_intent, evt.type);
           if (n) console.log(`revoked ${n} license(s) for ${evt.type} pi=${obj.payment_intent}`);
+          // Reverse the creator's payout (destination transfer) on a FULL refund or a
+          // dispute, so a refunded sale un-pays the creator. Idempotent: an already-
+          // reversed transfer (e.g. dashboard refund with reverse_transfer) errors
+          // benignly. Partial refunds are left for manual handling.
+          const fullRefund = evt.type !== "charge.refunded" || (obj.amount && obj.amount_refunded >= obj.amount);
+          const tid = obj.transfer ? (typeof obj.transfer === "string" ? obj.transfer : obj.transfer.id || "") : "";
+          if (tid && fullRefund && STRIPE_SECRET) {
+            stripe(`/transfers/${tid}/reversals`, "POST", {})
+              .then(() => console.log(`reversed transfer ${tid} for ${evt.type}`))
+              .catch((e) => console.log(`transfer reversal ${tid} skipped: ${e?.message}`));
+          }
         }
       } catch (e) { console.error(`webhook ${evt.type}: ${e?.message}`); }
       json(200, { received: true });   // always ack so Stripe doesn't retry-storm
