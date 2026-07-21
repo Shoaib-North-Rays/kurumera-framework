@@ -34,6 +34,7 @@ export interface ThemeSettings {
   faviconUrl: string | null;
   colors: { accent?: string; accentInk?: string; sale?: string; ink?: string; bg?: string; paper?: string };
   fonts: { heading: FontKey; body: FontKey; baseSize: number };
+  logoHeight: number;
   radius: number | null;
   announcement: { show: boolean; text: string };
   hero: { show: boolean; eyebrow: string; title: string; lede: string; primary: Cta; secondary: Cta };
@@ -45,6 +46,7 @@ export interface ThemeSettings {
 const DEFAULTS: Omit<ThemeSettings, "storeName" | "logoUrl" | "faviconUrl"> = {
   colors: {},
   fonts: { heading: "system", body: "system", baseSize: 16 },
+  logoHeight: 32,
   radius: null,
   announcement: { show: true, text: "Free shipping on orders over Rs 5,000 · Easy 30-day returns" },
   hero: {
@@ -123,6 +125,7 @@ export const getSettings = cache(async (): Promise<ThemeSettings> => {
       body: fontKey(typoIn.body, DEFAULTS.fonts.body),
       baseSize: Math.min(22, Math.max(13, Math.round(num(typoIn.baseSize, DEFAULTS.fonts.baseSize)))),
     },
+    logoHeight: Math.min(120, Math.max(16, Math.round(num(t.logoHeight, DEFAULTS.logoHeight)))),
     radius: (typeof t.radius === "number" && Number.isFinite(t.radius)) ? Math.min(32, Math.max(0, t.radius)) : DEFAULTS.radius,
     announcement: { show: bool(annIn.show, DEFAULTS.announcement.show), text: str(annIn.text, DEFAULTS.announcement.text) },
     hero: {
@@ -151,6 +154,7 @@ export function themeCssVars(s: ThemeSettings): string {
   if (s.colors.bg) v.push(`--bg:${s.colors.bg}`);
   if (s.colors.paper) v.push(`--paper:${s.colors.paper}`);
   if (s.radius != null) v.push(`--radius:${s.radius}px`);
+  v.push(`--logo-h:${s.logoHeight}px`);
   v.push(`--font-heading:${FONT_STACKS[s.fonts.heading]}`);
   v.push(`--font-body:${FONT_STACKS[s.fonts.body]}`);
   v.push(`--fs-base:${s.fonts.baseSize}px`);

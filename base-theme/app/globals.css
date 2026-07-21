@@ -47,7 +47,7 @@ img { max-width: 100%; display: block; }
   border-bottom: 1px solid var(--line);
 }
 .site-header__logo { font-weight: 800; font-size: 19px; letter-spacing: -0.03em; display: inline-flex; align-items: center; }
-.site-header__logo-img { height: 32px; width: auto; max-width: 200px; object-fit: contain; }
+.site-header__logo-img { height: var(--logo-h, 32px); width: auto; max-width: 240px; object-fit: contain; }
 .footer__logo-img { height: 30px; width: auto; max-width: 200px; object-fit: contain; }
 .site-header__nav { display: flex; gap: 22px; margin-left: 8px; flex: 1; }
 .site-header__link { color: var(--muted); font-size: 14.5px; font-weight: 500; }
