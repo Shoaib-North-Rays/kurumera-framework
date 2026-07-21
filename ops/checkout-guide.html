@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Customize your checkout — Kurumera</title>
+<title>Your checkout — Kurumera store guide</title>
 <style>
   :root {
     --green: #16a34a; --green-dark: #166534; --green-hover: #15803d; --accent: #22c55e;
@@ -83,21 +83,86 @@
 <div class="wrap">
   <header class="hero">
     <span class="eyebrow"><span class="dot"></span> Kurumera · Store guide</span>
-    <h1>Customize your checkout</h1>
-    <p class="lede">Make your checkout page look and feel like the rest of your store — colors, fonts, labels, and which fields appear — right from the builder. No code needed.</p>
+    <h1>Your checkout</h1>
+    <p class="lede">Take payments and make it your own — connect a provider, see how customers pay, and style it to match your brand. No code needed.</p>
 
     <div class="tldr">
       <div>
         <b>The short version.</b>
-        <div class="flow">Your checkout already picks up your brand automatically. To fine-tune it:
-          open the <span class="chip">builder</span> → <span class="chip">Checkout page</span> → tweak → <span class="chip">Publish</span>.</div>
+        <div class="flow">To start selling: open <span class="chip">Payments</span> → connect a provider → your checkout is live. Then <span class="chip">style it</span> in the builder to match your brand.</div>
       </div>
     </div>
   </header>
 
   <section>
-    <h2>What you can change</h2>
-    <p class="sub">Everything below is edited visually — nothing to write.</p>
+    <h2>Turn on payments</h2>
+    <p class="sub">Your checkout form works out of the box — to take money, connect a payment provider.</p>
+    <ol class="steps">
+      <li>
+        <h3>Open Payments</h3>
+        <p>In the builder, open the menu → <b>Payments</b> (or your dashboard’s Payments settings).</p>
+      </li>
+      <li>
+        <h3>Connect a provider</h3>
+        <p>Click <b>Connect Stripe</b> for card payments — one click, secure, funds go to your own account. Or enable Cash on Delivery, Bank Transfer, JazzCash, EasyPaisa, or Manual.</p>
+      </li>
+      <li>
+        <h3>You’re live</h3>
+        <p>Enabled providers appear at checkout automatically. That’s it — your store can now take orders.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Payment methods you can offer</h2>
+    <p class="sub">Turn on as many as you like — customers choose at checkout.</p>
+    <div class="cards">
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 9.5h19"/></svg></div>
+        <h3>Cards — Stripe</h3>
+        <p>Connect in one click. Visa, Mastercard &amp; more; money lands in your account.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.4"/></svg></div>
+        <h3>Cash on Delivery</h3>
+        <p>Customers pay when the order arrives. No setup — just switch it on.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10 12 4l9 6M5 10v8m14-8v8M3 20h18M9 10v8m6-8v8"/></svg></div>
+        <h3>Bank Transfer &amp; Manual</h3>
+        <p>Show your bank details or a custom instruction; confirm the payment yourself.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg></div>
+        <h3>JazzCash &amp; EasyPaisa</h3>
+        <p>Popular local wallets — customers pay straight from their phone.</p>
+      </div>
+    </div>
+
+    <div class="note">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 3 7v6c0 5 3.8 8 9 9 5.2-1 9-4 9-9V7l-9-5Z"/><path d="M9 12l2 2 4-4"/></svg>
+      <div>
+        <h3>Test before you go live</h3>
+        <p>Each provider has a <b>test mode</b>. Run a test order — Stripe’s test card is <kbd>4242 4242 4242 4242</kbd> — to watch the whole flow, then flip the provider to live.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What your customer sees</h2>
+    <p class="sub">A fast, secure, on-brand flow — orders land in your dashboard.</p>
+    <ol class="steps">
+      <li><h3>Add to cart → Checkout</h3><p>They review the cart and hit checkout.</p></li>
+      <li><h3>Enter details</h3><p>Email and shipping address — the fields you chose.</p></li>
+      <li><h3>Choose how to pay</h3><p>Your enabled payment methods appear here.</p></li>
+      <li><h3>Pay securely</h3><p>Cards are handled by Stripe; wallets and bank transfer as you configured.</p></li>
+      <li><h3>Order confirmed</h3><p>The customer sees a confirmation, and the order shows up in your dashboard to fulfill.</p></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Make it match your brand</h2>
+    <p class="sub">Now style it — everything below is edited visually, nothing to write.</p>
     <div class="cards">
       <div class="card">
         <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1.2" fill="currentColor" stroke="none"/></svg></div>
