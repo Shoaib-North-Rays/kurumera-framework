@@ -149,7 +149,7 @@ export function checkTheme(dir: string): CheckResult {
   const product = read(dir, "app", "products", "[handle]", "page.tsx");
   if (product) {
     if (!/price|Price/.test(product)) add("warning", "commerce", "product-price", "The product template doesn't seem to show a price.", { file: "app/products/[handle]/page.tsx", fix: "Render the product price on the PDP." });
-    if (!/add to cart|addLine|Add to Cart/i.test(product)) add("warning", "commerce", "add-to-cart", "The product template has no visible add-to-cart.", { file: "app/products/[handle]/page.tsx", fix: "Add an Add-to-Cart control." });
+    if (!/add[\s-]?to[\s-]?cart|addLine|AddToCart/i.test(product)) add("warning", "commerce", "add-to-cart", "The product template has no visible add-to-cart.", { file: "app/products/[handle]/page.tsx", fix: "Add an Add-to-Cart control." });
   }
 
   // ── seo ────────────────────────────────────────────────────────────────────

@@ -2,8 +2,9 @@
 /**
  * `kurumera` CLI entry point.
  *
- * Implemented (P1): login (save storefront token), theme init, theme dev.
- * Planned  (P2+):   stores list, theme check/push/preview/publish, browser login.
+ * Commands: login, logout, stores list, theme (init/dev/check/push/preview/
+ * publish/rollback/logs), and marketplace (publish/list/info/buy/install/clone/
+ * owns/mine/update/unpublish).
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -18,15 +19,12 @@ import { themePreview } from "./commands/preview.js";
 import { themePublish, themeRollback } from "./commands/publish.js";
 import { themeLogs } from "./commands/logs.js";
 import { marketplace } from "./commands/marketplace.js";
+import { storesList } from "./commands/stores.js";
 
 const VERSION = (() => {
   try { return JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8")).version; }
   catch { return "0.0.0"; }
 })();
-
-const PLANNED: Record<string, string> = {
-  "stores list": "List the stores you can develop for.",
-};
 
 function help(): void {
   console.log("kurumera — Next.js theme framework CLI\n");
@@ -34,6 +32,7 @@ function help(): void {
   console.log("Available now:");
   console.log("  login                                Sign in via the browser");
   console.log("  logout [--store <slug>]              Clear saved credentials (sign out)");
+  console.log("  stores list                          List the stores you're signed in to");
   console.log("  theme init <name>                    Scaffold the base Next.js theme");
   console.log("  theme dev --store <slug>             Run the theme against live store data");
   console.log("  theme check                          Validate the route contract + safety rules");
@@ -56,10 +55,6 @@ function help(): void {
   console.log("  marketplace update <theme> [--price N --currency USD --tags a,b …]");
   console.log("                                       Edit one of your listings");
   console.log("  marketplace unpublish <theme>        Delist one of your listings");
-  console.log("\nComing next:");
-  for (const [name, desc] of Object.entries(PLANNED)) {
-    console.log(`  ${name.padEnd(36)} ${desc}`);
-  }
 }
 
 const argv = process.argv.slice(2);
@@ -79,6 +74,7 @@ const [a, b, ...rest] = argv;
 async function dispatch(): Promise<number> {
   if (a === "login") return login(argv.slice(1));
   if (a === "logout") return logout(argv.slice(1));
+  if (a === "stores" && b === "list") return storesList();
   if (a === "theme" && b === "init") return themeInit(rest[0]);
   if (a === "theme" && b === "check") return themeCheck();
   if (a === "theme" && b === "push") return themePush(rest);
@@ -91,13 +87,8 @@ async function dispatch(): Promise<number> {
   // process alive, so we must NOT exit(0) after it — only on its error code.
   if (a === "theme" && b === "dev") return themeDev(rest);
 
-  const cmd = argv.join(" ");
-  const planned = PLANNED[cmd] ?? PLANNED[`${a} ${b}`];
-  if (planned) console.error(`\`kurumera ${cmd}\` arrives in P2 — ${planned}`);
-  else {
-    console.error(`Unknown command: kurumera ${cmd}`);
-    console.error("Run `kurumera --help`.");
-  }
+  console.error(`Unknown command: kurumera ${argv.join(" ")}`);
+  console.error("Run `kurumera --help`.");
   return 1;
 }
 
