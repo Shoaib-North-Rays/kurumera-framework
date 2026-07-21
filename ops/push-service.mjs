@@ -1077,6 +1077,17 @@ const server = http.createServer((req, res) => {
       return res.end("guide not found");
     }
   }
+  // ── Merchant guide: customizing the checkout (served from the mounted /ops dir) ─
+  if (p === "/checkout-guide" || p === "/checkout-guide/") {
+    try {
+      const html = readFileSync(join(import.meta.dirname, "checkout-guide.html"), "utf8");
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" });
+      return res.end(html);
+    } catch {
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      return res.end("checkout guide not found");
+    }
+  }
 
   // ── Public storefront API reference (served from the mounted /ops dir) ───────
   if (p === "/api" || p === "/api/" || p === "/api-reference" || p === "/api-reference/") {

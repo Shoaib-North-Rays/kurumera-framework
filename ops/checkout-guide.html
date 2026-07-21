@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customize your checkout — Kurumera</title>
+<style>
+  :root {
+    --green: #16a34a; --green-dark: #166534; --green-hover: #15803d; --accent: #22c55e;
+    --mint: #f0fdf4; --mint-line: #cfefdd;
+    --ink: #0f1729; --ink-2: #334155; --muted: #64748b;
+    --border: #e6ebf1; --page: #f6f9f7; --surface: #ffffff; --surface-2: #f8fafc;
+    --shadow: 0 10px 34px rgba(15, 23, 42, .07);
+    --radius: 14px;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --mint: #0e2018; --mint-line: #1f4d38; --ink: #eef2f7; --ink-2: #c3ccd8; --muted: #93a1b4;
+      --border: #26303e; --page: #0b1017; --surface: #121a24; --surface-2: #0f1620; --shadow: 0 10px 34px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="light"] { --mint:#f0fdf4;--mint-line:#cfefdd;--ink:#0f1729;--ink-2:#334155;--muted:#64748b;--border:#e6ebf1;--page:#f6f9f7;--surface:#fff;--surface-2:#f8fafc;--shadow:0 10px 34px rgba(15,23,42,.07); }
+  :root[data-theme="dark"] { --mint:#0e2018;--mint-line:#1f4d38;--ink:#eef2f7;--ink-2:#c3ccd8;--muted:#93a1b4;--border:#26303e;--page:#0b1017;--surface:#121a24;--surface-2:#0f1620;--shadow:0 10px 34px rgba(0,0,0,.4); }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font-family: var(--font); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  a { color: var(--green-dark); }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero { padding: 64px 0 30px; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--green); background: var(--mint); border: 1px solid var(--mint-line); padding: 6px 12px; border-radius: 999px; }
+  h1 { font-size: clamp(30px, 6vw, 44px); line-height: 1.08; letter-spacing: -.02em; margin: 20px 0 14px; text-wrap: balance; font-weight: 800; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 60ch; margin: 0; }
+
+  .tldr { display: flex; gap: 14px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--green); border-radius: var(--radius); padding: 16px 18px; margin: 30px 0 8px; box-shadow: var(--shadow); }
+  .tldr b { color: var(--ink); }
+  .tldr .flow { color: var(--ink-2); font-size: 14.5px; }
+  .tldr .chip { display: inline-block; background: var(--surface-2); border: 1px solid var(--border); border-radius: 7px; padding: 1px 8px; font-weight: 600; color: var(--green-dark); margin: 0 2px; }
+
+  section { margin-top: 52px; }
+  h2 { font-size: 22px; letter-spacing: -.01em; margin: 0 0 6px; font-weight: 750; }
+  .sub { color: var(--muted); margin: 0 0 22px; font-size: 15px; }
+
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; transition: border-color .15s, transform .15s; }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .ico { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--mint); color: var(--green); border: 1px solid var(--mint-line); margin-bottom: 12px; }
+  .ico svg { width: 19px; height: 19px; }
+  .card h3 { font-size: 15.5px; margin: 0 0 4px; font-weight: 700; }
+  .card p { font-size: 13.5px; color: var(--ink-2); margin: 0; }
+
+  ol.steps { list-style: none; counter-reset: s; padding: 0; margin: 0; }
+  ol.steps li { counter-increment: s; position: relative; padding: 0 0 22px 56px; }
+  ol.steps li::before { content: counter(s); position: absolute; left: 0; top: -2px; width: 34px; height: 34px; border-radius: 50%; background: var(--green); color: #fff; font-weight: 700; font-size: 15px; display: grid; place-items: center; box-shadow: 0 0 0 5px color-mix(in srgb, var(--green) 15%, transparent); }
+  ol.steps li:not(:last-child)::after { content: ""; position: absolute; left: 16.5px; top: 36px; bottom: 4px; width: 2px; background: linear-gradient(var(--border), transparent); }
+  ol.steps li h3 { font-size: 16px; margin: 4px 0 3px; font-weight: 700; }
+  ol.steps li p { margin: 0; color: var(--ink-2); font-size: 14.5px; }
+  kbd { font-family: var(--font); font-size: 12.5px; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 6px; padding: 1px 7px; color: var(--ink); white-space: nowrap; }
+
+  .fields { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 18px; box-shadow: var(--shadow); }
+  .frow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--border); }
+  .frow:last-child { border-bottom: 0; }
+  .frow .fname { font-weight: 600; font-size: 14.5px; }
+  .frow .fsub { color: var(--muted); font-size: 12.5px; }
+  .tag { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .tag.req { color: var(--green-dark); background: var(--mint); border: 1px solid var(--mint-line); }
+  .tag.opt { color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); }
+
+  .note { display: flex; gap: 14px; background: var(--mint); border: 1px solid var(--mint-line); border-radius: var(--radius); padding: 18px 20px; margin-top: 22px; }
+  .note .ni { flex: none; width: 22px; height: 22px; color: var(--green); }
+  .note h3 { margin: 0 0 4px; font-size: 15.5px; font-weight: 700; }
+  .note p { margin: 0; font-size: 14px; color: var(--ink-2); }
+
+  footer { margin-top: 60px; padding-top: 26px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13.5px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: space-between; }
+  footer a { font-weight: 600; text-decoration: none; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+  @media (max-width: 560px) { .cards { grid-template-columns: 1fr; } header.hero { padding-top: 44px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span> Kurumera · Store guide</span>
+    <h1>Customize your checkout</h1>
+    <p class="lede">Make your checkout page look and feel like the rest of your store — colors, fonts, labels, and which fields appear — right from the builder. No code needed.</p>
+
+    <div class="tldr">
+      <div>
+        <b>The short version.</b>
+        <div class="flow">Your checkout already picks up your brand automatically. To fine-tune it:
+          open the <span class="chip">builder</span> → <span class="chip">Checkout page</span> → tweak → <span class="chip">Publish</span>.</div>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <h2>What you can change</h2>
+    <p class="sub">Everything below is edited visually — nothing to write.</p>
+    <div class="cards">
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10.5" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1.2" fill="currentColor" stroke="none"/></svg></div>
+        <h3>Colors &amp; fonts</h3>
+        <p>Match your brand. It starts on-brand from your theme — fine-tune the rest.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7V5h16v2M9 5v14M7 19h4"/></svg></div>
+        <h3>Field labels</h3>
+        <p>Rename Email, Name, Address, City, Postal code, Country, Phone.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></div>
+        <h3>Optional fields</h3>
+        <p>Show or hide Last name, Apartment, Postal code, Country, and Phone.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7V5h16v2M12 5v14M9 19h6"/></svg></div>
+        <h3>Headings &amp; button</h3>
+        <p>Edit “Payment method”, “Order summary”, and the “Place order” button.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Do it in 5 steps</h2>
+    <p class="sub">About two minutes, start to finish.</p>
+    <ol class="steps">
+      <li>
+        <h3>Open the Checkout page in the builder</h3>
+        <p>Sign in to your store, open the builder, and go to the <b>Checkout</b> page.</p>
+      </li>
+      <li>
+        <h3>Select the checkout form</h3>
+        <p>Click the checkout form block. Its settings appear in the <b>inspector</b> on the right.</p>
+      </li>
+      <li>
+        <h3>Style it to your brand</h3>
+        <p>Adjust colors, fonts, and spacing in the inspector. It already inherits your theme, so you’re just refining.</p>
+      </li>
+      <li>
+        <h3>Rename labels &amp; toggle fields</h3>
+        <p>Click any label to edit it inline, or use the inspector to rename fields and switch optional ones on or off.</p>
+      </li>
+      <li>
+        <h3>Publish</h3>
+        <p>Hit <kbd>Publish</kbd>. Your checkout goes live — secure, on your domain, and matching your store.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>The checkout fields</h2>
+    <p class="sub">Rename, restyle, and show/hide these. Required fields always stay on so every order is complete.</p>
+    <div class="fields">
+      <div class="frow"><div><div class="fname">Email</div><div class="fsub">For the order receipt</div></div><span class="tag req">Always on</span></div>
+      <div class="frow"><div><div class="fname">First name</div><div class="fsub">Who the order is for</div></div><span class="tag req">Always on</span></div>
+      <div class="frow"><div><div class="fname">Last name</div><div class="fsub">Optional</div></div><span class="tag opt">Show / hide</span></div>
+      <div class="frow"><div><div class="fname">Address</div><div class="fsub">Shipping address</div></div><span class="tag req">Always on</span></div>
+      <div class="frow"><div><div class="fname">Apartment, suite, etc.</div><div class="fsub">Optional second line</div></div><span class="tag opt">Show / hide</span></div>
+      <div class="frow"><div><div class="fname">City</div><div class="fsub">Shipping city</div></div><span class="tag req">Always on</span></div>
+      <div class="frow"><div><div class="fname">Postal code</div><div class="fsub">Optional</div></div><span class="tag opt">Show / hide</span></div>
+      <div class="frow"><div><div class="fname">Country</div><div class="fsub">Optional</div></div><span class="tag opt">Show / hide</span></div>
+      <div class="frow"><div><div class="fname">Phone</div><div class="fsub">Optional — for delivery updates</div></div><span class="tag opt">Show / hide</span></div>
+    </div>
+
+    <div class="note">
+      <svg class="ni" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 3 7v6c0 5 3.8 8 9 9 5.2-1 9-4 9-9V7l-9-5Z"/><path d="M9 12l2 2 4-4"/></svg>
+      <div>
+        <h3>Why you can’t add your own fields</h3>
+        <p>The field set is fixed to the standard details every order needs. You can restyle, relabel, and show/hide them — but not add custom fields. That keeps every order complete, valid, and reliable to fulfill.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span><span class="dot"></span> Works for every store — code theme or visual design.</span>
+    <a href="/guide">Developer guide →</a>
+  </footer>
+</div>
+</body>
+</html>
