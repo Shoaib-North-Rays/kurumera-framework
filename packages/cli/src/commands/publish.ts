@@ -1,4 +1,5 @@
 import { readConfig } from "../util/config.js";
+import { startSpinner, green } from "../lib/spinner.js";
 
 const PUSH_URL = (process.env.KURUMERA_PUSH_URL || "https://themekit.kurumera.com/_push").replace(/\/+$/, "");
 const ROOT = process.env.KURUMERA_ROOT_DOMAIN || "kurumera.com";
@@ -47,20 +48,19 @@ export async function themePublish(args: string[]): Promise<number> {
   // Don't just claim it — confirm the live site actually responds (the store
   // container may need a few seconds to (re)start / warm from scale-to-zero).
   const liveUrl = `https://${store}.${ROOT}`;
-  process.stdout.write("  Verifying it's live");
+  const spin = startSpinner(["Waking your store", "Warming up", "Checking it responds"]);
   let liveOk = false;
-  for (let i = 0; i < 12; i++) {
-    await new Promise((r) => setTimeout(r, 3000));
+  for (let i = 0; i < 16; i++) {
+    await new Promise((r) => setTimeout(r, 2500));
     try {
       const r = await fetch(liveUrl, { redirect: "manual" });
       if (r.status >= 200 && r.status < 400) { liveOk = true; break; }
     } catch { /* warming up — keep trying */ }
-    process.stdout.write(".");
   }
   if (liveOk) {
-    console.log(`\n✓ Live and serving — ${liveUrl}`);
+    spin.stop(green(`✓ Live and serving — ${liveUrl}`));
   } else {
-    console.log(`\n  ${liveUrl} — flipped live; give it a few seconds to warm up, then reload. Verify: kurumera theme preview --store ${store}`);
+    spin.stop(`  ${liveUrl} — flipped live; give it a few seconds to warm up, then reload. Verify: kurumera theme preview --store ${store}`);
   }
   return 0;
 }

@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { readConfig } from "../util/config.js";
 import { checkTheme } from "../lib/themeCheck.js";
+import { startSpinner, green, red } from "../lib/spinner.js";
 
 const PUSH_URL = (process.env.KURUMERA_PUSH_URL || "https://themekit.kurumera.com/_push").replace(/\/+$/, "");
 
@@ -73,9 +74,9 @@ export async function themePush(args: string[]): Promise<number> {
   // otherwise `theme publish` may make the previous (last-built) version live.
   // Ctrl+C is safe: the build keeps running on the server (track it with
   // `theme preview`).
-  process.stdout.write("  Building");
-  for (let i = 0; i < 120; i++) {
-    await new Promise((r) => setTimeout(r, 5000));
+  const spin = startSpinner(["Building your theme", "Compiling components", "Bundling assets", "Optimising output", "Almost there"]);
+  for (let i = 0; i < 200; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
     let s: { status?: string; id?: string; error?: string } = {};
     try {
       const r = await fetch(`${PUSH_URL}/status?store=${encodeURIComponent(store || "")}`, {
@@ -84,17 +85,16 @@ export async function themePush(args: string[]): Promise<number> {
       s = (await r.json()) as typeof s;
     } catch { /* keep polling */ }
     if (s.status === "ready") {
-      console.log(`\n✓ Built — version ${s.id || data.id} is ready.`);
+      spin.stop(green(`✓ Built — version ${s.id || data.id} is ready.`));
       console.log(`  Make it live:  kurumera theme publish${store ? ` --store ${store}` : ""}`);
       return 0;
     }
     if (s.status === "failed") {
-      console.error(`\n✗ Build failed: ${s.error || "see logs"}. Fix it and push again.`);
+      spin.stop(red(`✗ Build failed: ${s.error || "see logs"}.`) + " Fix it and push again.");
       return 1;
     }
-    process.stdout.write(".");
   }
-  console.log(`\n… still building — track it with \`kurumera theme preview${store ? ` --store ${store}` : ""}\`, then publish.`);
+  spin.stop(`… still building — track it with \`kurumera theme preview${store ? ` --store ${store}` : ""}\`, then publish.`);
   return 0;
 }
 
