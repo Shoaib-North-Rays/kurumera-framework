@@ -68,7 +68,33 @@ export async function themePush(args: string[]): Promise<number> {
   }
 
   console.log(`✓ Pushed — version ${data.id}. Building…`);
-  console.log(`  Track it:  kurumera theme preview${store ? ` --store ${store}` : ""}`);
+
+  // Wait for the build to finish so you KNOW it succeeded before publishing —
+  // otherwise `theme publish` may make the previous (last-built) version live.
+  // Ctrl+C is safe: the build keeps running on the server (track it with
+  // `theme preview`).
+  process.stdout.write("  Building");
+  for (let i = 0; i < 120; i++) {
+    await new Promise((r) => setTimeout(r, 5000));
+    let s: { status?: string; id?: string; error?: string } = {};
+    try {
+      const r = await fetch(`${PUSH_URL}/status?store=${encodeURIComponent(store || "")}`, {
+        headers: cfg.authToken ? { Authorization: `Bearer ${cfg.authToken}` } : {},
+      });
+      s = (await r.json()) as typeof s;
+    } catch { /* keep polling */ }
+    if (s.status === "ready") {
+      console.log(`\n✓ Built — version ${s.id || data.id} is ready.`);
+      console.log(`  Make it live:  kurumera theme publish${store ? ` --store ${store}` : ""}`);
+      return 0;
+    }
+    if (s.status === "failed") {
+      console.error(`\n✗ Build failed: ${s.error || "see logs"}. Fix it and push again.`);
+      return 1;
+    }
+    process.stdout.write(".");
+  }
+  console.log(`\n… still building — track it with \`kurumera theme preview${store ? ` --store ${store}` : ""}\`, then publish.`);
   return 0;
 }
 

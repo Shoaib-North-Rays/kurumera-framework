@@ -40,9 +40,27 @@ export async function themePublish(args: string[]): Promise<number> {
 
   if (off) {
     console.log(`✓ Unpublished — "${store}" is back on the visual builder.`);
+    return 0;
+  }
+
+  console.log(`✓ Published — "${store}" now serves your code theme.`);
+  // Don't just claim it — confirm the live site actually responds (the store
+  // container may need a few seconds to (re)start / warm from scale-to-zero).
+  const liveUrl = `https://${store}.${ROOT}`;
+  process.stdout.write("  Verifying it's live");
+  let liveOk = false;
+  for (let i = 0; i < 12; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    try {
+      const r = await fetch(liveUrl, { redirect: "manual" });
+      if (r.status >= 200 && r.status < 400) { liveOk = true; break; }
+    } catch { /* warming up — keep trying */ }
+    process.stdout.write(".");
+  }
+  if (liveOk) {
+    console.log(`\n✓ Live and serving — ${liveUrl}`);
   } else {
-    console.log(`✓ Published — "${store}" now serves your code theme.`);
-    console.log(`  Live: https://${store}.${ROOT}`);
+    console.log(`\n  ${liveUrl} — flipped live; give it a few seconds to warm up, then reload. Verify: kurumera theme preview --store ${store}`);
   }
   return 0;
 }
