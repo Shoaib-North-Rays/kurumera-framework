@@ -6,7 +6,7 @@
 // DENY) so these origins can frame it while everyone else still can't.
 const FRAME_ANCESTORS =
   process.env.KURUMERA_ADMIN_ORIGINS ||
-  "https://admin.kurumera.com https://*.kurumera.com http://localhost:3000 http://localhost:3001 http://localhost:3002";
+  "https://kurumera.com https://*.kurumera.com https://theplantsmall.com https://*.theplantsmall.com http://localhost:3000 http://localhost:3001 http://localhost:3002";
 
 const nextConfig = {
   // Theme images come from the store's media/CDN — allow remote sources.
