@@ -581,6 +581,12 @@ async function buildVersion(s, buffer, actor) {
     await sh("chown", ["-R", SANDBOX_UID, dir]);
     const buildName = `kurumera-build-${s}`;
     await sh("docker", ["rm", "-f", buildName]);   // clear any stale build container
+    // Ensure the isolated build network exists. It's a standalone bridge (not
+    // compose-managed), so `docker system prune` deletes it whenever no build is
+    // running — after which EVERY build fails with "network kurumera-build not
+    // found". Recreate it on demand so a routine prune can't break builds.
+    const netOk = await sh("docker", ["network", "inspect", BUILD_NET]);
+    if (netOk.code !== 0) await sh("docker", ["network", "create", BUILD_NET]);
     const b = await sh("docker", [
       "run", "--rm", "--name", buildName, "--network", BUILD_NET,
       ...HARDEN, ...BUILD_LIMITS,
