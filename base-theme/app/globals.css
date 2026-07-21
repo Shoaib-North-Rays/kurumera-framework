@@ -6,21 +6,29 @@
   --line-strong: #d7d9de;
   --accent: #0b7c8c;
   --accent-ink: #086472;
+  --sale: var(--ink);
   --bg: #ffffff;
   --paper: #f7f8f8;
   --radius: 14px;
   --shadow: 0 1px 2px rgba(16,24,40,.04), 0 8px 24px rgba(16,24,40,.06);
   --shadow-lg: 0 4px 8px rgba(16,24,40,.05), 0 18px 40px rgba(16,24,40,.10);
   --maxw: 1320px;
+  /* Typography tokens — overridden per-store by the customizer (lib/settings.ts). */
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-heading: var(--font-body);
+  --fs-base: 16px;
 }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-body);
   color: var(--ink); background: var(--bg);
-  font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+  font-size: var(--fs-base); line-height: 1.6; -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4, .hero__title, .section__title, .pdp__title, .site-header__logo, .footer__logo {
+  font-family: var(--font-heading);
 }
 a { color: inherit; text-decoration: none; }
 img { max-width: 100%; display: block; }
@@ -38,7 +46,9 @@ img { max-width: 100%; display: block; }
   background: rgba(255,255,255,.85); backdrop-filter: saturate(1.4) blur(10px);
   border-bottom: 1px solid var(--line);
 }
-.site-header__logo { font-weight: 800; font-size: 19px; letter-spacing: -0.03em; }
+.site-header__logo { font-weight: 800; font-size: 19px; letter-spacing: -0.03em; display: inline-flex; align-items: center; }
+.site-header__logo-img { height: 32px; width: auto; max-width: 200px; object-fit: contain; }
+.footer__logo-img { height: 30px; width: auto; max-width: 200px; object-fit: contain; }
 .site-header__nav { display: flex; gap: 22px; margin-left: 8px; flex: 1; }
 .site-header__link { color: var(--muted); font-size: 14.5px; font-weight: 500; }
 .site-header__link:hover { color: var(--ink); }
@@ -93,7 +103,7 @@ img { max-width: 100%; display: block; }
 .card__media--empty { width: 100%; height: 100%;
   background: linear-gradient(135deg, #f1f2f3, #e9eaec); }
 .card__badge {
-  position: absolute; top: 12px; left: 12px; background: var(--ink); color: #fff;
+  position: absolute; top: 12px; left: 12px; background: var(--sale); color: #fff;
   font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   padding: 4px 9px; border-radius: 999px;
 }

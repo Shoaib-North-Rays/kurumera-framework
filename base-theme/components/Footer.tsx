@@ -1,17 +1,18 @@
 import Link from "next/link";
 import type { Menu } from "@kurumera/storefront";
 import { getStore } from "@/lib/kurumera";
+import { getSettings } from "@/lib/settings";
 import { Newsletter } from "@/components/Newsletter";
 import { InstagramIcon, FacebookIcon, TwitterIcon } from "@/components/Icon";
 
 /** Store footer — newsletter, link columns (from the store's menus), social, payment. */
 export async function Footer() {
   const kurumera = await getStore();
-  const [menus, config] = await Promise.all([
+  const [menus, s] = await Promise.all([
     kurumera.navigation.all().catch(() => ({}) as Record<string, Menu>),
-    kurumera.config.get().catch(() => ({})) as Promise<{ branding?: { store_name?: string; name?: string } }>,
+    getSettings(),
   ]);
-  const storeName = config.branding?.store_name ?? config.branding?.name ?? "Store";
+  const storeName = s.storeName;
 
   // Prefer the store's own footer menu; otherwise a sensible default set.
   const footerMenu = menus["footer"] ?? menus["footer-menu"] ?? null;
@@ -30,7 +31,12 @@ export async function Footer() {
     <footer className="site-footer">
       <div className="footer__top">
         <div className="footer__brand">
-          <div className="footer__logo">{storeName}</div>
+          <div className="footer__logo">
+            {s.logoUrl
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={s.logoUrl} alt={storeName} className="footer__logo-img" />
+              : storeName}
+          </div>
           <p className="footer__tag">Quality products, delivered with care.</p>
           <div className="footer__social">
             <a href="#" aria-label="Instagram" className="icon-btn"><InstagramIcon /></a>

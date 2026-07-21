@@ -1,8 +1,12 @@
-/** Thin promo bar above the header. Edit the message for your store. */
-export function AnnouncementBar() {
+import { getSettings } from "@/lib/settings";
+
+/** Thin promo bar above the header. Text + visibility come from theme settings. */
+export async function AnnouncementBar() {
+  const { announcement } = await getSettings();
+  if (!announcement.show || !announcement.text) return null;
   return (
     <div className="announce">
-      <span>Free shipping on orders over Rs 5,000 · Easy 30-day returns</span>
+      <span>{announcement.text}</span>
     </div>
   );
 }
