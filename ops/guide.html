@@ -436,9 +436,25 @@
     </div>
   </section>
 
+  <!-- CHECKOUT -->
+  <section>
+    <div class="sec-h"><span class="num">10</span><div><span class="eyebrow">Checkout</span><h2>Checkout — handled, and yours to style</h2></div></div>
+    <div class="col"><p>Your theme never builds checkout. The cart's <b>Checkout</b> button (<code class="inline">checkoutHref()</code> from <code class="inline">@kurumera/storefront</code>) hands off to the platform's shared, secure checkout on <code class="inline">checkout.&lt;store&gt;.kurumera.com</code> — rendered with the store's brand theme, so it matches your storefront automatically. There's no checkout route to implement, and <code class="inline">theme check</code> doesn't require one.</p></div>
+    <div class="grid two" style="margin-top:6px">
+      <div class="card"><span class="k">Handled for you</span><h3>No checkout to build</h3><p>Your theme ships the cart; checkout and payments are platform-hosted and PCI-safe. You never touch payment code.</p></div>
+      <div class="card"><span class="k">On brand</span><h3>Inherits the theme</h3><p>The store's colours and fonts flow into checkout, so it looks like the rest of the site out of the box.</p></div>
+      <div class="card"><span class="k">Merchant-editable</span><h3>Styled in the builder</h3><p>On the <b>Checkout</b> page a merchant restyles it, renames field labels, and shows/hides optional fields — last name, apartment, postal code, country, phone.</p></div>
+      <div class="card"><span class="k">Reliable orders</span><h3>Fixed field set</h3><p>Merchants relabel and toggle the standard fields, but can't add custom ones — so every order stays complete, valid, and fulfillable.</p></div>
+    </div>
+    <div class="note">
+      <span class="tagn">For merchants</span>
+      <p>To customise it: open the <b>Checkout</b> page in the builder → select the checkout form → change colours, labels, and which optional fields show in the inspector → <b>Publish</b>. About two minutes, no code.</p>
+    </div>
+  </section>
+
   <!-- TROUBLESHOOTING -->
   <section style="border-bottom:0">
-    <div class="sec-h"><span class="num">10</span><div><span class="eyebrow">If something's off</span><h2>Common answers</h2></div></div>
+    <div class="sec-h"><span class="num">11</span><div><span class="eyebrow">If something's off</span><h2>Common answers</h2></div></div>
     <div class="col">
       <ul class="clean">
         <li><b>“theme check failed”</b> — read the grouped output; each finding has a <code class="inline">→</code> fix hint. Push stays blocked until it's clean.</li>
