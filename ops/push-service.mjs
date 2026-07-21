@@ -249,6 +249,58 @@ function getInstalled() {
   }
 }
 function setInstalled(x) { _installedCache = x; writeJson(INSTALLED_STATE, x); }
+
+// ── Creator payouts (manual: bank / crypto, admin-settled) ───────────────────
+// Stripe Connect isn't available in every region and can't do crypto, so creators
+// register a bank or crypto payout method and the platform settles out-of-band and
+// records it. Keyed by the creator's STORE slug (works for code + builder listings).
+const PAYOUTS_STATE = join(ROOT, "payouts.json");
+let _payoutsCache = null;
+function getPayouts() {
+  try { _payoutsCache = JSON.parse(readFileSync(PAYOUTS_STATE, "utf8")); return _payoutsCache; }
+  catch (e) {
+    if (existsSync(PAYOUTS_STATE) && _payoutsCache) { console.error(`payouts.json unreadable, using cache: ${e?.message}`); return _payoutsCache; }
+    return { methods: {}, paid: {} };
+  }
+}
+function setPayouts(x) { _payoutsCache = x; writeJson(PAYOUTS_STATE, x); }
+
+// Net (after the platform fee) a store has earned from PAID listing sales, by currency.
+function netEarnedByStore(store) {
+  const m = getMarket();
+  const licenses = Object.values(getLicenses().keys).filter((l) => !l.revoked);
+  const keep = 1 - PLATFORM_FEE_PCT / 100;
+  const round2 = (n) => Math.round(n * 100) / 100;
+  const totals = {};
+  for (const [sl, e] of Object.entries(m.themes)) {
+    if (slug(e.sourceStore || "") !== store) continue;
+    const price = Number(e.price) > 0 ? Number(e.price) : 0;
+    if (price <= 0) continue;
+    const sales = licenses.filter((l) => l.theme === sl).length;
+    if (!sales) continue;
+    const currency = e.currency || "USD";
+    const t = (totals[currency] ||= { currency, gross: 0, net: 0, sales: 0 });
+    t.gross = round2(t.gross + price * sales);
+    t.net = round2(t.net + price * sales * keep);
+    t.sales += sales;
+  }
+  return totals; // { USD: {currency, gross, net, sales}, … }
+}
+
+// What a store is OWED right now, by currency = net earned − already paid.
+function owedByStore(store) {
+  const earned = netEarnedByStore(store);
+  const paidByCur = {};
+  for (const p of getPayouts().paid[store] || []) paidByCur[p.currency] = (paidByCur[p.currency] || 0) + Number(p.amount || 0);
+  const out = [];
+  for (const cur of new Set([...Object.keys(earned), ...Object.keys(paidByCur)])) {
+    const net = earned[cur] ? earned[cur].net : 0;
+    const paid = Math.round((paidByCur[cur] || 0) * 100) / 100;
+    out.push({ currency: cur, net, paid, owed: Math.round((net - paid) * 100) / 100 });
+  }
+  return out;
+}
+
 function issueLicense(theme, email, session, pi) {
   const l = getLicenses();
   // Cryptographically-random, non-guessable suffix (was Math.random — a weak PRNG
@@ -1386,8 +1438,88 @@ const server = http.createServer((req, res) => {
           t.sales += r.sales; t.gross = round2(t.gross + r.gross); t.net = round2(t.net + r.net);
         }
       }
-      const payout = await refreshConnectStatus(email);
-      json(200, { listings, totals: Object.values(totals), installs: installsAll, platformFeePct: PLATFORM_FEE_PCT, payout });
+      const method = getPayouts().methods[store] || null;
+      json(200, { listings, totals: Object.values(totals), installs: installsAll, platformFeePct: PLATFORM_FEE_PCT, payoutMethod: method, owed: owedByStore(store) });
+    });
+    return;
+  }
+  // Creator payout method — get the bank/crypto method on file + what's owed.
+  if (p.endsWith("/_push/market/payout/method") && req.method === "GET") {
+    const store = slug(u.searchParams.get("store") || "");
+    verifyOwnership(req.headers["authorization"], store).then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      json(200, { method: getPayouts().methods[store] || null, owed: owedByStore(store) });
+    });
+    return;
+  }
+  // Creator payout method — save/replace it (bank or crypto).
+  if (p.endsWith("/_push/market/payout/method") && req.method === "POST") {
+    readBody().then(async (buf) => {
+      let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { return json(400, { error: "bad json" }); }
+      const store = slug(body.store || "");
+      const az = await verifyOwnership(req.headers["authorization"], store);
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      const type = body.type === "crypto" ? "crypto" : body.type === "bank" ? "bank" : "";
+      const f = (body.fields && typeof body.fields === "object") ? body.fields : {};
+      const S = (k) => String(f[k] || "").trim().slice(0, 120);
+      let fields, label;
+      if (type === "bank") {
+        const accountName = S("accountName"), bankName = S("bankName"), accountNumber = S("accountNumber"), iban = S("iban");
+        if (!accountName || !bankName || !(accountNumber || iban)) return json(400, { error: "bank payout needs account name, bank name, and an account number or IBAN" });
+        fields = { accountName, bankName, accountNumber, iban, swift: S("swift"), country: S("country") };
+        const tail = (accountNumber || iban).replace(/\s+/g, "").slice(-4);
+        label = `${bankName} ••••${tail}`;
+      } else if (type === "crypto") {
+        const network = S("network"), address = S("address");
+        if (!network || !address) return json(400, { error: "crypto payout needs a network and a wallet address" });
+        fields = { network, address };
+        label = `${network} ${address.slice(0, 6)}…${address.slice(-4)}`;
+      } else {
+        return json(400, { error: "payout type must be 'bank' or 'crypto'" });
+      }
+      const x = getPayouts();
+      x.methods[store] = { type, fields, label, updatedAt: Date.now() };
+      setPayouts(x);
+      json(200, { ok: true, method: x.methods[store] });
+    });
+    return;
+  }
+  // Admin: every store that has earned, with what it's owed + its payout method.
+  if (p.endsWith("/_push/market/admin/payouts") && req.method === "GET") {
+    const store = slug(u.searchParams.get("store") || "");
+    verifyOwnership(req.headers["authorization"], store).then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
+      const m = getMarket();
+      const stores = [...new Set(Object.values(m.themes).map((e) => slug(e.sourceStore || "")).filter(Boolean))];
+      const payouts = getPayouts();
+      const rows = stores.map((s) => ({
+        store: s,
+        owed: owedByStore(s),
+        method: payouts.methods[s] || null,
+        paidHistory: payouts.paid[s] || [],
+        author: (Object.values(m.themes).find((e) => slug(e.sourceStore || "") === s) || {}).author || "",
+      })).filter((r) => r.owed.some((o) => o.net > 0));
+      json(200, { rows, platformFeePct: PLATFORM_FEE_PCT });
+    });
+    return;
+  }
+  // Admin: record an out-of-band payout to a store (reduces what it's owed).
+  if (p.endsWith("/_push/market/admin/payouts/mark") && req.method === "POST") {
+    readBody().then(async (buf) => {
+      let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { return json(400, { error: "bad json" }); }
+      const az = await verifyOwnership(req.headers["authorization"], slug(body.store || ""));
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
+      const target = slug(body.target || "");
+      const currency = String(body.currency || "USD").toUpperCase().slice(0, 8);
+      const amount = Number(body.amount);
+      if (!target) return json(400, { error: "target store is required" });
+      if (!Number.isFinite(amount) || amount <= 0) return json(400, { error: "amount must be > 0" });
+      const x = getPayouts();
+      (x.paid[target] ||= []).push({ currency, amount: Math.round(amount * 100) / 100, at: Date.now(), by: az.actor, note: String(body.note || "").slice(0, 200) });
+      setPayouts(x);
+      json(200, { ok: true, owed: owedByStore(target) });
     });
     return;
   }
