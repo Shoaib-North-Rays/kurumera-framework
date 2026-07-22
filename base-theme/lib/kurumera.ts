@@ -1,5 +1,9 @@
 import { headers } from "next/headers";
 import { createKurumeraClient, type KurumeraClient } from "@kurumera/storefront";
+import { makeDemoFetch, DEMO_TENANT } from "./demo-fetch";
+
+/** The marketplace-preview container (and only it) runs with KURUMERA_DEMO=1. */
+const IS_DEMO = process.env.KURUMERA_DEMO === "1";
 
 /**
  * Build a Storefront client for THIS request's store. The store is resolved by
@@ -13,6 +17,12 @@ import { createKurumeraClient, type KurumeraClient } from "@kurumera/storefront"
  *   KURUMERA_API_URL           platform API base
  */
 export async function getStore(): Promise<KurumeraClient> {
+  // Marketplace preview: KURUMERA_DEMO=1 (set only on the preview container by the
+  // push-service) serves the seeded demo catalogue through the real SDK pipeline —
+  // no live merchant is contacted. Customise the data in lib/demo-data.ts. Live
+  // storefronts never set this flag, so they're unaffected.
+  if (IS_DEMO) return createKurumeraClient({ tenant: DEMO_TENANT, fetch: makeDemoFetch() });
+
   const h = await headers();
   const tenant = h.get("x-kurumera-tenant") || process.env.KURUMERA_TENANT || "";
   const domain = h.get("x-kurumera-domain") || "";

@@ -134,13 +134,14 @@ function sh(cmd, args, opts = {}) {
     p.on("error", (e) => { if (timer) clearTimeout(timer); resolve({ code: 1, out: String(e) }); });
   });
 }
-function runContainer(name, dir) {
+function runContainer(name, dir, extraEnv = []) {
   return sh("docker", [
     "run", "-d", "--name", name, "--restart", "unless-stopped", "--network", NET,
     ...HARDEN, ...RUN_LIMITS,
     "--read-only", "--tmpfs", "/tmp:size=256m",
     "-v", `${dir}:/app`, "-w", "/app", "-e", "HOME=/app",
     "-e", `KURUMERA_API_URL=${API_URL}`, "-e", "KURUMERA_ROOT_DOMAIN=kurumera.com",
+    ...extraEnv,
     "node:20-alpine", "sh", "-c", "node_modules/.bin/next start -p 3000",
   ]);
 }
@@ -838,7 +839,11 @@ async function wakeMarketPreview(theme) {
   }
   const dir = marketDir(theme, e.latest);
   if (!existsSync(dir)) return false;
-  const r = await runContainer(name, dir);
+  // KURUMERA_DEMO=1 tells the theme to serve its seeded demo catalogue (a mock
+  // client, no live merchant) — set ONLY on the marketplace-preview container, so
+  // a listing preview shows demo products instead of a real store's. Live and
+  // dev-preview containers never get this flag.
+  const r = await runContainer(name, dir, ["-e", "KURUMERA_DEMO=1"]);
   if (r.code !== 0) return false;
   return waitReady(name, demo);
 }
