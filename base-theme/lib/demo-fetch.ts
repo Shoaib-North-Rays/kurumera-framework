@@ -141,9 +141,24 @@ function menus(): Record<string, Menu> {
     footer: {
       handle: "footer", name: "Footer",
       items: [
-        { label: "About", href: "/pages/about", link_type: "page", is_broken: false, children: [] },
-        { label: "Shipping & returns", href: "/pages/shipping", link_type: "page", is_broken: false, children: [] },
-        { label: "Contact", href: "/pages/contact", link_type: "page", is_broken: false, children: [] },
+        { label: "Shop", href: "/search", link_type: "url", is_broken: false, children: [
+          { label: "All products", href: "/search", link_type: "url", is_broken: false, children: [] },
+          { label: "New arrivals", href: "/collections/new-arrivals", link_type: "collection", is_broken: false, children: [] },
+          { label: "Best sellers", href: "/search?sort=best", link_type: "url", is_broken: false, children: [] },
+          { label: "On sale", href: "/search?sort=deals", link_type: "url", is_broken: false, children: [] },
+        ] },
+        { label: "Customer care", href: "/pages/contact", link_type: "page", is_broken: false, children: [
+          { label: "Contact us", href: "/pages/contact", link_type: "page", is_broken: false, children: [] },
+          { label: "Shipping & delivery", href: "/pages/shipping", link_type: "page", is_broken: false, children: [] },
+          { label: "Returns & refunds", href: "/pages/returns", link_type: "page", is_broken: false, children: [] },
+          { label: "FAQ", href: "/faq", link_type: "url", is_broken: false, children: [] },
+        ] },
+        { label: "Company", href: "/pages/about", link_type: "page", is_broken: false, children: [
+          { label: "About us", href: "/pages/about", link_type: "page", is_broken: false, children: [] },
+          { label: "Journal", href: "/blogs", link_type: "url", is_broken: false, children: [] },
+          { label: "Sustainability", href: "/pages/sustainability", link_type: "page", is_broken: false, children: [] },
+          { label: "Track your order", href: "/account/orders", link_type: "url", is_broken: false, children: [] },
+        ] },
       ],
     },
   };
