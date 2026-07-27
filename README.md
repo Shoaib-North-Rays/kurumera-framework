@@ -33,6 +33,11 @@ kurumera theme dev --store my-demo-store
 No repo clone: the CLI bundles the base theme, and a scaffolded theme installs
 `@kurumera/storefront` + `@kurumera/theme` from npm.
 
+`kurumera login` auto-detects local vs. remote environments (SSH, Docker, CI,
+AI coding agents) and picks the right sign-in flow — see
+[`packages/cli/AUTHENTICATION.md`](packages/cli/AUTHENTICATION.md) for the
+full picture, including CI/CD tokens and troubleshooting.
+
 ## Publishing (maintainers)
 
 Packages publish to the public npm registry under the `@kurumera` scope.
