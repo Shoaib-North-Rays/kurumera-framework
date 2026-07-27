@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { readConfig } from "../util/config.js";
+import { resolveAuthToken } from "../util/resolveAuthToken.js";
 import { checkTheme } from "../lib/themeCheck.js";
 import { startSpinner, green, red } from "../lib/spinner.js";
 
@@ -26,7 +27,8 @@ export async function themePush(args: string[]): Promise<number> {
   }
 
   const cfg = readConfig();
-  if (!cfg.authToken) {
+  const authToken = await resolveAuthToken();
+  if (!authToken) {
     console.error("Not signed in. Run `kurumera login` first.");
     return 1;
   }
@@ -52,7 +54,7 @@ export async function themePush(args: string[]): Promise<number> {
     res = await fetch(`${PUSH_URL}/push`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${cfg.authToken}`,
+        Authorization: `Bearer ${authToken}`,
         "Content-Type": "application/gzip",
         "X-Kurumera-Store": store || "",
       },
@@ -80,7 +82,7 @@ export async function themePush(args: string[]): Promise<number> {
     let s: { status?: string; id?: string; error?: string } = {};
     try {
       const r = await fetch(`${PUSH_URL}/status?store=${encodeURIComponent(store || "")}`, {
-        headers: cfg.authToken ? { Authorization: `Bearer ${cfg.authToken}` } : {},
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
       });
       s = (await r.json()) as typeof s;
     } catch { /* keep polling */ }

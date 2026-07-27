@@ -30,7 +30,10 @@ function help(): void {
   console.log("kurumera — Next.js theme framework CLI\n");
   console.log("Usage: kurumera <command> [options]\n");
   console.log("Available now:");
-  console.log("  login                                Sign in via the browser");
+  console.log("  login                                Sign in (auto-detects local vs. remote)");
+  console.log("  login --browser                      Force the local browser/loopback flow");
+  console.log("  login --device                        Remote-safe device flow (SSH/CI/containers/AI agents)");
+  console.log("  login --token ksf_…                   Explicit storefront-token override");
   console.log("  logout [--store <slug>]              Clear saved credentials (sign out)");
   console.log("  stores list                          List the stores you're signed in to");
   console.log("  theme init <name>                    Scaffold the base Next.js theme");
@@ -55,6 +58,9 @@ function help(): void {
   console.log("  marketplace update <theme> [--price N --currency USD --tags a,b …]");
   console.log("                                       Edit one of your listings");
   console.log("  marketplace unpublish <theme>        Delist one of your listings");
+  console.log("\nCI / automation:");
+  console.log("  KURUMERA_CLI_TOKEN=<token>            Use a token from Settings → CLI tokens instead of");
+  console.log("                                       any saved login — never written to disk, ideal for CI.");
 }
 
 const argv = process.argv.slice(2);

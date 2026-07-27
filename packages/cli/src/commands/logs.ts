@@ -1,4 +1,5 @@
 import { readConfig } from "../util/config.js";
+import { resolveAuthToken } from "../util/resolveAuthToken.js";
 
 const PUSH_URL = (process.env.KURUMERA_PUSH_URL || "https://themekit.kurumera.com/_push").replace(/\/+$/, "");
 
@@ -10,8 +11,23 @@ export async function themeLogs(args: string[]): Promise<number> {
     console.error("Which store? Pass --store <slug> (or `kurumera login`).");
     return 1;
   }
+  const authToken = await resolveAuthToken();
+  if (!authToken) {
+    console.error("Not signed in. Run `kurumera login` first.");
+    return 1;
+  }
   try {
-    const res = await fetch(`${PUSH_URL}/logs?store=${encodeURIComponent(store)}`);
+    // /_push/logs now requires auth (it previously had none — closed as part
+    // of the CLI's remote-safe auth work, see push-service.mjs). This header
+    // was also just plain missing before, a separate pre-existing bug.
+    const res = await fetch(`${PUSH_URL}/logs?store=${encodeURIComponent(store)}`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(`Couldn't fetch logs (${res.status}): ${body.trim() || "unknown error"}`);
+      return 1;
+    }
     const text = await res.text();
     console.log(text.trim());
   } catch (e) {

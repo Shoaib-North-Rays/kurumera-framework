@@ -16,7 +16,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/bundle-template.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
     "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
   },
   "license": "UNLICENSED"
 }

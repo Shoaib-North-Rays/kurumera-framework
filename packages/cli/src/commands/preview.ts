@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { readConfig } from "../util/config.js";
+import { resolveAuthToken } from "../util/resolveAuthToken.js";
 
 const PUSH_URL = (process.env.KURUMERA_PUSH_URL || "https://themekit.kurumera.com/_push").replace(/\/+$/, "");
 
@@ -21,6 +22,7 @@ export async function themePreview(args: string[]): Promise<number> {
   const cfg = readConfig();
   const store = flag(args, "--store") || cfg.defaultStore || "";
   if (!store) { console.error("Which store? Pass --store <slug> (or run `kurumera login`)."); return 1; }
+  const authToken = await resolveAuthToken();
 
   process.stdout.write("Waiting for the build");
   let previewUrl = "";
@@ -30,7 +32,7 @@ export async function themePreview(args: string[]): Promise<number> {
     try {
       // Build status is keyed per store — without ?store= the server returns a
       // fresh "idle" forever and the poll always times out.
-      const r = await fetch(`${PUSH_URL}/status?store=${encodeURIComponent(store)}`, { headers: cfg.authToken ? { Authorization: `Bearer ${cfg.authToken}` } : {} });
+      const r = await fetch(`${PUSH_URL}/status?store=${encodeURIComponent(store)}`, { headers: authToken ? { Authorization: `Bearer ${authToken}` } : {} });
       s = (await r.json()) as typeof s;
     } catch { /* keep polling */ }
     if (s.status === "ready" && s.preview_url) { previewUrl = s.preview_url; break; }

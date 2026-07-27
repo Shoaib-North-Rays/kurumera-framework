@@ -1,4 +1,5 @@
 import { readConfig } from "../util/config.js";
+import { resolveAuthToken } from "../util/resolveAuthToken.js";
 import { startSpinner, green } from "../lib/spinner.js";
 
 const PUSH_URL = (process.env.KURUMERA_PUSH_URL || "https://themekit.kurumera.com/_push").replace(/\/+$/, "");
@@ -11,7 +12,8 @@ const ROOT = process.env.KURUMERA_ROOT_DOMAIN || "kurumera.com";
  */
 export async function themePublish(args: string[]): Promise<number> {
   const cfg = readConfig();
-  if (!cfg.authToken) {
+  const authToken = await resolveAuthToken();
+  if (!authToken) {
     console.error("Not signed in. Run `kurumera login` first.");
     return 1;
   }
@@ -26,7 +28,7 @@ export async function themePublish(args: string[]): Promise<number> {
   try {
     res = await fetch(`${PUSH_URL}/${off ? "unpublish" : "publish"}`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${cfg.authToken}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ store }),
     });
   } catch (e) {
@@ -68,7 +70,8 @@ export async function themePublish(args: string[]): Promise<number> {
 /** `kurumera theme rollback` — restore the store's PREVIOUS live version. */
 export async function themeRollback(args: string[]): Promise<number> {
   const cfg = readConfig();
-  if (!cfg.authToken) { console.error("Not signed in. Run `kurumera login` first."); return 1; }
+  const authToken = await resolveAuthToken();
+  if (!authToken) { console.error("Not signed in. Run `kurumera login` first."); return 1; }
   const store = flag(args, "--store") || cfg.defaultStore;
   if (!store) { console.error("Which store? Pass --store <slug>."); return 1; }
 
@@ -76,7 +79,7 @@ export async function themeRollback(args: string[]): Promise<number> {
   try {
     res = await fetch(`${PUSH_URL}/rollback`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${cfg.authToken}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ store }),
     });
   } catch (e) {

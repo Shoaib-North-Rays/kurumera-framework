@@ -517,7 +517,15 @@ async function control(path, body) {
 // FAILS CLOSED: any auth failure, unknown store, or backend outage → not allowed.
 // Returns { ok, actor?, status?, error? }. `actor` is the developer's email, used
 // to attribute the resulting history event.
-async function verifyOwnership(authHeader, store) {
+//
+// `action` (optional: push|publish|rollback|unpublish|preview|logs|status) is
+// forwarded to the backend as `?action=` — additive: a plain developer JWT's
+// authorization is unaffected either way, but when the caller authenticated
+// with a scoped `kcli_...` CLI session token, the backend ALSO requires the
+// matching `themes:*` scope on that session (ThemeAuthzView). Every call site
+// below now passes the action it represents, closing the gap where a
+// themes:preview-only CLI token could otherwise publish/rollback a store.
+async function verifyOwnership(authHeader, store, action) {
   const bearer = authHeader || "";
   if (!bearer.startsWith("Bearer ") || bearer.length < 12) {
     return { ok: false, status: 401, error: "sign in first (kurumera login)" };
@@ -527,12 +535,13 @@ async function verifyOwnership(authHeader, store) {
   // timeout) before failing closed — one hiccup reaching the auth backend must not
   // fail a publish/install. A definitive 200/401/403/404 returns immediately.
   let lastErr = "ownership check unavailable";
+  const actionQs = action ? `&action=${encodeURIComponent(action)}` : "";
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt) await new Promise((r) => setTimeout(r, 400 * attempt));
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 8000);
-      const res = await fetch(`${AUTHZ_URL}/?store=${encodeURIComponent(store)}`, { headers: { Authorization: bearer }, signal: ctrl.signal });
+      const res = await fetch(`${AUTHZ_URL}/?store=${encodeURIComponent(store)}${actionQs}`, { headers: { Authorization: bearer }, signal: ctrl.signal });
       clearTimeout(timer);
       const d = await res.json().catch(() => ({}));
       if (res.status === 200 && d.authorized) return { ok: true, actor: d.actor };
@@ -551,11 +560,11 @@ async function verifyOwnership(authHeader, store) {
 // Authorize a store mutation from EITHER the trusted backend control plane
 // (X-Kurumera-Service key — it already authenticated the merchant and passes the
 // acting email in the body) OR a developer CLI (dev JWT, verified for ownership).
-async function authorizeMutation(req, store, bodyActor) {
+async function authorizeMutation(req, store, bodyActor, action) {
   if (SERVICE_KEY && req.headers["x-kurumera-service"] === SERVICE_KEY) {
     return { ok: true, actor: bodyActor || undefined };
   }
-  return verifyOwnership(req.headers["authorization"], store);
+  return verifyOwnership(req.headers["authorization"], store, action);
 }
 
 const building = new Set();
@@ -1178,12 +1187,28 @@ const server = http.createServer((req, res) => {
 
   // ── API ──────────────────────────────────────────────────────────────────
   if (p.endsWith("/_push/published")) return json(200, { stores: livePublishedStores() });
-  if (p.endsWith("/_push/status")) return json(200, store(getState(), u.searchParams.get("store") || "").build);
+  // Both routes below previously had NO auth at all (confirmed: nothing but
+  // push.ts/preview.ts polls /status and logs.ts polls /logs, both of which
+  // already send an Authorization header when signed in) — closed here so a
+  // build log (which can contain store-identifying details) isn't world-readable.
+  if (p.endsWith("/_push/status")) {
+    const s = u.searchParams.get("store") || "";
+    verifyOwnership(req.headers["authorization"], s, "status").then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error });
+      return json(200, store(getState(), s).build);
+    });
+    return;
+  }
   if (p.endsWith("/_push/logs")) {
-    let log = "";
-    try { log = readFileSync(join(storeDir(u.searchParams.get("store") || ""), "build.log"), "utf8"); } catch { /* none */ }
-    res.writeHead(200, { "Content-Type": "text/plain" });
-    return res.end(log || "No build logs yet — run `kurumera theme push`.");
+    const s = u.searchParams.get("store") || "";
+    verifyOwnership(req.headers["authorization"], s, "logs").then((az) => {
+      if (!az.ok) { res.writeHead(az.status || 403, { "Content-Type": "text/plain" }); return res.end(az.error || "not authorized"); }
+      let log = "";
+      try { log = readFileSync(join(storeDir(s), "build.log"), "utf8"); } catch { /* none */ }
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      return res.end(log || "No build logs yet — run `kurumera theme push`.");
+    });
+    return;
   }
 
   // ── Wake (hot path, called by the builder proxy before rewriting) ────────────
@@ -1748,7 +1773,7 @@ const server = http.createServer((req, res) => {
 
   if (p.endsWith("/_push/push") && req.method === "POST") {
     const s = slug(req.headers["x-kurumera-store"] || "");
-    verifyOwnership(req.headers["authorization"], s).then((az) => {
+    verifyOwnership(req.headers["authorization"], s, "push").then((az) => {
       if (!az.ok) return json(az.status || 403, { error: az.error });
       if (building.has(s)) return json(409, { error: "a build is already in progress for this store" });
       readBody().then((buf) => { json(200, { id: "queued", status: "building" }); buildVersion(s, buf, az.actor); });
@@ -1756,12 +1781,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  for (const [suffix, fn] of [["/_push/publish", publishStore], ["/_push/rollback", rollbackStore], ["/_push/unpublish", unpublishStore]]) {
+  for (const [suffix, fn, action] of [
+    ["/_push/publish", publishStore, "publish"],
+    ["/_push/rollback", rollbackStore, "rollback"],
+    ["/_push/unpublish", unpublishStore, "unpublish"],
+  ]) {
     if (p.endsWith(suffix) && req.method === "POST") {
       readBody().then(async (buf) => {
         let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
         const s = slug(body.store);
-        const az = await authorizeMutation(req, s, body.actor_email);   // merchant (backend) or dev (CLI)
+        const az = await authorizeMutation(req, s, body.actor_email, action);   // merchant (backend) or dev (CLI)
         if (!az.ok) return json(az.status || 403, { error: az.error });
         const r = await fn(s, az.actor);
         json(r.ok === false ? 400 : 200, { store: s, ...r, stores: livePublishedStores() });
