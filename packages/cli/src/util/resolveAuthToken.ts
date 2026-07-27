@@ -1,10 +1,5 @@
-import { readConfig, writeConfig, type CliConfig } from "./config.js";
-
-const DEFAULT_API_URL = "https://admin.kurumera.com/api/v1";
-
-function apiUrlFor(cfg: CliConfig): string {
-  return process.env.KURUMERA_API_URL || cfg.apiUrl || DEFAULT_API_URL;
-}
+import { readConfig, writeConfig } from "./config.js";
+import { resolveAuthUrl } from "./authUrl.js";
 
 /**
  * Resolve the bearer token for an authenticated theme-kit request
@@ -34,7 +29,7 @@ export async function resolveAuthToken(): Promise<string | undefined> {
     if (!expiringSoon || !cfg.auth.refreshToken) return cfg.auth.accessToken;
 
     try {
-      const res = await fetch(`${apiUrlFor(cfg)}/cli/device/token/`, {
+      const res = await fetch(`${resolveAuthUrl(undefined, cfg.apiUrl)}/cli/device/token/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ grant_type: "refresh_token", refresh_token: cfg.auth.refreshToken }),

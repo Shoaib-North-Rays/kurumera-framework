@@ -1,7 +1,6 @@
 import { readConfig, writeConfig, CONFIG_PATH } from "../util/config.js";
 import { flag } from "../util/fs.js";
-
-const DEFAULT_API_URL = "https://admin.kurumera.com/api/v1";
+import { resolveAuthUrl } from "../util/authUrl.js";
 
 /**
  * `kurumera logout` — clear saved credentials from ~/.kurumera/config.json.
@@ -63,7 +62,7 @@ export async function logout(args: string[]): Promise<number> {
 /** Best-effort server-side revoke — short timeout, NEVER throws past its own
  *  boundary (the caller already wraps this in .catch as a second layer). */
 async function revokeServerSession(apiUrl: string | undefined, accessToken: string): Promise<void> {
-  const url = `${(apiUrl || DEFAULT_API_URL).replace(/\/+$/, "")}/cli/device/revoke/`;
+  const url = `${resolveAuthUrl(undefined, apiUrl).replace(/\/+$/, "")}/cli/device/revoke/`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 3000);
   try {

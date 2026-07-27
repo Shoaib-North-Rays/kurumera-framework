@@ -5,10 +5,10 @@ import { readConfig, writeConfig, CONFIG_PATH } from "../util/config.js";
 import { flag } from "../util/fs.js";
 import { detectRemoteEnvironment } from "../util/environment.js";
 import { deviceLogin } from "../util/deviceAuth.js";
+import { resolveAuthUrl } from "../util/authUrl.js";
 
 /** The Kurumera dashboard that hosts the authorize page (kurumera.com). */
 const DASHBOARD = (process.env.KURUMERA_DASHBOARD || "https://kurumera.com").replace(/\/+$/, "");
-const DEFAULT_API_URL = "https://admin.kurumera.com/api/v1";
 
 function openBrowser(url: string): void {
   try {
@@ -59,7 +59,11 @@ export async function login(args: string[]): Promise<number> {
 /** Remote-safe device authorization flow — works even when the CLI and the
  *  approving browser are on completely different machines. */
 async function loginDevice(args: string[]): Promise<number> {
-  const apiUrl = flag(args, "--api-url") || process.env.KURUMERA_API_URL || readConfig().apiUrl || DEFAULT_API_URL;
+  // Auth calls go to the public kurumera.com origin by default — NOT
+  // KURUMERA_API_URL/admin.kurumera.com — so this works from hosted AI-agent
+  // sandboxes (ChatGPT, Codex, …) that only allow egress to the domain the
+  // user actually connected them to. See util/authUrl.ts.
+  const apiUrl = resolveAuthUrl(flag(args, "--api-url"), readConfig().apiUrl);
   const scopesFlag = flag(args, "--scopes");
   const scopes = scopesFlag ? scopesFlag.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
 

@@ -52,6 +52,22 @@ if you aren't already, pick the store, and click **Authorize**. The CLI
 picks this up within a few seconds and finishes on its own — no need to
 switch back to the terminal to press anything.
 
+### Network note for hosted AI-agent sandboxes
+
+Device-flow auth calls always go to the **public** `kurumera.com` origin —
+never `admin.kurumera.com` — specifically so this works inside sandboxed
+agent environments (ChatGPT, Codex, cloud AI workspaces) that only allow
+network egress to the domain you actually connected them to.
+`kurumera.com` proxies `/api/v1/cli/*` straight through to the real backend
+(the same same-origin-proxy pattern already used for `/mcp`), so there's
+nothing to configure — it just works. If you're pointed at a self-hosted or
+staging backend, override it with `KURUMERA_AUTH_URL`:
+
+```bash
+export KURUMERA_AUTH_URL=https://staging.example.com/api/v1
+kurumera login --device
+```
+
 The code expires after 10 minutes. If it does, just run the command again.
 
 ### Auto-detection

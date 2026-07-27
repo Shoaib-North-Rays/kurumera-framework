@@ -61,6 +61,8 @@ function help(): void {
   console.log("\nCI / automation:");
   console.log("  KURUMERA_CLI_TOKEN=<token>            Use a token from Settings → CLI tokens instead of");
   console.log("                                       any saved login — never written to disk, ideal for CI.");
+  console.log("  KURUMERA_AUTH_URL=<url>               Override the device-login base URL (defaults to the");
+  console.log("                                       public kurumera.com — works from sandboxed AI agents).");
 }
 
 const argv = process.argv.slice(2);
