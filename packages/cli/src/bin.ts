@@ -19,7 +19,8 @@ import { themePreview } from "./commands/preview.js";
 import { themePublish, themeRollback } from "./commands/publish.js";
 import { themeLogs } from "./commands/logs.js";
 import { marketplace } from "./commands/marketplace.js";
-import { storesList } from "./commands/stores.js";
+import { storesList, storesAdd } from "./commands/stores.js";
+import { status } from "./commands/status.js";
 
 const VERSION = (() => {
   try { return JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8")).version; }
@@ -38,7 +39,9 @@ function help(): void {
   console.log("  login --auth-url <url>                 Override the public CLI authentication origin");
   console.log("  login --token ksf_…                   Explicit storefront-token override");
   console.log("  logout [--store <slug>]              Clear saved credentials (sign out)");
-  console.log("  stores list                          List the stores you're signed in to");
+  console.log("  status (or whoami)                   Sanitized connection status — scopes, stores, expiry");
+  console.log("  stores list                          List the stores this connection can act on");
+  console.log("  stores add <slug>                    Authorize an EXISTING connection for another store");
   console.log("  theme init <name>                    Scaffold the base Next.js theme");
   console.log("  theme dev --store <slug>             Run the theme against live store data");
   console.log("  theme check                          Validate the route contract + safety rules");
@@ -85,7 +88,9 @@ const [a, b, ...rest] = argv;
 async function dispatch(): Promise<number> {
   if (a === "login") return login(argv.slice(1));
   if (a === "logout") return logout(argv.slice(1));
+  if (a === "status" || a === "whoami") return status();
   if (a === "stores" && b === "list") return storesList();
+  if (a === "stores" && b === "add") return storesAdd(rest[0]);
   if (a === "theme" && b === "init") return themeInit(rest[0]);
   if (a === "theme" && b === "check") return themeCheck();
   if (a === "theme" && b === "push") return themePush(rest);

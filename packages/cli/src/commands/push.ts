@@ -5,6 +5,7 @@ import { readConfig } from "../util/config.js";
 import { resolveAuthToken } from "../util/resolveAuthToken.js";
 import { checkTheme } from "../lib/themeCheck.js";
 import { startSpinner, green, red } from "../lib/spinner.js";
+import { requestScopeAmend, tryCompletePendingAmend } from "../util/scopeAmend.js";
 
 const PUSH_URL = (process.env.KURUMERA_PUSH_URL || "https://themekit.kurumera.com/_push").replace(/\/+$/, "");
 
@@ -49,9 +50,9 @@ export async function themePush(args: string[]): Promise<number> {
   console.log(`▸ Uploading theme (${(tar.stdout.length / 1024).toFixed(0)} KB)…`);
 
   // 3) Upload the gzip tarball as the raw body (simple, no multipart parsing).
-  let res: Response;
-  try {
-    res = await fetch(`${PUSH_URL}/push`, {
+  interface PushResult { id?: string; error?: string; detail?: string; required_scope?: string; preview_url?: string }
+  const attempt = async (): Promise<{ status: number; data: PushResult }> => {
+    const r = await fetch(`${PUSH_URL}/push`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${authToken}`,
@@ -60,13 +61,35 @@ export async function themePush(args: string[]): Promise<number> {
       },
       body: tar.stdout,
     });
+    return { status: r.status, data: (await r.json().catch(() => ({}))) as PushResult };
+  };
+
+  let res: { status: number; data: PushResult };
+  try {
+    res = await attempt();
   } catch (e) {
     console.error(`Upload failed: ${(e as Error).message}`);
     return 1;
   }
-  const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string; preview_url?: string };
-  if (!res.ok || !data.id) {
-    console.error(`Push rejected (${res.status}): ${data.error || "unknown error"}`);
+
+  // Incremental consent: if this connection is missing themes:push (e.g. a
+  // manual CI token scoped narrower than the default), request just that
+  // scope for the SAME session instead of failing outright. If a
+  // previously-requested amendment already got approved, this retries
+  // automatically — no need to re-run the command by hand.
+  if (res.status === 403 && res.data.error === "missing_scope") {
+    const justGranted = await tryCompletePendingAmend();
+    if (justGranted) {
+      try { res = await attempt(); } catch (e) { console.error(`Upload failed: ${(e as Error).message}`); return 1; }
+    } else if (res.data.required_scope) {
+      await requestScopeAmend(res.data.required_scope, authToken);
+      return 1;
+    }
+  }
+
+  const data = res.data;
+  if (res.status !== 200 || !data.id) {
+    console.error(`Push rejected (${res.status}): ${data.detail || data.error || "unknown error"}`);
     return 1;
   }
 

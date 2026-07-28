@@ -525,7 +525,15 @@ async function control(path, body) {
 // matching `themes:*` scope on that session (ThemeAuthzView). Every call site
 // below now passes the action it represents, closing the gap where a
 // themes:preview-only CLI token could otherwise publish/rollback a store.
-async function verifyOwnership(authHeader, store, action) {
+//
+// `confirm` (optional bool) forwards `&confirm=true` for a destructive action
+// (publish/rollback/unpublish) — ThemeAuthzView requires it, on top of scope,
+// as an explicit-intent signal (not a security boundary; see
+// apps.cli_auth.scopes.DESTRUCTIVE_THEME_ACTIONS). A missing confirm comes
+// back as a well-formed-but-unconfirmed 400, distinct from every
+// authorization failure — surfaced immediately below, never retried (it's
+// not transient, retrying it 3x would just waste 1.2s for the same answer).
+async function verifyOwnership(authHeader, store, action, confirm) {
   const bearer = authHeader || "";
   if (!bearer.startsWith("Bearer ") || bearer.length < 12) {
     return { ok: false, status: 401, error: "sign in first (kurumera login)" };
@@ -533,21 +541,32 @@ async function verifyOwnership(authHeader, store, action) {
   if (!store) return { ok: false, status: 400, error: "no store — pass --store or run `kurumera login`" };
   // Retry a transient network blip / 5xx a couple of times (with a per-attempt
   // timeout) before failing closed — one hiccup reaching the auth backend must not
-  // fail a publish/install. A definitive 200/401/403/404 returns immediately.
+  // fail a publish/install. A definitive 200/401/403/404/400 returns immediately.
   let lastErr = "ownership check unavailable";
   const actionQs = action ? `&action=${encodeURIComponent(action)}` : "";
+  const confirmQs = confirm ? "&confirm=true" : "";
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt) await new Promise((r) => setTimeout(r, 400 * attempt));
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 8000);
-      const res = await fetch(`${AUTHZ_URL}/?store=${encodeURIComponent(store)}${actionQs}`, { headers: { Authorization: bearer }, signal: ctrl.signal });
+      const res = await fetch(`${AUTHZ_URL}/?store=${encodeURIComponent(store)}${actionQs}${confirmQs}`, { headers: { Authorization: bearer }, signal: ctrl.signal });
       clearTimeout(timer);
       const d = await res.json().catch(() => ({}));
       if (res.status === 200 && d.authorized) return { ok: true, actor: d.actor };
       if (res.status === 200) return { ok: false, status: 403, error: d.detail || "not authorized for this store" };
+      if (res.status === 400 && d.error === "confirmation_required") {
+        return { ok: false, status: 400, error: "confirmation_required", detail: d.detail };
+      }
       if (res.status === 401) return { ok: false, status: 401, error: "invalid or expired session — run `kurumera login`" };
-      if (res.status === 403) return { ok: false, status: 403, error: d.detail || "you do not have access to this store" };
+      if (res.status === 403) {
+        return {
+          ok: false, status: 403,
+          error: d.error === "store_not_authorized" || d.error === "missing_scope" ? d.error : (d.detail || "not authorized for this store"),
+          requiredScope: d.required_scope,
+          detail: d.detail,
+        };
+      }
       if (res.status === 404) return { ok: false, status: 404, error: d.detail || `no store "${store}"` };
       lastErr = `ownership check failed (${res.status})`;   // 5xx / unexpected → retry
     } catch (e) {
@@ -560,11 +579,11 @@ async function verifyOwnership(authHeader, store, action) {
 // Authorize a store mutation from EITHER the trusted backend control plane
 // (X-Kurumera-Service key — it already authenticated the merchant and passes the
 // acting email in the body) OR a developer CLI (dev JWT, verified for ownership).
-async function authorizeMutation(req, store, bodyActor, action) {
+async function authorizeMutation(req, store, bodyActor, action, confirm) {
   if (SERVICE_KEY && req.headers["x-kurumera-service"] === SERVICE_KEY) {
     return { ok: true, actor: bodyActor || undefined };
   }
-  return verifyOwnership(req.headers["authorization"], store, action);
+  return verifyOwnership(req.headers["authorization"], store, action, confirm);
 }
 
 const building = new Set();
@@ -1194,7 +1213,7 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/status")) {
     const s = u.searchParams.get("store") || "";
     verifyOwnership(req.headers["authorization"], s, "status").then((az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       return json(200, store(getState(), s).build);
     });
     return;
@@ -1280,7 +1299,7 @@ const server = http.createServer((req, res) => {
       const e = m.themes[theme];
       if (!e || e.type !== "builder") return json(404, { error: "no builder design" });
       const az = await verifyOwnership(req.headers["authorization"], store);
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       if (themePrice(theme)) {
         const license = String(body.license || "").trim();
         if (!licenseValid(license, theme)) return json(403, { error: "a valid license is required to install this paid design" });
@@ -1302,7 +1321,7 @@ const server = http.createServer((req, res) => {
     const store = slug(u.searchParams.get("store") || "");
     const theme = slug(u.searchParams.get("theme") || "");
     verifyOwnership(req.headers["authorization"], store).then((az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const e = getMarket().themes[theme];
       if (!e) return json(404, { error: "no such listing" });
       const versions = e.versions || [];
@@ -1326,7 +1345,7 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/market/purchases") && req.method === "GET") {
     const store = slug(u.searchParams.get("store") || "");
     verifyOwnership(req.headers["authorization"], store).then((az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const email = String(az.actor || "").toLowerCase();
       if (!email) return json(200, { email: "", purchases: [] });
       const m = getMarket();
@@ -1344,7 +1363,7 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/market/mine") && req.method === "GET") {
     const store = slug(u.searchParams.get("store") || "");
     verifyOwnership(req.headers["authorization"], store).then((az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const m = getMarket();
       const mine = Object.entries(m.themes)
         .filter(([, e]) => slug(e.sourceStore) === store)
@@ -1371,7 +1390,7 @@ const server = http.createServer((req, res) => {
       const store = slug(entry.sourceStore || "");
       if (!store) return json(400, { error: "this listing has no owner store recorded — re-publish it once to claim ownership" });
       const az = await verifyOwnership(req.headers["authorization"], store);
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       // Apply only the editable listing fields, validated.
       if (typeof body.description === "string") entry.description = body.description.slice(0, 400);
       if (body.price != null && Number.isFinite(Number(body.price))) entry.price = Math.min(999999, Math.max(0, Number(body.price)));
@@ -1394,7 +1413,7 @@ const server = http.createServer((req, res) => {
       const store = slug(entry.sourceStore || "");
       if (!store) return json(400, { error: "this listing has no owner store recorded — re-publish it once to claim ownership" });
       const az = await verifyOwnership(req.headers["authorization"], store);
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       delete m.themes[theme];
       setMarket(m);
       json(200, { ok: true, theme, delisted: true });
@@ -1419,7 +1438,7 @@ const server = http.createServer((req, res) => {
       if (!STRIPE_SECRET) return json(400, { error: "payouts aren't enabled yet (platform Stripe not configured)" });
       const store = slug(body.store || "");
       const az = await verifyOwnership(req.headers["authorization"], store);
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const email = String(az.actor || "").toLowerCase();
       if (!email) return json(400, { error: "no verified email on your account" });
       const ret = safeReturnUrl(body.return_to);
@@ -1437,7 +1456,7 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/market/connect/status") && req.method === "GET") {
     const store = slug(u.searchParams.get("store") || "");
     verifyOwnership(req.headers["authorization"], store).then(async (az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const st = await refreshConnectStatus(String(az.actor || "").toLowerCase());
       json(200, { ...st, platformFeePct: PLATFORM_FEE_PCT });
     });
@@ -1448,7 +1467,7 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/market/earnings") && req.method === "GET") {
     const store = slug(u.searchParams.get("store") || "");
     verifyOwnership(req.headers["authorization"], store).then(async (az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const email = String(az.actor || "").toLowerCase();
       const m = getMarket();
       const licenses = Object.values(getLicenses().keys).filter((l) => !l.revoked);
@@ -1483,7 +1502,7 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/market/payout/method") && req.method === "GET") {
     const store = slug(u.searchParams.get("store") || "");
     verifyOwnership(req.headers["authorization"], store).then((az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       json(200, { method: getPayouts().methods[store] || null, owed: owedByStore(store) });
     });
     return;
@@ -1494,7 +1513,7 @@ const server = http.createServer((req, res) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { return json(400, { error: "bad json" }); }
       const store = slug(body.store || "");
       const az = await verifyOwnership(req.headers["authorization"], store);
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const type = body.type === "crypto" ? "crypto" : body.type === "bank" ? "bank" : "";
       const f = (body.fields && typeof body.fields === "object") ? body.fields : {};
       const S = (k) => String(f[k] || "").trim().slice(0, 120);
@@ -1524,7 +1543,7 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/market/admin/payouts") && req.method === "GET") {
     const store = slug(u.searchParams.get("store") || "");
     verifyOwnership(req.headers["authorization"], store).then((az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
       const m = getMarket();
       const stores = [...new Set(Object.values(m.themes).map((e) => slug(e.sourceStore || "")).filter(Boolean))];
@@ -1545,7 +1564,7 @@ const server = http.createServer((req, res) => {
     readBody().then(async (buf) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { return json(400, { error: "bad json" }); }
       const az = await verifyOwnership(req.headers["authorization"], slug(body.store || ""));
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
       const target = slug(body.target || "");
       const currency = String(body.currency || "USD").toUpperCase().slice(0, 8);
@@ -1564,7 +1583,7 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/market/admin/analytics") && req.method === "GET") {
     const store = slug(u.searchParams.get("store") || "");
     verifyOwnership(req.headers["authorization"], store).then((az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
       const m = getMarket();
       const licenses = Object.values(getLicenses().keys).filter((l) => !l.revoked);
@@ -1602,7 +1621,7 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/market/admin/review/queue") && req.method === "GET") {
     const store = slug(u.searchParams.get("store") || "");
     verifyOwnership(req.headers["authorization"], store).then((az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
       const m = getMarket();
       const pending = Object.entries(m.themes)
@@ -1624,7 +1643,7 @@ const server = http.createServer((req, res) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { return json(400, { error: "bad json" }); }
       const store = slug(body.store || "");
       const az = await verifyOwnership(req.headers["authorization"], store);
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
       const theme = slug(body.theme || "");
       const action = String(body.action || "");
@@ -1737,7 +1756,7 @@ const server = http.createServer((req, res) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
       const s = slug(body.store);
       const az = await verifyOwnership(req.headers["authorization"], s);   // must own the source store
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const r = await publishToMarket(s, body);
       json(r.ok === false ? (r.status || 400) : 200, r);
     });
@@ -1749,7 +1768,7 @@ const server = http.createServer((req, res) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { return json(400, { error: "bad json" }); }
       const s = slug(body.store || "");
       const az = await authorizeMutation(req, s, body.actor_email);   // creator JWT or trusted service key
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const perr = validateDesignPackage(body.pkg);
       if (perr) return json(400, { error: perr });
       const r = publishDesignToMarket(s, body.pkg, { ...body, author: body.author || az.actor, creatorEmail: az.actor });
@@ -1764,7 +1783,7 @@ const server = http.createServer((req, res) => {
       if (!body.theme) return json(400, { error: "theme is required" });
       const s = slug(body.store);
       const az = await authorizeMutation(req, s, body.actor_email);   // merchant (backend) or dev (CLI)
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const r = await installFromMarket(s, body.theme, body.version, az.actor, body.license);
       json(r.ok === false ? (r.status || 400) : 200, { ...r, stores: livePublishedStores() });
     });
@@ -1774,7 +1793,7 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/push") && req.method === "POST") {
     const s = slug(req.headers["x-kurumera-store"] || "");
     verifyOwnership(req.headers["authorization"], s, "push").then((az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error });
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       if (building.has(s)) return json(409, { error: "a build is already in progress for this store" });
       readBody().then((buf) => { json(200, { id: "queued", status: "building" }); buildVersion(s, buf, az.actor); });
     });
@@ -1790,8 +1809,13 @@ const server = http.createServer((req, res) => {
       readBody().then(async (buf) => {
         let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
         const s = slug(body.store);
-        const az = await authorizeMutation(req, s, body.actor_email, action);   // merchant (backend) or dev (CLI)
-        if (!az.ok) return json(az.status || 403, { error: az.error });
+        // publish/rollback/unpublish are exactly scopes.DESTRUCTIVE_THEME_ACTIONS
+        // on the backend — confirm is forwarded unconditionally when the CLI
+        // sent it; the trusted service key (backend control plane) path never
+        // needs it (authorizeMutation short-circuits before this reaches
+        // ThemeAuthzView at all for that caller).
+        const az = await authorizeMutation(req, s, body.actor_email, action, body.confirm === true);
+        if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
         const r = await fn(s, az.actor);
         json(r.ok === false ? 400 : 200, { store: s, ...r, stores: livePublishedStores() });
       });

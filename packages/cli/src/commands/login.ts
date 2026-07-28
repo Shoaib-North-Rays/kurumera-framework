@@ -7,6 +7,7 @@ import { detectRemoteEnvironment } from "../util/environment.js";
 import { startDeviceAuthorization, exchangeDeviceCode } from "../util/deviceAuth.js";
 import { resolveAuthUrl } from "../util/authUrl.js";
 import { readPendingDeviceAuth, writePendingDeviceAuth, clearPendingDeviceAuth, isPendingExpired } from "../util/pendingDeviceAuth.js";
+import { isKeychainAvailable, saveToKeychain } from "../util/keychain.js";
 
 /** The Kurumera dashboard that hosts the authorize page (kurumera.com). */
 const DASHBOARD = (process.env.KURUMERA_DASHBOARD || "https://kurumera.com").replace(/\/+$/, "");
@@ -368,6 +369,10 @@ async function loginBrowser(args: string[]): Promise<number> {
   const apiUrl = flag(args, "--api-url");
   if (apiUrl) cfg.apiUrl = apiUrl;
   writeConfig(cfg);
+  // Best-effort redundant backup to the OS keychain (local dev machine only
+  // — see util/keychain.ts). ~/.kurumera/config.json above is already the
+  // complete, authoritative save; this never blocks or affects it.
+  if (isKeychainAvailable()) saveToKeychain(result.token);
   console.log(`\n✓ Logged in${result.store ? ` — store: ${result.store}` : ""}.`);
   console.log(`  Saved to ${CONFIG_PATH}`);
   console.log(`  Next: kurumera theme dev${result.store ? ` --store ${result.store}` : " --store <slug>"}`);

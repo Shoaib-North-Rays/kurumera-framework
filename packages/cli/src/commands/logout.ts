@@ -2,6 +2,7 @@ import { readConfig, writeConfig, CONFIG_PATH } from "../util/config.js";
 import { flag } from "../util/fs.js";
 import { resolveAuthUrl } from "../util/authUrl.js";
 import { readPendingDeviceAuth, clearPendingDeviceAuth } from "../util/pendingDeviceAuth.js";
+import { deleteFromKeychain } from "../util/keychain.js";
 
 /**
  * `kurumera logout` — clear saved credentials from ~/.kurumera/config.json.
@@ -58,6 +59,7 @@ export async function logout(args: string[]): Promise<number> {
   delete cfg.defaultStore;
   delete cfg.auth;
   writeConfig(cfg);
+  deleteFromKeychain(); // best-effort; no-op if nothing was ever backed up there
 
   console.log(`✓ Signed out${cleared.length ? ` — cleared ${cleared.join(" + ")}` : ""}.`);
   console.log(`  (${CONFIG_PATH})`);
