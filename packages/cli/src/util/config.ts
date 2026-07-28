@@ -1,8 +1,8 @@
-import { homedir } from "node:os";
 import { join } from "node:path";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { resolveConfigDir, ensureConfigDir } from "./configDir.js";
 
-const DIR = join(homedir(), ".kurumera");
+const DIR = resolveConfigDir();
 const FILE = join(DIR, "config.json");
 
 /** A remote-safe (device-flow) or manually-issued CLI session — see
@@ -48,7 +48,7 @@ export function readConfig(): CliConfig {
 export function writeConfig(cfg: CliConfig): void {
   // 0700 dir / 0600 file — the config holds session + storefront tokens and license
   // keys, so it must not be world-readable on shared machines.
-  if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true, mode: 0o700 });
+  ensureConfigDir(DIR);
   writeFileSync(FILE, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
 }
 

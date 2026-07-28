@@ -1,9 +1,9 @@
-import { homedir } from "node:os";
 import { join } from "node:path";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, unlinkSync } from "node:fs";
 import { randomBytes } from "node:crypto";
+import { resolveConfigDir, ensureConfigDir } from "./configDir.js";
 
-const DIR = join(homedir(), ".kurumera");
+const DIR = resolveConfigDir();
 const FILE = join(DIR, "pending-device-auth.json");
 
 /**
@@ -73,7 +73,7 @@ export function readPendingDeviceAuth(): PendingDeviceAuth | undefined {
  * authorization, expired or not — starting again is always safe.
  */
 export function writePendingDeviceAuth(pending: PendingDeviceAuth): void {
-  if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true, mode: 0o700 });
+  ensureConfigDir(DIR);
   const tmp = join(DIR, `.pending-device-auth.${randomBytes(6).toString("hex")}.tmp`);
   writeFileSync(tmp, JSON.stringify(pending, null, 2) + "\n", { mode: 0o600 });
   renameSync(tmp, FILE);

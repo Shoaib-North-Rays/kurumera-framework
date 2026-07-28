@@ -5,6 +5,17 @@ The `kurumera` CLI has two ways to sign in. Both end up saving a session to
 publish`, `theme preview`, `theme logs`, `theme rollback`) reads whichever
 credential is available and just works.
 
+**If `~/.kurumera` isn't writable in your environment** (some sandboxed
+AI-agent runtimes report a `HOME` — e.g. `/root` — that doesn't exist or
+isn't writable, causing an `ENOENT`/`EACCES` error), set
+`KURUMERA_CONFIG_DIR` to a directory you know is writable and every command
+in this doc uses it instead:
+
+```bash
+export KURUMERA_CONFIG_DIR=/tmp/kurumera-config
+kurumera login --device --start
+```
+
 | Flow | When | Command |
 |---|---|---|
 | **Browser (loopback)** | The CLI and the browser you sign in with are the **same machine** — a normal local dev laptop. | `kurumera login` (auto), or `kurumera login --browser` |
@@ -301,3 +312,13 @@ headless/AI-agent sandbox).**
 That's exactly what the device flow is for — the approving browser doesn't
 need to be anywhere near the CLI. Copy the printed URL (or just the code)
 out of the terminal/agent output and open it anywhere else.
+
+**`ENOENT: no such file or directory, mkdir '/root/.kurumera'`** (or any
+other error creating `~/.kurumera`).
+The environment's reported home directory doesn't exist or isn't writable —
+seen in some sandboxed AI-agent runtimes. Set `KURUMERA_CONFIG_DIR` to a
+directory you know is writable and retry:
+```bash
+export KURUMERA_CONFIG_DIR=/tmp/kurumera-config
+kurumera login --device --start
+```
