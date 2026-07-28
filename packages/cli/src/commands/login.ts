@@ -4,8 +4,9 @@ import { randomBytes } from "node:crypto";
 import { readConfig, writeConfig, CONFIG_PATH } from "../util/config.js";
 import { flag } from "../util/fs.js";
 import { detectRemoteEnvironment } from "../util/environment.js";
-import { deviceLogin } from "../util/deviceAuth.js";
+import { startDeviceAuthorization, exchangeDeviceCode } from "../util/deviceAuth.js";
 import { resolveAuthUrl } from "../util/authUrl.js";
+import { readPendingDeviceAuth, writePendingDeviceAuth, clearPendingDeviceAuth, isPendingExpired } from "../util/pendingDeviceAuth.js";
 
 /** The Kurumera dashboard that hosts the authorize page (kurumera.com). */
 const DASHBOARD = (process.env.KURUMERA_DASHBOARD || "https://kurumera.com").replace(/\/+$/, "");
@@ -29,60 +30,101 @@ function openBrowser(url: string): void {
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * `kurumera login` — sign in.
  *
- *   kurumera login                  Auto-detect: loopback browser flow on a
- *                                    normal dev machine, device flow when the
- *                                    environment looks remote/headless (SSH,
- *                                    CI, container, no TTY — see util/environment.ts).
- *   kurumera login --browser        Force the local-loopback flow (unchanged,
- *                                    original behavior — CLI and browser MUST
- *                                    share a network, e.g. localhost).
- *   kurumera login --device         Force the remote-safe device flow: prints
- *                                    a URL + code you (or anyone with store
- *                                    access) can open on ANY machine/browser.
- *   kurumera login --token ksf_…    Explicit storefront-token override (unchanged).
+ *   kurumera login                    Auto-detect: loopback browser flow on a
+ *                                      normal dev machine, resumable device
+ *                                      flow when the environment looks remote/
+ *                                      headless (SSH, CI, container, no TTY,
+ *                                      hosted AI agent — see util/environment.ts).
+ *   kurumera login --browser          Force the local-loopback flow (UNCHANGED,
+ *                                      original behavior — CLI and browser MUST
+ *                                      share a network, e.g. localhost). This
+ *                                      is exactly what a local developer's
+ *                                      terminal has always used; nothing about
+ *                                      it changed in this file.
+ *   kurumera login --device           Remote-safe device flow. With no
+ *                                      further flag this resumes an existing
+ *                                      still-valid pending authorization
+ *                                      (--complete) or starts a new one
+ *                                      (--start) — see the three explicit
+ *                                      sub-modes below.
+ *   kurumera login --device --start    Begin a device authorization, print the
+ *                                      URL + code, save it to
+ *                                      ~/.kurumera/pending-device-auth.json,
+ *                                      and EXIT IMMEDIATELY — no polling. Safe
+ *                                      for hosted agent sandboxes that don't
+ *                                      keep a process alive/networked between
+ *                                      tool calls.
+ *   kurumera login --device --complete Make ONE attempt to exchange a
+ *                                      previously-started pending
+ *                                      authorization for a session — safe to
+ *                                      run from a completely different
+ *                                      process, possibly much later.
+ *   kurumera login --device --wait     The original single-process flow: start,
+ *                                      print/open the link, then poll THIS
+ *                                      process until approved/denied/expired.
+ *                                      Preserved for environments where a
+ *                                      long-running foreground process is
+ *                                      genuinely fine.
+ *   kurumera login --auth-url <url>    Override the public device-auth origin
+ *                                      (default https://kurumera.com/api/v1).
+ *                                      Never inherits the commerce --api-url/
+ *                                      saved config apiUrl — see util/authUrl.ts.
+ *   kurumera login --token ksf_…       Explicit storefront-token override (unchanged).
  *
- * The device flow is purely ADDITIVE — see util/deviceAuth.ts +
- * util/resolveAuthToken.ts. Nothing about the loopback path below changed.
+ * The device flow is purely ADDITIVE — see util/deviceAuth.ts,
+ * util/pendingDeviceAuth.ts, util/resolveAuthToken.ts. `loginBrowser` and
+ * `saveManual` below are UNCHANGED from before this feature existed.
  */
 export async function login(args: string[]): Promise<number> {
   const manual = flag(args, "--token");
   if (manual) return saveManual(manual, flag(args, "--store"), flag(args, "--api-url"));
 
-  if (args.includes("--device")) return loginDevice(args);
-  if (!args.includes("--browser") && detectRemoteEnvironment().isRemote) return loginDevice(args);
+  if (args.includes("--device")) {
+    if (args.includes("--start")) return loginDeviceStart(args);
+    if (args.includes("--complete")) return loginDeviceComplete();
+    if (args.includes("--wait")) return loginDeviceWait(args);
+    return loginDeviceAuto(args);
+  }
+  if (!args.includes("--browser") && detectRemoteEnvironment().isRemote) return loginDeviceAuto(args);
   return loginBrowser(args);
 }
 
-/** Remote-safe device authorization flow — works even when the CLI and the
- *  approving browser are on completely different machines. */
-async function loginDevice(args: string[]): Promise<number> {
-  // Auth calls go to the public kurumera.com origin by default — NOT
-  // KURUMERA_API_URL/admin.kurumera.com — so this works from hosted AI-agent
-  // sandboxes (ChatGPT, Codex, …) that only allow egress to the domain the
-  // user actually connected them to. See util/authUrl.ts.
-  const apiUrl = resolveAuthUrl(flag(args, "--api-url"), readConfig().apiUrl);
+/**
+ * No explicit start/complete/wait flag: resume an existing, still-valid
+ * pending authorization if one exists, otherwise start a new one. This is
+ * what bare `--device` AND remote-environment auto-detection both use — the
+ * resumable flow is the default remote-safe path now (see `--wait` for the
+ * old single-process loop).
+ */
+async function loginDeviceAuto(args: string[]): Promise<number> {
+  const pending = readPendingDeviceAuth();
+  if (pending && !isPendingExpired(pending)) return loginDeviceComplete();
+  return loginDeviceStart(args);
+}
+
+function deviceScopesFrom(args: string[]): string[] | undefined {
   const scopesFlag = flag(args, "--scopes");
-  const scopes = scopesFlag ? scopesFlag.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+  return scopesFlag ? scopesFlag.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+}
 
-  const onSigint = () => {
-    console.log("\nCancelled.");
-    process.exit(130);
-  };
-  process.once("SIGINT", onSigint);
+/** Auth calls resolve to the public kurumera.com origin by default — NEVER
+ *  the saved commerce `cfg.apiUrl` (admin.kurumera.com) — so this works from
+ *  hosted AI-agent sandboxes that only allow egress to the domain the user
+ *  actually connected them to. `--auth-url` / `KURUMERA_AUTH_URL` override;
+ *  see util/authUrl.ts. `--api-url` is deliberately NOT read here — that flag
+ *  is for the commerce/storefront base URL, a different concern. */
+function deviceAuthUrlFrom(args: string[]): string {
+  return resolveAuthUrl(flag(args, "--auth-url"));
+}
 
-  let result: Awaited<ReturnType<typeof deviceLogin>>;
-  try {
-    result = await deviceLogin(apiUrl, scopes);
-  } catch (e) {
-    console.error(`\nLogin failed: ${(e as Error).message}`);
-    return 1;
-  } finally {
-    process.off("SIGINT", onSigint);
-  }
-
+function saveDeviceSession(result: { accessToken: string; refreshToken?: string; expiresAt: number; scopes: string[] }): void {
   const cfg = readConfig();
   cfg.auth = {
     type: "device",
@@ -91,14 +133,184 @@ async function loginDevice(args: string[]): Promise<number> {
     expiresAt: result.expiresAt,
     scopes: result.scopes,
   };
-  if (flag(args, "--api-url")) cfg.apiUrl = apiUrl;
   writeConfig(cfg);
+}
 
-  console.log("\n✓ Logged in (device flow).");
-  console.log(`  Saved to ${CONFIG_PATH}`);
-  console.log(`  Scopes: ${result.scopes.join(", ") || "(default)"}`);
-  console.log("  Next: kurumera theme push --store <slug>");
+/**
+ * `kurumera login --device --start` — begins a device authorization, saves
+ * it to ~/.kurumera/pending-device-auth.json, and exits immediately. No
+ * polling, no held-open connection — safe for hosted agent environments that
+ * terminate or restrict network access between tool calls. Complete it later
+ * (possibly from a completely different process) with `--complete`.
+ */
+async function loginDeviceStart(args: string[]): Promise<number> {
+  const apiUrl = deviceAuthUrlFrom(args);
+  const scopes = deviceScopesFrom(args);
+
+  let start;
+  try {
+    start = await startDeviceAuthorization(apiUrl, scopes);
+  } catch (e) {
+    console.error(`Could not start device authorization: ${(e as Error).message}`);
+    return 1;
+  }
+
+  // Safely REPLACES any prior pending authorization (expired or not) —
+  // starting again is always safe; writePendingDeviceAuth's write is atomic.
+  writePendingDeviceAuth({
+    deviceCode: start.deviceCode,
+    codeVerifier: start.codeVerifier,
+    tokenEndpoint: `${apiUrl.replace(/\/+$/, "")}/cli/device/token/`,
+    verificationUri: start.verificationUri,
+    expiresAt: Date.now() + start.expiresIn * 1000,
+    interval: start.interval,
+    createdAt: Date.now(),
+  });
+
+  console.log("Open this URL in any browser:\n");
+  console.log(`  ${start.verificationUriComplete || start.verificationUri}\n`);
+  console.log(`Code: ${start.userCode}\n`);
+  console.log("Authorization started successfully.\n");
+  console.log("After approving access, run:\n");
+  console.log("  kurumera login --device --complete");
   return 0;
+}
+
+/**
+ * `kurumera login --device --complete` — one attempt to exchange a
+ * previously-started, still-pending device authorization for a session.
+ * Safe to call from a brand-new process: everything it needs (device code,
+ * PKCE verifier, token endpoint) was already persisted by `--start`.
+ */
+async function loginDeviceComplete(): Promise<number> {
+  const pending = readPendingDeviceAuth();
+  if (!pending) {
+    console.log("No pending device authorization was found.\n");
+    console.log("Start one with:\n");
+    console.log("  kurumera login --device --start");
+    return 1;
+  }
+  if (isPendingExpired(pending)) {
+    clearPendingDeviceAuth();
+    console.log("This device authorization has expired.\n");
+    console.log("Start again with:\n");
+    console.log("  kurumera login --device --start");
+    return 1;
+  }
+
+  let result;
+  try {
+    result = await exchangeDeviceCode(pending.tokenEndpoint, pending.deviceCode, pending.codeVerifier);
+  } catch (e) {
+    // A transport failure, not a protocol rejection — the code itself is
+    // still valid and unconsumed, only this attempt to reach the server
+    // failed. Keep the pending state so a retry can succeed.
+    console.error(`Could not reach the authorization server: ${(e as Error).message}`);
+    console.error("Try again with: kurumera login --device --complete");
+    return 1;
+  }
+
+  if (!result.ok) {
+    const { error, errorDescription } = result.error;
+    if (error === "authorization_pending") {
+      console.log("Authorization is still pending.\n");
+      console.log("Approve the request in your browser, then run:\n");
+      console.log("  kurumera login --device --complete");
+      return 1;
+    }
+    if (error === "slow_down") {
+      console.log("The authorization server requested a slower retry.\n");
+      console.log("Wait 5 seconds, then run:\n");
+      console.log("  kurumera login --device --complete");
+      return 1;
+    }
+    if (error === "access_denied") {
+      clearPendingDeviceAuth();
+      console.log("Authorization was denied. Start a new login with:\n");
+      console.log("  kurumera login --device --start");
+      return 1;
+    }
+    if (error === "expired_token") {
+      clearPendingDeviceAuth();
+      console.log("This device authorization has expired.\n");
+      console.log("Start again with:\n");
+      console.log("  kurumera login --device --start");
+      return 1;
+    }
+    // invalid_grant (PKCE mismatch, a consumed/unknown device_code) or
+    // anything else unrecoverable — this pending state can never succeed.
+    clearPendingDeviceAuth();
+    console.error(`Device authorization failed: ${errorDescription || error}`);
+    return 1;
+  }
+
+  saveDeviceSession(result.result);
+  clearPendingDeviceAuth();
+
+  console.log("✓ Device authorization completed");
+  console.log("✓ CLI session saved securely");
+  console.log(`✓ Scopes: ${result.result.scopes.join(", ") || "(default)"}\n`);
+  console.log("Next:\n");
+  console.log("  kurumera theme push --store <slug>");
+  return 0;
+}
+
+/**
+ * `kurumera login --device --wait` — the original single-process device
+ * flow: start, print/open the link, then poll THIS SAME process until the
+ * human approves it (or it's denied/expires). Preserved for environments
+ * where a long-running foreground process is genuinely fine; prefer
+ * `--start`/`--complete` in a hosted agent sandbox that may not keep this
+ * process alive (or networked) between tool calls.
+ */
+async function loginDeviceWait(args: string[]): Promise<number> {
+  const apiUrl = deviceAuthUrlFrom(args);
+  const scopes = deviceScopesFrom(args);
+
+  const onSigint = () => {
+    console.log("\nCancelled.");
+    process.exit(130);
+  };
+  process.once("SIGINT", onSigint);
+
+  try {
+    const start = await startDeviceAuthorization(apiUrl, scopes);
+
+    console.log("To sign in, open this link (on this machine or any other device):\n");
+    console.log(`  ${start.verificationUriComplete || start.verificationUri}\n`);
+    console.log(`Or go to ${start.verificationUri} and enter this code: ${start.userCode}\n`);
+    if (start.verificationUriComplete) openBrowser(start.verificationUriComplete);
+    console.log("Waiting for you to authorize this device…");
+
+    const tokenEndpoint = `${apiUrl.replace(/\/+$/, "")}/cli/device/token/`;
+    let interval = start.interval;
+    const deadline = Date.now() + start.expiresIn * 1000;
+
+    while (Date.now() < deadline) {
+      await sleep(interval * 1000);
+      const result = await exchangeDeviceCode(tokenEndpoint, start.deviceCode, start.codeVerifier);
+
+      if (result.ok) {
+        saveDeviceSession(result.result);
+        console.log("\n✓ Logged in (device flow).");
+        console.log(`  Saved to ${CONFIG_PATH}`);
+        console.log(`  Scopes: ${result.result.scopes.join(", ") || "(default)"}`);
+        console.log("  Next: kurumera theme push --store <slug>");
+        return 0;
+      }
+      if (result.error.error === "authorization_pending") continue;
+      if (result.error.error === "slow_down") { interval += 5; continue; }
+      console.error(`\nLogin failed: ${result.error.errorDescription || result.error.error}`);
+      return 1;
+    }
+    console.error("\nLogin failed: Timed out waiting for authorization — run `kurumera login --device --wait` again.");
+    return 1;
+  } catch (e) {
+    console.error(`\nLogin failed: ${(e as Error).message}`);
+    return 1;
+  } finally {
+    process.off("SIGINT", onSigint);
+  }
 }
 
 /** The original browser authorize flow (loopback) — UNCHANGED. */

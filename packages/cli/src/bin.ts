@@ -32,7 +32,10 @@ function help(): void {
   console.log("Available now:");
   console.log("  login                                Sign in (auto-detects local vs. remote)");
   console.log("  login --browser                      Force the local browser/loopback flow");
-  console.log("  login --device                        Remote-safe device flow (SSH/CI/containers/AI agents)");
+  console.log("  login --device --start                Start remote device authorization, save pending state, exit");
+  console.log("  login --device --complete             Complete a previously approved device authorization");
+  console.log("  login --device --wait                 Start authorization and continuously poll in this terminal");
+  console.log("  login --auth-url <url>                 Override the public CLI authentication origin");
   console.log("  login --token ksf_…                   Explicit storefront-token override");
   console.log("  logout [--store <slug>]              Clear saved credentials (sign out)");
   console.log("  stores list                          List the stores you're signed in to");

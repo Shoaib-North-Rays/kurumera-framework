@@ -8,6 +8,5 @@
     "moduleResolution": "NodeNext",
     "lib": ["ES2020"]
   },
-  "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  "include": ["src"]
 }

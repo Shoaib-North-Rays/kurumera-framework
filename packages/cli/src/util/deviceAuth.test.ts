@@ -1,12 +1,6 @@
 import { createHash } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-// Prevent the real browser-open side effect (spawn cmd/open/xdg-open) during tests.
-vi.mock("node:child_process", () => ({
-  spawn: vi.fn(() => ({ unref: vi.fn() })),
-}));
-
-import { deviceLogin } from "./deviceAuth.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { startDeviceAuthorization, exchangeDeviceCode } from "./deviceAuth.js";
 
 function b64url(buf: Buffer): string {
   return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -16,152 +10,113 @@ function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-const API_URL = "https://admin.kurumera.com/api/v1";
+const API_URL = "https://kurumera.com/api/v1";
+const TOKEN_ENDPOINT = `${API_URL}/cli/device/token/`;
 
-describe("deviceLogin", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.spyOn(console, "log").mockImplementation(() => {});
-  });
+describe("startDeviceAuthorization", () => {
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("proves possession of the verifier it committed to via PKCE S256", async () => {
-    let capturedChallenge = "";
-    let capturedVerifier = "";
-    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      const body = init?.body ? JSON.parse(String(init.body)) : {};
-      if (String(url).includes("/device/authorize/")) {
-        capturedChallenge = body.code_challenge;
-        expect(body.code_challenge_method).toBe("S256");
-        return jsonResponse(200, {
-          device_code: "dc1", user_code: "ABCD-EFGH",
-          verification_uri: "https://kurumera.com/device",
-          verification_uri_complete: "https://kurumera.com/device?user_code=ABCD-EFGH",
-          expires_in: 600, interval: 5,
-        });
-      }
-      if (String(url).includes("/device/token/")) {
-        capturedVerifier = body.code_verifier;
-        return jsonResponse(200, {
-          access_token: "kcli_abc", refresh_token: "kclr_def", expires_in: 3600,
-          scope: "themes:push themes:read",
-        });
-      }
-      throw new Error(`unexpected fetch ${url}`);
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const promise = deviceLogin(API_URL);
-    await vi.advanceTimersByTimeAsync(5000);
-    const result = await promise;
-
-    expect(result.accessToken).toBe("kcli_abc");
-    expect(result.refreshToken).toBe("kclr_def");
-    expect(result.scopes).toEqual(["themes:push", "themes:read"]);
-    expect(capturedVerifier).toBeTruthy();
-    expect(b64url(createHash("sha256").update(capturedVerifier).digest())).toBe(capturedChallenge);
-  });
-
-  it("keeps polling on authorization_pending until the human approves", async () => {
-    let polls = 0;
-    const fetchMock = vi.fn(async (url: string) => {
-      if (String(url).includes("/device/authorize/")) {
-        return jsonResponse(200, {
-          device_code: "dc1", user_code: "CODE",
-          verification_uri: "https://kurumera.com/device",
-          verification_uri_complete: "https://kurumera.com/device?user_code=CODE",
-          expires_in: 600, interval: 1,
-        });
-      }
-      polls++;
-      if (polls < 3) return jsonResponse(400, { error: "authorization_pending" });
-      return jsonResponse(200, { access_token: "kcli_ok", expires_in: 3600, scope: "themes:read" });
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const promise = deviceLogin(API_URL);
-    for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(1000);
-    const result = await promise;
-
-    expect(result.accessToken).toBe("kcli_ok");
-    expect(polls).toBeGreaterThanOrEqual(3);
-  });
-
-  it("backs off on slow_down instead of failing", async () => {
-    let polls = 0;
-    const fetchMock = vi.fn(async (url: string) => {
-      if (String(url).includes("/device/authorize/")) {
-        return jsonResponse(200, {
-          device_code: "dc1", user_code: "CODE",
-          verification_uri: "https://kurumera.com/device",
-          verification_uri_complete: "https://kurumera.com/device?user_code=CODE",
-          expires_in: 600, interval: 1,
-        });
-      }
-      polls++;
-      if (polls === 1) return jsonResponse(429, { error: "slow_down" });
-      return jsonResponse(200, { access_token: "kcli_ok2", expires_in: 3600, scope: "" });
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const promise = deviceLogin(API_URL);
-    for (let i = 0; i < 10; i++) await vi.advanceTimersByTimeAsync(1000);
-    const result = await promise;
-
-    expect(result.accessToken).toBe("kcli_ok2");
-  });
-
-  it("rejects when the human denies the request", async () => {
-    const fetchMock = vi.fn(async (url: string) => {
-      if (String(url).includes("/device/authorize/")) {
-        return jsonResponse(200, {
-          device_code: "dc1", user_code: "CODE",
-          verification_uri: "https://kurumera.com/device",
-          verification_uri_complete: "https://kurumera.com/device?user_code=CODE",
-          expires_in: 600, interval: 1,
-        });
-      }
-      return jsonResponse(400, { error: "access_denied", error_description: "Authorization was denied." });
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const promise = deviceLogin(API_URL);
-    const expectation = expect(promise).rejects.toThrow(/denied/i);
-    await vi.advanceTimersByTimeAsync(1000);
-    await expectation;
-  });
-
-  it("never logs the raw access or refresh token", async () => {
-    const logs: string[] = [];
-    (console.log as unknown as { mockImplementation: (fn: (...a: unknown[]) => void) => void }).mockImplementation(
-      (...args: unknown[]) => { logs.push(args.map(String).join(" ")); },
-    );
-    const fetchMock = vi.fn(async (url: string) => {
-      if (String(url).includes("/device/authorize/")) {
-        return jsonResponse(200, {
-          device_code: "dc1", user_code: "CODE",
-          verification_uri: "https://kurumera.com/device",
-          verification_uri_complete: "https://kurumera.com/device?user_code=CODE",
-          expires_in: 600, interval: 1,
-        });
-      }
-      return jsonResponse(200, {
-        access_token: "kcli_supersecretvalue", refresh_token: "kclr_supersecretvalue",
-        expires_in: 3600, scope: "themes:read",
+  it("sends a PKCE S256 challenge and returns the verifier alongside it — one request, no polling", async () => {
+    let capturedBody: Record<string, unknown> = {};
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body));
+      return jsonResponse(201, {
+        device_code: "cldc_abc", user_code: "ABCD-EFGH",
+        verification_uri: "https://kurumera.com/device",
+        verification_uri_complete: "https://kurumera.com/device?user_code=ABCD-EFGH",
+        expires_in: 600, interval: 5,
       });
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const promise = deviceLogin(API_URL);
-    await vi.advanceTimersByTimeAsync(1000);
-    await promise;
+    const start = await startDeviceAuthorization(API_URL);
 
-    const joined = logs.join("\n");
-    expect(joined).not.toContain("kcli_supersecretvalue");
-    expect(joined).not.toContain("kclr_supersecretvalue");
+    expect(fetchMock).toHaveBeenCalledTimes(1); // exactly one request — no poll loop in here
+    expect(capturedBody.code_challenge_method).toBe("S256");
+    const expectedChallenge = b64url(createHash("sha256").update(start.codeVerifier).digest());
+    expect(expectedChallenge).toBe(capturedBody.code_challenge);
+
+    expect(start.deviceCode).toBe("cldc_abc");
+    expect(start.userCode).toBe("ABCD-EFGH");
+    expect(start.interval).toBe(5);
+    expect(start.expiresIn).toBe(600);
+  });
+
+  it("includes requested scopes when provided", async () => {
+    let capturedBody: Record<string, unknown> = {};
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body));
+      return jsonResponse(201, {
+        device_code: "cldc_abc", user_code: "ABCD-EFGH",
+        verification_uri: "x", verification_uri_complete: "x", expires_in: 600, interval: 5,
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await startDeviceAuthorization(API_URL, ["themes:push", "themes:read"]);
+    expect(capturedBody.scopes).toEqual(["themes:push", "themes:read"]);
+  });
+
+  it("throws with the server's error_description on failure", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(400, {
+      error: "invalid_request", error_description: "A PKCE code_challenge with method S256 is required.",
+    })));
+    await expect(startDeviceAuthorization(API_URL)).rejects.toThrow(/PKCE code_challenge/);
+  });
+});
+
+describe("exchangeDeviceCode", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("returns ok:true with the session on a successful exchange", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(200, {
+      access_token: "kcli_x", refresh_token: "kclr_x", expires_in: 3600, scope: "themes:push themes:read",
+    })));
+    const result = await exchangeDeviceCode(TOKEN_ENDPOINT, "cldc_abc", "verifier");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.result.accessToken).toBe("kcli_x");
+      expect(result.result.refreshToken).toBe("kclr_x");
+      expect(result.result.scopes).toEqual(["themes:push", "themes:read"]);
+    }
+  });
+
+  // ── #9 authorization_pending, #10 slow_down, #11 access_denied, #12 expiry,
+  // #15/#16 invalid_grant (PKCE mismatch / consumed code) — exchangeDeviceCode
+  // never throws for these; it returns a typed error the caller interprets. ──
+  it.each([
+    ["authorization_pending", 400],
+    ["slow_down", 429],
+    ["access_denied", 400],
+    ["expired_token", 400],
+    ["invalid_grant", 400],
+  ])("surfaces %s as a typed, non-throwing error result", async (error, status) => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(status, { error, error_description: `desc for ${error}` })));
+    const result = await exchangeDeviceCode(TOKEN_ENDPOINT, "cldc_abc", "verifier");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.error).toBe(error);
+      expect(result.error.httpStatus).toBe(status);
+    }
+  });
+
+  // ── #24 never logs/exposes secrets ──────────────────────────────────────
+  it("never logs the device code, verifier, or issued tokens", async () => {
+    const logs: string[] = [];
+    const logSpy = vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => { logs.push(args.map(String).join(" ")); });
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(200, {
+      access_token: "kcli_supersecret", refresh_token: "kclr_supersecret", expires_in: 3600, scope: "themes:read",
+    })));
+
+    await exchangeDeviceCode(TOKEN_ENDPOINT, "cldc_secretdevicecode", "secretverifier");
+
+    expect(logs.join("\n")).toBe(""); // this layer prints nothing at all
+    logSpy.mockRestore();
   });
 });

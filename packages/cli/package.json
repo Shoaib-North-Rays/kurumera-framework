@@ -1,6 +1,6 @@
 {
   "name": "@kurumera/cli",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Kurumera CLI — login, scaffold, dev, check, push, preview, publish.",
   "type": "module",
   "bin": {
@@ -14,7 +14,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/bundle-template.mjs",
+    "build": "tsc -p tsconfig.build.json && node scripts/bundle-template.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "prepack": "npm run build"

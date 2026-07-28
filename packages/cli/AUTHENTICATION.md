@@ -30,13 +30,81 @@ kurumera login
 ## Device login (remote-safe)
 
 For everything else: SSH sessions, Docker containers, GitHub Codespaces,
-CI runners, or an AI coding agent (Claude Code, Codex, Cursor, etc.) working
-in its own environment. The CLI prints a short code and a URL; you (or
-whoever has access to the store) open that URL on **any** device — your
-phone, your own laptop, whatever has a browser — and approve it there.
+CI runners, or an AI coding agent (ChatGPT, Claude Code, Codex, Cursor,
+etc.) working in its own environment. The CLI prints a short code and a
+URL; you (or whoever has access to the store) open that URL on **any**
+device — your phone, your own laptop, whatever has a browser — and approve
+it there.
+
+### Resumable (`--start` / `--complete`) — the default for hosted agents
+
+Some hosted agent environments pause, restrict, or lose network access on
+the process that's running the CLI in between tool calls — a single
+long-running "poll until approved" process doesn't survive that. The
+resumable flow splits login into two short-lived steps that can run in
+**completely separate processes**, possibly minutes or hours apart:
 
 ```bash
-kurumera login --device
+kurumera login --device --start
+```
+
+```text
+Open this URL in any browser:
+
+  https://kurumera.com/device?user_code=HFC7-K2MP
+
+Code: HFC7-K2MP
+
+Authorization started successfully.
+
+After approving access, run:
+
+  kurumera login --device --complete
+```
+
+This exits immediately — no polling, nothing held open. It saves the
+pending authorization to `~/.kurumera/pending-device-auth.json` (0600,
+atomic write) so a **later, unrelated process** can pick it up. Open the
+link, sign in, pick the store, click **Authorize** — then, whenever the
+agent resumes (a fresh tool call, a new terminal, doesn't matter):
+
+```bash
+kurumera login --device --complete
+```
+
+```text
+✓ Device authorization completed
+✓ CLI session saved securely
+✓ Scopes: stores:read, themes:read, themes:push, themes:preview, themes:publish
+
+Next:
+
+  kurumera theme push --store <slug>
+```
+
+If you run `--complete` before approving, it tells you so and leaves the
+pending state in place — just run it again after approving:
+
+```text
+Authorization is still pending.
+
+Approve the request in your browser, then run:
+
+  kurumera login --device --complete
+```
+
+Plain `kurumera login --device` (no `--start`/`--complete`/`--wait`) does
+the sensible thing automatically: completes an existing still-valid pending
+authorization if one exists, otherwise starts a new one. Environment
+auto-detection (see below) uses this same resumable behavior by default.
+
+### Single-process (`--wait`) — the original flow
+
+If a long-running foreground process is genuinely fine in your environment,
+`--wait` starts and polls in one shot, same as before:
+
+```bash
+kurumera login --device --wait
 
 # To sign in, open this link (on this machine or any other device):
 #
@@ -47,28 +115,28 @@ kurumera login --device
 # Waiting for you to authorize this device…
 ```
 
-Open the link (or go to `kurumera.com/device` and type the code), sign in
-if you aren't already, pick the store, and click **Authorize**. The CLI
-picks this up within a few seconds and finishes on its own — no need to
-switch back to the terminal to press anything.
-
 ### Network note for hosted AI-agent sandboxes
 
 Device-flow auth calls always go to the **public** `kurumera.com` origin —
-never `admin.kurumera.com` — specifically so this works inside sandboxed
-agent environments (ChatGPT, Codex, cloud AI workspaces) that only allow
-network egress to the domain you actually connected them to.
-`kurumera.com` proxies `/api/v1/cli/*` straight through to the real backend
-(the same same-origin-proxy pattern already used for `/mcp`), so there's
-nothing to configure — it just works. If you're pointed at a self-hosted or
-staging backend, override it with `KURUMERA_AUTH_URL`:
+never `admin.kurumera.com`, and never the saved commerce `--api-url` —
+specifically so this works inside sandboxed agent environments (ChatGPT,
+Codex, cloud AI workspaces) that only allow network egress to the domain
+you actually connected them to. `kurumera.com` proxies `/api/v1/cli/*`
+straight through to the real backend (the same same-origin-proxy pattern
+already used for `/mcp`), so there's nothing to configure — it just works.
+If you're pointed at a self-hosted or staging backend, override it with
+`--auth-url` or `KURUMERA_AUTH_URL` (never `--api-url` — that flag is for
+the commerce/storefront base URL, a separate concern):
 
 ```bash
+kurumera login --device --start --auth-url https://staging.example.com/api/v1
+# or
 export KURUMERA_AUTH_URL=https://staging.example.com/api/v1
-kurumera login --device
+kurumera login --device --start
 ```
 
-The code expires after 10 minutes. If it does, just run the command again.
+The device code expires after 10 minutes. If it does, `--complete` tells
+you and clears the pending state — start again with `--start`.
 
 ### Auto-detection
 

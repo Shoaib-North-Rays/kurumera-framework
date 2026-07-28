@@ -1,6 +1,7 @@
 import { readConfig, writeConfig, CONFIG_PATH } from "../util/config.js";
 import { flag } from "../util/fs.js";
 import { resolveAuthUrl } from "../util/authUrl.js";
+import { readPendingDeviceAuth, clearPendingDeviceAuth } from "../util/pendingDeviceAuth.js";
 
 /**
  * `kurumera logout` — clear saved credentials from ~/.kurumera/config.json.
@@ -13,14 +14,19 @@ import { resolveAuthUrl } from "../util/authUrl.js";
  * local cleanup regardless of whether that call succeeds; local logout must
  * never block on network reachability. The `--api-url` preference is kept —
  * it's an environment pointer, not a credential.
+ *
+ * A full logout also clears any pending `--start`/`--complete` device
+ * authorization — it's orphaned, unrelated to any store, and leaving a
+ * stale one around only invites a confusing `--complete` later.
  */
 export async function logout(args: string[]): Promise<number> {
   const cfg = readConfig();
   const store = flag(args, "--store");
 
   if (!store && cfg.auth?.accessToken) {
-    await revokeServerSession(cfg.apiUrl, cfg.auth.accessToken).catch(() => { /* best-effort */ });
+    await revokeServerSession(cfg.auth.accessToken).catch(() => { /* best-effort */ });
   }
+  if (!store && readPendingDeviceAuth()) clearPendingDeviceAuth();
 
   // Remove a single store's storefront token; leave the rest of the session intact.
   if (store) {
@@ -61,8 +67,8 @@ export async function logout(args: string[]): Promise<number> {
 
 /** Best-effort server-side revoke — short timeout, NEVER throws past its own
  *  boundary (the caller already wraps this in .catch as a second layer). */
-async function revokeServerSession(apiUrl: string | undefined, accessToken: string): Promise<void> {
-  const url = `${resolveAuthUrl(undefined, apiUrl).replace(/\/+$/, "")}/cli/device/revoke/`;
+async function revokeServerSession(accessToken: string): Promise<void> {
+  const url = `${resolveAuthUrl().replace(/\/+$/, "")}/cli/device/revoke/`;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 3000);
   try {

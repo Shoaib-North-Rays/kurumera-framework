@@ -29,7 +29,7 @@ export async function resolveAuthToken(): Promise<string | undefined> {
     if (!expiringSoon || !cfg.auth.refreshToken) return cfg.auth.accessToken;
 
     try {
-      const res = await fetch(`${resolveAuthUrl(undefined, cfg.apiUrl)}/cli/device/token/`, {
+      const res = await fetch(`${resolveAuthUrl()}/cli/device/token/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ grant_type: "refresh_token", refresh_token: cfg.auth.refreshToken }),
