@@ -153,6 +153,59 @@ If any of those are true, it uses the device flow. Otherwise it uses the
 loopback flow — the exact same one-click experience as before. `--device`
 and `--browser` always override the auto-detection.
 
+## For AI agents (ChatGPT, Claude, Codex, etc.)
+
+If you're an AI agent with shell access operating on a user's behalf,
+follow this exact recipe. It's written to survive the thing that breaks a
+naive approach: **your process may not stay alive or networked between
+tool calls**, so never poll in a loop — use the resumable flow.
+
+1. **Check whether you're already signed in** with a harmless authenticated
+   command:
+   ```bash
+   kurumera stores list
+   ```
+   If it succeeds, skip to step 5.
+
+2. **Start authorization** — exits immediately, no polling:
+   ```bash
+   npx @kurumera/cli@latest login --device --start
+   ```
+   This prints a URL and a short code, e.g.:
+   ```text
+   Open this URL in any browser:
+     https://kurumera.com/device?user_code=ABCD-1234
+   Code: ABCD-1234
+   ```
+
+3. **Hand the URL to the human user** and ask them to open it, sign in,
+   pick the store, and click Authorize. Do not try to open a browser
+   yourself and do not poll in a tight loop — just wait for the user's next
+   message. It's fine if that's a completely separate turn, tool call, or
+   session; the pending authorization survives on disk until it expires
+   (10 minutes) or you use it.
+
+4. **Complete it** — one attempt, safe to run from a fresh tool call at any
+   point after step 2:
+   ```bash
+   npx @kurumera/cli@latest login --device --complete
+   ```
+   - `✓ Device authorization completed` → done, go to step 5.
+   - `Authorization is still pending.` → the user hasn't approved yet. Ask
+     them to, then re-run this exact command once they confirm — don't loop
+     tightly on it.
+   - `Authorization was denied.` or `has expired.` → go back to step 2.
+
+5. **Proceed with the actual task** — `kurumera theme push --store <slug>`,
+   `publish`, `logs`, etc. The session is now saved; no further auth steps
+   are needed unless a command later fails with 401/403, in which case
+   repeat from step 2.
+
+For a non-interactive pipeline instead of a human-approval flow, use a
+standing token from **Settings → CLI tokens** in the dashboard and set
+`KURUMERA_CLI_TOKEN` instead of any of the above (see
+[CI/CD and automation](#cicd-and-automation-no-interactive-login) below).
+
 ## Scopes
 
 A device-flow session is granted specific scopes — what it can actually do,
