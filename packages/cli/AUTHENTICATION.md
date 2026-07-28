@@ -171,6 +171,37 @@ follow this exact recipe. It's written to survive the thing that breaks a
 naive approach: **your process may not stay alive or networked between
 tool calls**, so never poll in a loop — use the resumable flow.
 
+### First, know which kind of "doesn't persist" you're dealing with
+
+These are two different problems with two different fixes — don't confuse
+them:
+
+- **Your process/tool-calls aren't continuous, but the workspace itself
+  survives** (the common case — a normal ChatGPT/Claude/Codex session).
+  `~/.kurumera` (or `$KURUMERA_CONFIG_DIR`) is still on disk between turns.
+  **Use the device flow below as-is** — `--start` in one tool call,
+  `--complete` in a later one, works fine.
+- **The whole workspace/container gets destroyed and rebuilt between runs**
+  (a fresh sandbox every session, no mounted volume). In this case
+  **nothing saved to disk survives, no matter which flow you use** — a
+  device-flow session, `KURUMERA_CONFIG_DIR` pointed at scratch space, none
+  of it lasts past the rebuild. You have exactly two real options:
+  1. Get whoever operates your sandbox to mount a persistent volume at
+     `~/.kurumera` (or set `KURUMERA_CONFIG_DIR` to a path they already
+     persist) — then the device flow below works and only needs approving
+     once, ever.
+  2. If that's not possible, skip the device flow entirely: have the human
+     issue a standing token from **Settings → CLI tokens** in the
+     dashboard and inject it as `KURUMERA_CLI_TOKEN` at the START of every
+     run (an environment variable your sandbox's operator sets, not
+     something the CLI persists). See
+     [CI/CD and automation](#cicd-and-automation-no-interactive-login).
+
+If you're not sure which case you're in, try the device flow first — if
+`kurumera stores list` reports "Not signed in" on a run where you're
+confident a previous run already completed `--complete` successfully,
+that's the signal you're in the second case.
+
 1. **Check whether you're already signed in** with a harmless authenticated
    command:
    ```bash

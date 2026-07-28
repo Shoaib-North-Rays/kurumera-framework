@@ -251,6 +251,18 @@ async function loginDeviceComplete(): Promise<number> {
   console.log("✓ Device authorization completed");
   console.log("✓ CLI session saved securely");
   console.log(`✓ Scopes: ${result.result.scopes.join(", ") || "(default)"}\n`);
+  console.log(`Saved to: ${CONFIG_PATH}`);
+  console.log(
+    "If this environment's whole workspace gets destroyed and rebuilt between\n" +
+    "runs (not just between tool calls) — a fresh container with no volume for\n" +
+    "the path above — this saved session won't survive that either, and you'll\n" +
+    "be back here re-authorizing every time. Two ways to make it durable:\n" +
+    "  1. Mount a persistent volume at that path (or point KURUMERA_CONFIG_DIR\n" +
+    "     at one you control), so this file survives a rebuild, or\n" +
+    "  2. For a fully stateless agent, skip the device flow entirely and use a\n" +
+    "     standing token instead: Settings → CLI tokens in the dashboard, then\n" +
+    "     set KURUMERA_CLI_TOKEN — it's injected fresh each run, nothing to persist.\n",
+  );
   console.log("Next:\n");
   console.log("  kurumera theme push --store <slug>");
   return 0;
