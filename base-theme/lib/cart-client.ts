@@ -77,17 +77,23 @@ export async function removeLine(lineId: string) {
   return cart;
 }
 
+// The platform's own proven checkout, fixed regardless of which host the
+// storefront itself is on. It can't be derived from window.location.hostname
+// (swapping the first label works for a <slug>.kurumera.com subdomain, but a
+// merchant's own custom domain — e.g. allinonetool.store — has no relation to
+// the platform's root at all; that regex previously produced "checkout.store",
+// a domain Kurumera doesn't own).
+const CHECKOUT_HOST = "checkout.kurumera.com";
+
 /** Where "Checkout" sends the shopper: the platform's proven checkout, hosted on
- *  checkout.<root> so it serves its own assets (no /_next collision with the
+ *  CHECKOUT_HOST so it serves its own assets (no /_next collision with the
  *  theme). Carries the store + cart token (cross-origin, so both go in the URL). */
 export function checkoutHref(): string {
   const token = getCartToken();
   const slug = tenantSlug();
   if (typeof window === "undefined" || !slug) return "/cart";
-  // <slug>.kurumera.com → checkout.kurumera.com
-  const host = window.location.hostname.replace(/^[^.]+\./, "checkout.");
   const qs = new URLSearchParams({ store: slug, ...(token ? { cart_token: token } : {}) });
-  return `https://${host}/checkout?${qs.toString()}`;
+  return `https://${CHECKOUT_HOST}/checkout?${qs.toString()}`;
 }
 
 /** Cart line as returned by the storefront API (loose, matches the live store). */
