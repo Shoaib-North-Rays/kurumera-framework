@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { getStore } from "@/lib/kurumera";
+import { getStoreConfig } from "@/lib/kurumera";
 
 /**
  * Merchant-editable theme settings.
@@ -84,14 +84,8 @@ function cta(v: unknown, d: Cta): Cta {
 
 /** Read + normalize this store's theme settings (memoized per request). */
 export const getSettings = cache(async (): Promise<ThemeSettings> => {
-  let branding: Record<string, unknown> = {};
-  try {
-    const kurumera = await getStore();
-    const cfg = (await kurumera.config.get()) as Record<string, unknown>;
-    branding = (cfg?.branding && typeof cfg.branding === "object" ? cfg.branding : {}) as Record<string, unknown>;
-  } catch {
-    branding = {};
-  }
+  const cfg = await getStoreConfig();
+  const branding = (cfg?.branding && typeof cfg.branding === "object" ? cfg.branding : {}) as Record<string, unknown>;
   const t = (branding.theme && typeof branding.theme === "object" ? branding.theme : {}) as Record<string, unknown>;
 
   const colorsIn = (t.colors && typeof t.colors === "object" ? t.colors : {}) as Record<string, unknown>;

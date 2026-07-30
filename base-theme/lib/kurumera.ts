@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { cache } from "react";
 import { createKurumeraClient, type KurumeraClient } from "@kurumera/storefront";
 import { makeDemoFetch, DEMO_TENANT } from "./demo-fetch";
 
@@ -41,4 +42,40 @@ export async function getStore(): Promise<KurumeraClient> {
     domain: domain || undefined,
     apiUrl: process.env.KURUMERA_API_URL,
   });
+}
+
+/**
+ * This store's `/storefront/tenant-config/` response (branding + resolved
+ * tenant identity) — fetched once per request via React's `cache()` and shared
+ * by every caller (getSettings(), getTenantSlug()) instead of each firing its
+ * own request.
+ */
+export const getStoreConfig = cache(async (): Promise<Record<string, unknown>> => {
+  try {
+    const kurumera = await getStore();
+    return (await kurumera.config.get()) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+});
+
+/**
+ * The tenant slug for THIS request, for the BROWSER (`window.__TENANT__`,
+ * injected by the root layout). Client-side commerce (cart, account) calls the
+ * platform API directly from the browser — cross-origin — so it can't see the
+ * `x-kurumera-domain` header middleware.ts resolved server-side; it needs its
+ * own copy of the slug. A subdomain host already carries its slug in the
+ * header (no network round trip needed); a custom domain only resolves to one
+ * via the tenant-config response getSettings() is already fetching this
+ * request, so this never costs a second fetch.
+ */
+export async function getTenantSlug(): Promise<string> {
+  if (IS_DEMO) return DEMO_TENANT;
+  const h = await headers();
+  const direct = h.get("x-kurumera-tenant");
+  if (direct) return direct;
+  if (!h.get("x-kurumera-domain")) return "";
+  const cfg = await getStoreConfig();
+  const tenant = (cfg?.tenant && typeof cfg.tenant === "object" ? cfg.tenant : {}) as Record<string, unknown>;
+  return typeof tenant.slug === "string" ? tenant.slug : "";
 }
