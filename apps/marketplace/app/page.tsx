@@ -112,13 +112,13 @@ export default async function HomePage() {
             <span className="collage3__badge collage3__badge--tr"><span><Grid /></span>{HERO_IMAGES[1].label}</span>
             <span className="collage3__badge collage3__badge--br"><span><Grid /></span>{HERO_IMAGES[2].label}</span>
             <div className="collage3__item collage3__item--left">
-              <Image src={HERO_IMAGES[0].src} alt={HERO_IMAGES[0].alt} fill sizes="(max-width: 940px) 0px, 33vw" style={{ objectFit: "cover" }} priority />
+              <Image src={HERO_IMAGES[0].src} alt={HERO_IMAGES[0].alt} fill sizes="(max-width: 940px) 0px, 40vw" style={{ objectFit: "cover" }} priority />
             </div>
             <div className="collage3__item collage3__item--center">
-              <Image src={HERO_IMAGES[1].src} alt={HERO_IMAGES[1].alt} fill sizes="(max-width: 940px) 0px, 42vw" style={{ objectFit: "cover" }} priority />
+              <Image src={HERO_IMAGES[1].src} alt={HERO_IMAGES[1].alt} fill sizes="(max-width: 940px) 0px, 50vw" style={{ objectFit: "cover" }} priority />
             </div>
             <div className="collage3__item collage3__item--right">
-              <Image src={HERO_IMAGES[2].src} alt={HERO_IMAGES[2].alt} fill sizes="(max-width: 940px) 0px, 31vw" style={{ objectFit: "cover" }} />
+              <Image src={HERO_IMAGES[2].src} alt={HERO_IMAGES[2].alt} fill sizes="(max-width: 940px) 0px, 38vw" style={{ objectFit: "cover" }} />
             </div>
           </div>
         </div>
