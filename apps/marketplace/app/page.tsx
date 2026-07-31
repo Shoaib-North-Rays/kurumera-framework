@@ -1,7 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   fetchTemplates, categoryCounts, matchesCategory, CATEGORIES, isFree, isBuilder, priceLabel,
-  featureLabels, categoryLabel, livePreviewUrl, builderPreviewUrl, BUILDER_ORIGIN, type Template,
+  featureLabels, categoryLabel, builderPreviewUrl, BUILDER_ORIGIN, type Template,
 } from "@/lib/registry";
 import { TemplateCard } from "@/components/TemplateCard";
 import { LivePreview } from "@/components/LivePreview";
@@ -9,6 +10,17 @@ import { CategoryRail } from "@/components/CategoryRail";
 import { Search, Arrow, Bolt, Shield, Layers, Grid, Devices, Headset, Check } from "@/components/Icons";
 
 const SEARCH_CHIPS = ["Restaurant templates", "Ecommerce templates", "Dark portfolio", "Free agency templates", "One-page landing pages"];
+
+// Static hero imagery — a live-iframe collage (LivePreview) doesn't belong in this
+// transformed/staggered layout: its scale is computed from a JS-measured container
+// size, and that measurement broke inside the rotated flex items here, letting the
+// iframe render unscaled and spill across the whole page. Real screenshots avoid
+// that entire class of bug and match how the reference design does it too.
+const HERO_IMAGES = [
+  { src: "/hfc.png", label: "Restaurant", alt: "A restaurant storefront built on Kurumera" },
+  { src: "/woodra.png", label: "Furniture", alt: "A furniture storefront built on Kurumera" },
+  { src: "/shamre.png", label: "Fashion", alt: "A fashion storefront built on Kurumera" },
+];
 
 const WHY = [
   { icon: Layers, title: "Easy customization", body: "Drag, drop, done — no code needed." },
@@ -64,7 +76,6 @@ function Row({ title, eyebrow, href, items }: { title: string; eyebrow: string; 
 export default async function HomePage() {
   const templates = await fetchTemplates();
   const counts = categoryCounts(templates);
-  const collage = templates.slice(0, 3);
   const popular = templates.slice(0, 4); // fetchTemplates() already sorts by installs desc — this IS the top 4
   const free = templates.filter(isFree).slice(0, 4);
   const top = templates[0];
@@ -96,21 +107,20 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {collage.length === 3 ? (
-            <div className="collage3">
-              <span className="collage3__badge collage3__badge--bl"><span><Grid /></span>{categoryLabel(collage[0].category) || collage[0].name}</span>
-              <span className="collage3__badge collage3__badge--tr"><span><Grid /></span>{categoryLabel(collage[1].category) || collage[1].name}</span>
-              <span className="collage3__badge collage3__badge--br"><span><Grid /></span>{categoryLabel(collage[2].category) || collage[2].name}</span>
-              <div className="collage3__item collage3__item--left"><LivePreview slug={collage[0].slug} name={collage[0].name} /></div>
-              <div className="collage3__item collage3__item--center"><LivePreview slug={collage[1].slug} name={collage[1].name} /></div>
-              <div className="collage3__item collage3__item--right"><LivePreview slug={collage[2].slug} name={collage[2].name} /></div>
+          <div className="collage3">
+            <span className="collage3__badge collage3__badge--bl"><span><Grid /></span>{HERO_IMAGES[0].label}</span>
+            <span className="collage3__badge collage3__badge--tr"><span><Grid /></span>{HERO_IMAGES[1].label}</span>
+            <span className="collage3__badge collage3__badge--br"><span><Grid /></span>{HERO_IMAGES[2].label}</span>
+            <div className="collage3__item collage3__item--left">
+              <Image src={HERO_IMAGES[0].src} alt={HERO_IMAGES[0].alt} fill sizes="(max-width: 940px) 0px, 33vw" style={{ objectFit: "cover" }} priority />
             </div>
-          ) : (
-            <div className="collage">
-              {collage.map((t) => <div key={t.slug} className="collage__item"><LivePreview slug={t.slug} name={t.name} /></div>)}
-              {collage.length === 0 && [0, 1, 2, 3].map((i) => <div key={i} className="collage__item"><span className="frame__ph">K</span></div>)}
+            <div className="collage3__item collage3__item--center">
+              <Image src={HERO_IMAGES[1].src} alt={HERO_IMAGES[1].alt} fill sizes="(max-width: 940px) 0px, 42vw" style={{ objectFit: "cover" }} priority />
             </div>
-          )}
+            <div className="collage3__item collage3__item--right">
+              <Image src={HERO_IMAGES[2].src} alt={HERO_IMAGES[2].alt} fill sizes="(max-width: 940px) 0px, 31vw" style={{ objectFit: "cover" }} />
+            </div>
+          </div>
         </div>
       </section>
 
