@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { readConfig } from "../util/config.js";
 import { resolveAuthToken } from "../util/resolveAuthToken.js";
 
@@ -66,6 +66,14 @@ export async function themePull(args: string[]): Promise<number> {
     return 1;
   }
 
+  // `getStore()` (base-theme/lib/kurumera.ts) can't resolve a store from a
+  // bare `localhost` request — it needs KURUMERA_TENANT set for local dev.
+  // The pulled bundle is a raw copy of what got pushed, which never carries
+  // this (it's gitignored), so without it every pull 500s on first `next
+  // dev`. Write it in, but don't clobber a real .env.local the project
+  // already shipped with — only add the var if it's missing.
+  writeLocalTenantEnv(dir, store);
+
   const q = abs.includes(" ") ? `"${abs}"` : abs;
   console.log(`\n${green("✓")} Pulled ${store}@${version}  (${readdirSync(dir).length} items)`);
   console.log(`  ${dim("Folder:")}  ${cyan(abs)}`);
@@ -78,4 +86,15 @@ function flag(args: string[], name: string): string | undefined {
   if (i !== -1 && args[i + 1] && !args[i + 1].startsWith("--")) return args[i + 1];
   const eq = args.find((a) => a.startsWith(`${name}=`));
   return eq ? eq.slice(name.length + 1) : undefined;
+}
+
+function writeLocalTenantEnv(dir: string, store: string): void {
+  const envPath = join(dir, ".env.local");
+  if (existsSync(envPath)) {
+    const existing = readFileSync(envPath, "utf8");
+    if (/^KURUMERA_TENANT=/m.test(existing)) return;
+    writeFileSync(envPath, `${existing.replace(/\n?$/, "\n")}KURUMERA_TENANT=${store}\n`);
+    return;
+  }
+  writeFileSync(envPath, `KURUMERA_TENANT=${store}\n`);
 }
