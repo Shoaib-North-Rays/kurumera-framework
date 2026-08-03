@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CATEGORIES, STYLES, type Template } from "@/lib/registry";
 import { buildHref, spGet, type SP } from "@/lib/params";
+import { Check } from "@/components/Icons";
 
 /** Server-rendered, URL-driven filters. Each option is a link → shareable state.
  *  Only filters with real backing data (category, price, style tags, author). */
@@ -18,7 +19,9 @@ export function FilterSidebar({ templates, params, counts }: { templates: Templa
 
   const opt = (active: boolean, href: string, label: string, n?: number) => (
     <Link key={label + href} href={href} className={`fopt ${active ? "active" : ""}`}>
-      <span>{label}</span>{n != null && <span className="n">{n}</span>}
+      <span className="fopt__box">{active && <Check />}</span>
+      <span className="fopt__label">{label}</span>
+      {n != null && <span className="n">{n}</span>}
     </Link>
   );
 

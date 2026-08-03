@@ -21,3 +21,5 @@ export const Cart = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><circle c
 export const Sliders = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><path d="M4 6h16M4 12h16M4 18h16" /><circle cx="9" cy="6" r="2" fill="currentColor" /><circle cx="15" cy="12" r="2" fill="currentColor" /><circle cx="8" cy="18" r="2" fill="currentColor" /></svg>);
 export const Devices = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><rect x="2" y="4" width="13" height="9" rx="1.4" /><path d="M5.5 17h6" /><rect x="16" y="9" width="6" height="11" rx="1.3" /></svg>);
 export const Headset = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><path d="M4 14v-2a8 8 0 0 1 16 0v2" /><rect x="2.5" y="14" width="4" height="6" rx="1.5" /><rect x="17.5" y="14" width="4" height="6" rx="1.5" /><path d="M20 19.5v.5a2.5 2.5 0 0 1-2.5 2.5H15" /></svg>);
+export const List = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6h.01M3 12h.01M3 18h.01" /></svg>);
+export const X = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><path d="M18 6 6 18M6 6l12 12" /></svg>);
