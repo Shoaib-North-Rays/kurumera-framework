@@ -114,6 +114,18 @@ export interface CollectionDetail extends Collection {
   products?: Paginated<ProductListItem> | ProductListItem[];
 }
 
+/**
+ * Cross-entity search results — NOT a `Paginated<T>` page. The backend
+ * (`StorefrontSearchView`) searches products and collections together and
+ * returns both, flat, with no pagination envelope.
+ */
+export interface SearchResults {
+  query: string;
+  limit: number;
+  products: ProductListItem[];
+  collections: Collection[];
+}
+
 export interface MenuItem {
   label: string;
   /** Resolved href, or null when the target is broken/deleted. */

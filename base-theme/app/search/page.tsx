@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { getStore } from "@/lib/kurumera";
 import { ProductCard } from "@/components/ProductCard";
+import type { SearchResults } from "@kurumera/storefront";
 
 /** search template */
 export default async function SearchPage({
@@ -9,7 +11,12 @@ export default async function SearchPage({
 }) {
   const { q = "" } = await searchParams;
   const kurumera = await getStore();
-  const results = q ? (await kurumera.search.query(q, { limit: 24 })).results : [];
+  // Cross-entity search — the backend returns products AND collections together,
+  // not a Paginated<T> page (see SearchResults).
+  const { products, collections }: SearchResults = q
+    ? await kurumera.search.query(q, { limit: 24 })
+    : { query: "", limit: 24, products: [], collections: [] };
+  const totalResults = products.length + collections.length;
 
   return (
     <section className="section">
@@ -22,11 +29,20 @@ export default async function SearchPage({
       </form>
       {q ? (
         <p className="muted">
-          {results.length} result{results.length === 1 ? "" : "s"} for “{q}”
+          {totalResults} result{totalResults === 1 ? "" : "s"} for “{q}”
         </p>
       ) : null}
+      {collections.length > 0 && (
+        <div className="search-collections">
+          {collections.map((c) => (
+            <Link key={c.handle} href={`/collections/${c.handle}`} className="search-collections__item">
+              {c.title}
+            </Link>
+          ))}
+        </div>
+      )}
       <div className="grid">
-        {results.map((p) => (
+        {products.map((p) => (
           <ProductCard key={p.id} product={p} />
         ))}
       </div>

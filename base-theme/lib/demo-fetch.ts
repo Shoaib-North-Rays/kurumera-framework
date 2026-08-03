@@ -264,7 +264,19 @@ export function makeDemoFetch(): typeof fetch {
       return found ? json(collectionDetail(found)) : json({ detail: "not found" }, 404);
     }
 
-    if (path === "/storefront/search/") return json(pageOf(filtered(p)));
+    if (path === "/storefront/search/") {
+      // Real shape (StorefrontSearchView): flat {query, limit, products, collections} —
+      // NOT a Paginated<T> page, and it searches collections too, not just products.
+      const q = (p.get("q") || "").trim().toLowerCase();
+      const limit = Number(p.get("limit") || 24) || 24;
+      const matchedCollections = q ? demoCategories.filter((c) => c.title.toLowerCase().includes(q)) : [];
+      return json({
+        query: p.get("q") || "",
+        limit,
+        products: filtered(p),
+        collections: matchedCollections.map(collection),
+      });
+    }
     if (path === "/storefront/search/autocomplete/") return json({ results: filtered(p).slice(0, 5) });
     if (path === "/storefront/menus/") return json({ menus: menus() });
     if (path === "/storefront/tenant-config/") return json(tenantConfig());
