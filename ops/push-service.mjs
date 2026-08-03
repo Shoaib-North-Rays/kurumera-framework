@@ -15,7 +15,8 @@
  *   POST /_push/push       (X-Kurumera-Store: s, body=gzip)  → build version → (re)run kurumera-preview-<s>
  *   GET  /_push/status?store=s                               → that store's build status
  *   POST /_push/publish    {store}    → live = latest version, run kurumera-store-<s>
- *   POST /_push/rollback   {store}    → live = previous version (or unpublish if none)
+ *   POST /_push/rollback   {store}    → live = previous version (409 no_previous_version if none —
+ *                                        never silently falls back to unpublish; use /_push/unpublish for that)
  *   POST /_push/unpublish  {store}    → live = null, stop kurumera-store-<s> (revert to builder)
  *   GET  /_push/published             → { stores:[s…] } (live code-theme stores — the builder polls this)
  *   *  (anything else)                → PREVIEW proxy: ?store / kurumera_store cookie → kurumera-preview-<s>
@@ -713,9 +714,16 @@ async function rollbackStore(s, actor) {
     await control("rollback", { store: s, actor_email: actor });  // backend restores its prior live pointer
     return { ok: true, version: prev, reverted: "previous version" };
   }
-  // no previous version → fall back to the visual builder
-  await unpublishStore(s, actor);
-  return { ok: true, reverted: "visual builder" };
+  // No prior code version to restore. This USED TO silently fall back to
+  // unpublishStore (visual builder) — a store owner running a routine
+  // `theme rollback` could wake up on the builder with no warning that the
+  // theme TYPE, not just the version, had changed. Crossing to the builder is
+  // still one command away (`kurumera theme publish --off`), but it's no longer
+  // something an ordinary rollback can do by accident.
+  return {
+    ok: false, status: 409, error: "no_previous_version",
+    detail: "No prior code version to roll back to. Run `kurumera theme publish --off` to switch this store to the visual builder.",
+  };
 }
 
 async function unpublishStore(s, actor) {
@@ -1817,7 +1825,7 @@ const server = http.createServer((req, res) => {
         const az = await authorizeMutation(req, s, body.actor_email, action, body.confirm === true);
         if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
         const r = await fn(s, az.actor);
-        json(r.ok === false ? 400 : 200, { store: s, ...r, stores: livePublishedStores() });
+        json(r.ok === false ? (r.status || 400) : 200, { store: s, ...r, stores: livePublishedStores() });
       });
       return;
     }
