@@ -15,9 +15,11 @@
  *   POST /_push/push       (X-Kurumera-Store: s, body=gzip)  → build version → (re)run kurumera-preview-<s>
  *   GET  /_push/status?store=s                               → that store's build status
  *   POST /_push/publish    {store}    → live = latest version, run kurumera-store-<s>
- *   POST /_push/rollback   {store}    → live = previous version (409 no_previous_version if none —
+ *   POST /_push/rollback   {store, version?}  → live = previous version, or the EXACT version given
+ *                                        (409 no_previous_version if no version given and none prior —
  *                                        never silently falls back to unpublish; use /_push/unpublish for that)
  *   POST /_push/unpublish  {store}    → live = null, stop kurumera-store-<s> (revert to builder)
+ *   GET  /_push/versions?store=s      → every retained build for this store, newest first
  *   GET  /_push/published             → { stores:[s…] } (live code-theme stores — the builder polls this)
  *   *  (anything else)                → PREVIEW proxy: ?store / kurumera_store cookie → kurumera-preview-<s>
  *
@@ -701,8 +703,35 @@ async function publishStore(s, actor) {
   return { ok: true, version: latest };
 }
 
-async function rollbackStore(s, actor) {
+// Activate an EXACT, explicitly-named version — used by `theme rollback --version`
+// and `theme activate --version`. Validates the version was actually built
+// successfully for this store (present in rec.versions) before touching anything.
+// Passes `to_version` through to the control plane so Django records the exact
+// version push-service activated instead of independently recomputing "the
+// previous version" from its own (separate) history — the two sides can't
+// disagree about what happened when one of them is just told the answer.
+async function goLiveVersion(s, version, actor) {
   s = slug(s);
+  const st = getState();
+  const rec = store(st, s);
+  if (!rec.versions.includes(version)) {
+    return { ok: false, status: 404, error: "version_not_found", detail: `No build "${version}" for "${s}".` };
+  }
+  if (!(await goLive(s, version))) return { ok: false, error: "host failed" };
+  rec.live = version;
+  rec.history.push(version);
+  setState(getMerge(st, s, rec));
+  // Django only ever learns a build's SEMVER (control("version", {version: semver,
+  // ...})), never push-service's own internal "v<timestamp>" id — so that's what
+  // has to travel here too, resolved from this version's own recorded meta.
+  const semver = (rec.meta || {})[version]?.version;
+  await control("rollback", { store: s, actor_email: actor, to_version: semver });
+  return { ok: true, version, reverted: "explicit version" };
+}
+
+async function rollbackStore(s, actor, version) {
+  s = slug(s);
+  if (version) return goLiveVersion(s, version, actor);
   const st = getState();
   const rec = store(st, s);
   if (rec.history.length >= 2) {
@@ -1223,6 +1252,25 @@ const server = http.createServer((req, res) => {
     verifyOwnership(req.headers["authorization"], s, "status").then((az) => {
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       return json(200, store(getState(), s).build);
+    });
+    return;
+  }
+  if (p.endsWith("/_push/versions")) {
+    // GET /_push/versions?store=<slug> — every retained build for this store,
+    // newest first. Every entry here is inherently type:"code" (this endpoint
+    // only knows about push-service-tracked builds; it has nothing to say
+    // about a store currently in builder mode — see `theme versions`'s docs).
+    const s = u.searchParams.get("store") || "";
+    verifyOwnership(req.headers["authorization"], s, "versions").then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
+      const rec = store(getState(), slug(s));
+      const versions = rec.versions.slice().reverse().map((v) => ({
+        id: v,
+        type: "code",
+        live: v === rec.live,
+        ...(rec.meta || {})[v],   // { theme, name, version } — semver + display name, when known
+      }));
+      return json(200, { store: slug(s), live: rec.live, versions });
     });
     return;
   }
@@ -1824,7 +1872,10 @@ const server = http.createServer((req, res) => {
         // ThemeAuthzView at all for that caller).
         const az = await authorizeMutation(req, s, body.actor_email, action, body.confirm === true);
         if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
-        const r = await fn(s, az.actor);
+        // `version`, when present, only means anything to rollbackStore (explicit
+        // `theme rollback --version`/`theme activate --version`) — publishStore
+        // and unpublishStore simply ignore the extra argument.
+        const r = await fn(s, az.actor, body.version);
         json(r.ok === false ? (r.status || 400) : 200, { store: s, ...r, stores: livePublishedStores() });
       });
       return;

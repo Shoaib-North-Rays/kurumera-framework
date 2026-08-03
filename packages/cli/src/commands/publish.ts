@@ -102,16 +102,24 @@ export async function themePublish(args: string[]): Promise<number> {
 }
 
 /** `kurumera theme rollback` — restore the store's PREVIOUS live version. */
+/**
+ * `kurumera theme rollback --store <slug> [--version <id>]` — restore the
+ * previous live version, or (with --version) an EXACT one from
+ * `kurumera theme versions`. `theme activate` is the same underlying call —
+ * see below — kept as a separate command name because "rollback" reads
+ * oddly for jumping to a version that isn't strictly older.
+ */
 export async function themeRollback(args: string[]): Promise<number> {
   const cfg = readConfig();
   const authToken = await resolveAuthToken();
   if (!authToken) { console.error("Not signed in. Run `kurumera login` first."); return 1; }
   const store = flag(args, "--store") || cfg.defaultStore;
   if (!store) { console.error("Which store? Pass --store <slug>."); return 1; }
+  const version = flag(args, "--version");
 
   let res: { status: number; data: MutationResult; retried: boolean };
   try {
-    res = await mutate("rollback", authToken, { store });
+    res = await mutate("rollback", authToken, { store, ...(version ? { version } : {}) });
   } catch (e) {
     console.error(`Request failed: ${(e as Error).message}`);
     return 1;
@@ -122,6 +130,37 @@ export async function themeRollback(args: string[]): Promise<number> {
     return 1;
   }
   console.log(`✓ "${store}" rolled back to ${res.data.reverted}${res.data.version ? ` (${res.data.version})` : ""}.`);
+  console.log(`  Live: https://${store}.${ROOT}`);
+  return 0;
+}
+
+/**
+ * `kurumera theme activate --store <slug> --version <id>` — same call as
+ * `theme rollback --version <id>`, offered under a name that doesn't imply
+ * "backward" (see `theme versions` for where <id> comes from).
+ */
+export async function themeActivate(args: string[]): Promise<number> {
+  const cfg = readConfig();
+  const authToken = await resolveAuthToken();
+  if (!authToken) { console.error("Not signed in. Run `kurumera login` first."); return 1; }
+  const store = flag(args, "--store") || cfg.defaultStore;
+  if (!store) { console.error("Which store? Pass --store <slug>."); return 1; }
+  const version = flag(args, "--version");
+  if (!version) { console.error("Which version? Pass --version <id> (see `kurumera theme versions --store <slug>`)."); return 1; }
+
+  let res: { status: number; data: MutationResult; retried: boolean };
+  try {
+    res = await mutate("rollback", authToken, { store, version });
+  } catch (e) {
+    console.error(`Request failed: ${(e as Error).message}`);
+    return 1;
+  }
+  if (res.status !== 200) {
+    if (res.status === 403 && res.data.error === "missing_scope" && !res.retried) return 1;
+    console.error(`Failed (${res.status}): ${res.data.detail || res.data.error || "unknown error"}`);
+    return 1;
+  }
+  console.log(`✓ "${store}" activated ${res.data.version || version}.`);
   console.log(`  Live: https://${store}.${ROOT}`);
   return 0;
 }

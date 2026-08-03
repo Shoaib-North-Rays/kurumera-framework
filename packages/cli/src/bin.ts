@@ -3,8 +3,8 @@
  * `kurumera` CLI entry point.
  *
  * Commands: login, logout, stores list, theme (init/dev/check/push/preview/
- * publish/rollback/logs), and marketplace (publish/list/info/buy/install/clone/
- * owns/mine/update/unpublish).
+ * publish/rollback/activate/versions/logs), and marketplace (publish/list/info/
+ * buy/install/clone/owns/mine/update/unpublish).
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -16,7 +16,8 @@ import { themeDev } from "./commands/dev.js";
 import { themeCheck } from "./commands/check.js";
 import { themePush } from "./commands/push.js";
 import { themePreview } from "./commands/preview.js";
-import { themePublish, themeRollback } from "./commands/publish.js";
+import { themePublish, themeRollback, themeActivate } from "./commands/publish.js";
+import { themeVersions } from "./commands/versions.js";
 import { themeLogs } from "./commands/logs.js";
 import { marketplace } from "./commands/marketplace.js";
 import { storesList, storesAdd } from "./commands/stores.js";
@@ -48,7 +49,11 @@ function help(): void {
   console.log("  theme push                           Upload the theme; the platform builds it");
   console.log("  theme preview --store <slug>         Open the built preview against a live store");
   console.log("  theme publish --store <slug>         Make it the store's live theme (--off to unpublish)");
-  console.log("  theme rollback --store <slug>        Restore the store's previous live version");
+  console.log("  theme rollback --store <slug> [--version <id>]");
+  console.log("                                       Restore the previous live version, or an exact one");
+  console.log("  theme activate --store <slug> --version <id>");
+  console.log("                                       Make an exact retained version live");
+  console.log("  theme versions --store <slug>        List every retained version for this store");
   console.log("  theme logs --store <slug>            Show the latest build log");
   console.log("\nMarketplace:");
   console.log("  marketplace publish --store <slug>   Publish this theme's build to the registry");
@@ -97,6 +102,8 @@ async function dispatch(): Promise<number> {
   if (a === "theme" && b === "preview") return themePreview(rest);
   if (a === "theme" && b === "publish") return themePublish(rest);
   if (a === "theme" && b === "rollback") return themeRollback(rest);
+  if (a === "theme" && b === "activate") return themeActivate(rest);
+  if (a === "theme" && b === "versions") return themeVersions(rest);
   if (a === "theme" && b === "logs") return themeLogs(rest);
   if (a === "marketplace" || a === "market") return marketplace(argv.slice(1));
   // themeDev spawns `next dev`; on success it returns 0 and the child keeps the
