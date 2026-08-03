@@ -1,12 +1,37 @@
 import { readConfig } from "../util/config.js";
 import { resolveAuthToken } from "../util/resolveAuthToken.js";
-import { startSpinner, green } from "../lib/spinner.js";
+import { startSpinner, green, red } from "../lib/spinner.js";
 import { requestScopeAmend, tryCompletePendingAmend } from "../util/scopeAmend.js";
 
 const PUSH_URL = (process.env.KURUMERA_PUSH_URL || "https://themekit.kurumera.com/_push").replace(/\/+$/, "");
 const ROOT = process.env.KURUMERA_ROOT_DOMAIN || "kurumera.com";
 
-interface MutationResult { error?: string; detail?: string; required_scope?: string; reverted?: string; version?: string }
+interface MutationResult { error?: string; detail?: string; required_scope?: string; reverted?: string; version?: string; rebuilding?: boolean }
+
+/**
+ * A version outside the hot/retained set (last 3 builds) gets rebuilt from
+ * its permanently-retained source before it can go live — the server
+ * responds 202 immediately (a rebuild is a full npm-install + next-build,
+ * too long to hold one HTTP request open for) and keeps working in the
+ * background. Poll the SAME /_push/status `theme push` already uses.
+ */
+async function waitForVersion(store: string, version: string, authToken: string): Promise<{ ok: boolean; error?: string }> {
+  const spin = startSpinner(["Rebuilding from retained source", "Installing dependencies", "Building", "Almost there"]);
+  for (let i = 0; i < 200; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    let s: { status?: string; id?: string; error?: string } = {};
+    try {
+      const r = await fetch(`${PUSH_URL}/status?store=${encodeURIComponent(store)}`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      s = (await r.json()) as typeof s;
+    } catch { /* keep polling */ }
+    if (s.id === version && s.status === "ready") { spin.stop(green("✓ Rebuilt.")); return { ok: true }; }
+    if (s.id === version && s.status === "failed") { spin.stop(red(`✗ Rebuild failed: ${s.error || "see logs"}.`)); return { ok: false, error: s.error }; }
+  }
+  spin.stop(`… still rebuilding — check back with \`kurumera theme versions --store ${store}\`.`);
+  return { ok: false, error: "timed out waiting for the rebuild" };
+}
 
 /**
  * POST to a theme-mutation endpoint (publish/unpublish/rollback) with
@@ -124,12 +149,15 @@ export async function themeRollback(args: string[]): Promise<number> {
     console.error(`Request failed: ${(e as Error).message}`);
     return 1;
   }
-  if (res.status !== 200) {
+  if (res.status === 202 && res.data.rebuilding && version) {
+    const built = await waitForVersion(store, version, authToken);
+    if (!built.ok) return 1;
+  } else if (res.status !== 200) {
     if (res.status === 403 && res.data.error === "missing_scope" && !res.retried) return 1;
     console.error(`Failed (${res.status}): ${res.data.detail || res.data.error || "unknown error"}`);
     return 1;
   }
-  console.log(`✓ "${store}" rolled back to ${res.data.reverted}${res.data.version ? ` (${res.data.version})` : ""}.`);
+  console.log(`✓ "${store}" rolled back to ${res.data.reverted}${res.data.version ? ` (${res.data.version})` : version ? ` (${version})` : ""}.`);
   console.log(`  Live: https://${store}.${ROOT}`);
   return 0;
 }
@@ -155,7 +183,10 @@ export async function themeActivate(args: string[]): Promise<number> {
     console.error(`Request failed: ${(e as Error).message}`);
     return 1;
   }
-  if (res.status !== 200) {
+  if (res.status === 202 && res.data.rebuilding) {
+    const built = await waitForVersion(store, version, authToken);
+    if (!built.ok) return 1;
+  } else if (res.status !== 200) {
     if (res.status === 403 && res.data.error === "missing_scope" && !res.retried) return 1;
     console.error(`Failed (${res.status}): ${res.data.detail || res.data.error || "unknown error"}`);
     return 1;

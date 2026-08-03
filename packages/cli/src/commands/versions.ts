@@ -7,17 +7,21 @@ interface VersionEntry {
   id: string;
   type: "code";
   live: boolean;
+  archived?: boolean;
   theme?: string;
   name?: string;
   version?: string;
 }
 
 /**
- * `kurumera theme versions --store <slug>` — every retained build for this
- * store, newest first, with the id `theme rollback --version`/`theme
- * activate --version` expects. Every entry here is inherently a code-theme
- * build — this command has nothing to say about a store currently in
- * builder mode (see `kurumera status`/the dashboard for that).
+ * `kurumera theme versions --store <slug>` — EVERY version this store has any
+ * record of, newest first, with the id `theme rollback --version`/`theme
+ * activate --version` expects. "hot" ones activate immediately; "archived"
+ * ones only have their source retained and get rebuilt on demand when
+ * activated (takes about as long as a fresh `theme push`). Every entry here
+ * is inherently a code-theme build — this command has nothing to say about a
+ * store currently in builder mode (see `kurumera status`/the dashboard for
+ * that).
  */
 export async function themeVersions(args: string[]): Promise<number> {
   const cfg = readConfig();
@@ -56,9 +60,13 @@ export async function themeVersions(args: string[]): Promise<number> {
 
   const idW = Math.max(2, ...versions.map((v) => v.id.length));
   const verW = Math.max(7, ...versions.map((v) => (v.version || "").length));
-  console.log(`${"ID".padEnd(idW)}  ${"VERSION".padEnd(verW)}  TYPE  LIVE`);
+  console.log(`${"ID".padEnd(idW)}  ${"VERSION".padEnd(verW)}  TYPE  LIVE  STATUS`);
   for (const v of versions) {
-    console.log(`${v.id.padEnd(idW)}  ${(v.version || "").padEnd(verW)}  ${v.type.padEnd(4)}  ${v.live ? "✓" : ""}`);
+    const status = v.archived ? "archived (rebuilds on activate)" : "ready";
+    console.log(`${v.id.padEnd(idW)}  ${(v.version || "").padEnd(verW)}  ${v.type.padEnd(4)}  ${(v.live ? "✓" : " ").padEnd(4)}  ${status}`);
+  }
+  if (versions.some((v) => v.archived)) {
+    console.log("\nArchived versions still work with `theme activate --version <id>` — they just rebuild first (like a fresh `theme push`).");
   }
   return 0;
 }

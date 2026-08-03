@@ -29,7 +29,7 @@
  */
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync, readFileSync, renameSync, rmSync, existsSync, appendFileSync, copyFileSync, createReadStream } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, renameSync, rmSync, existsSync, appendFileSync, copyFileSync, createReadStream, readdirSync } from "node:fs";
 import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 
@@ -599,6 +599,32 @@ async function authorizeMutation(req, store, bodyActor, action, confirm) {
 
 const building = new Set();
 
+// Shared by buildVersion (a fresh push) and rebuildAndActivate (rebuilding a
+// version whose build output was pruned but whose source is still retained)
+// — same sandboxed npm-install-then-next-build container either way.
+async function runThemeBuild(s, dir) {
+  // Hand the tree to the sandbox uid so the unprivileged build can write it.
+  await sh("chown", ["-R", SANDBOX_UID, dir]);
+  const buildName = `kurumera-build-${s}`;
+  await sh("docker", ["rm", "-f", buildName]);   // clear any stale build container
+  // Ensure the isolated build network exists. It's a standalone bridge (not
+  // compose-managed), so `docker system prune` deletes it whenever no build is
+  // running — after which EVERY build fails with "network kurumera-build not
+  // found". Recreate it on demand so a routine prune can't break builds.
+  const netOk = await sh("docker", ["network", "inspect", BUILD_NET]);
+  if (netOk.code !== 0) await sh("docker", ["network", "create", BUILD_NET]);
+  const b = await sh("docker", [
+    "run", "--rm", "--name", buildName, "--network", BUILD_NET,
+    ...HARDEN, ...BUILD_LIMITS,
+    "--read-only", "--tmpfs", "/tmp:size=1g",
+    "-e", "HOME=/app", "-e", "npm_config_cache=/app/.npm",
+    "-v", `${dir}:/app`, "-w", "/app", "node:20-alpine",
+    "sh", "-c", "npm install --no-audit --no-fund && npx next build",
+  ], { timeoutMs: BUILD_TIMEOUT_MS, killContainer: buildName });
+  try { writeFileSync(join(storeDir(s), "build.log"), b.out); } catch { /* best-effort */ }
+  return b;
+}
+
 async function buildVersion(s, buffer, actor) {
   s = slug(s);
   building.add(s);
@@ -616,25 +642,7 @@ async function buildVersion(s, buffer, actor) {
     const x = await sh("tar", ["-xzf", tgz, "-C", dir]);
     if (x.code !== 0) return fail(s, v, "unpack failed");
 
-    // Hand the tree to the sandbox uid so the unprivileged build can write it.
-    await sh("chown", ["-R", SANDBOX_UID, dir]);
-    const buildName = `kurumera-build-${s}`;
-    await sh("docker", ["rm", "-f", buildName]);   // clear any stale build container
-    // Ensure the isolated build network exists. It's a standalone bridge (not
-    // compose-managed), so `docker system prune` deletes it whenever no build is
-    // running — after which EVERY build fails with "network kurumera-build not
-    // found". Recreate it on demand so a routine prune can't break builds.
-    const netOk = await sh("docker", ["network", "inspect", BUILD_NET]);
-    if (netOk.code !== 0) await sh("docker", ["network", "create", BUILD_NET]);
-    const b = await sh("docker", [
-      "run", "--rm", "--name", buildName, "--network", BUILD_NET,
-      ...HARDEN, ...BUILD_LIMITS,
-      "--read-only", "--tmpfs", "/tmp:size=1g",
-      "-e", "HOME=/app", "-e", "npm_config_cache=/app/.npm",
-      "-v", `${dir}:/app`, "-w", "/app", "node:20-alpine",
-      "sh", "-c", "npm install --no-audit --no-fund && npx next build",
-    ], { timeoutMs: BUILD_TIMEOUT_MS, killContainer: buildName });
-    try { writeFileSync(join(storeDir(s), "build.log"), b.out); } catch { /* best-effort */ }
+    const b = await runThemeBuild(s, dir);
     if (b.code !== 0) return fail(s, v, "build failed", b.out.slice(-800));
 
     // (re)start this store's preview container on the new version
@@ -742,19 +750,80 @@ async function goLiveVersion(s, version, actor) {
   s = slug(s);
   const st = getState();
   const rec = store(st, s);
-  if (!rec.versions.includes(version)) {
-    return { ok: false, status: 404, error: "version_not_found", detail: `No build "${version}" for "${s}".` };
+  if (rec.versions.includes(version)) {
+    // Fast path — this version's build is still on disk, no rebuild needed.
+    if (!(await goLive(s, version))) return { ok: false, error: "host failed" };
+    rec.live = version;
+    rec.history.push(version);
+    setState(getMerge(st, s, rec));
+    // Django only ever learns a build's SEMVER (control("version", {version: semver,
+    // ...})), never push-service's own internal "v<timestamp>" id — so that's what
+    // has to travel here too, resolved from this version's own recorded meta.
+    const semver = (rec.meta || {})[version]?.version;
+    await control("rollback", { store: s, actor_email: actor, to_version: semver });
+    return { ok: true, version, reverted: "explicit version" };
   }
-  if (!(await goLive(s, version))) return { ok: false, error: "host failed" };
-  rec.live = version;
-  rec.history.push(version);
-  setState(getMerge(st, s, rec));
-  // Django only ever learns a build's SEMVER (control("version", {version: semver,
-  // ...})), never push-service's own internal "v<timestamp>" id — so that's what
-  // has to travel here too, resolved from this version's own recorded meta.
-  const semver = (rec.meta || {})[version]?.version;
-  await control("rollback", { store: s, actor_email: actor, to_version: semver });
-  return { ok: true, version, reverted: "explicit version" };
+  // Not in the hot/retained set (its build output was reclaimed by
+  // pruneVersions) — but its ORIGINAL SOURCE is kept forever (see SOURCES),
+  // the same archive `theme pull` reads. Rebuild it on demand rather than
+  // just refusing, so "activate any version ever pushed" is actually true —
+  // not just "activate one of the last 3."
+  if (!existsSync(join(SOURCES, s, `${version}.tgz`))) {
+    return { ok: false, status: 404, error: "version_not_found", detail: `No build or retained source for "${version}" on "${s}".` };
+  }
+  const key = `${s}:${version}`;
+  if (rebuilding.has(key)) {
+    return { ok: true, status: 202, rebuilding: true, version, detail: "Already rebuilding this version — poll status, it'll go live automatically." };
+  }
+  // Deliberately NOT awaited: a rebuild is a full npm-install + next-build,
+  // the same duration as an ordinary `theme push` — too long to hold one
+  // HTTP request open for. Reuses the exact status field `theme push`'s own
+  // polling already reads, so the CLI needs no new polling mechanism.
+  rebuildAndActivate(s, version, actor);
+  return {
+    ok: true, status: 202, rebuilding: true, version,
+    detail: "Rebuilding from retained source (this can take a minute) — poll status, then it'll go live automatically.",
+  };
+}
+
+const rebuilding = new Set();
+
+async function rebuildAndActivate(s, version, actor) {
+  const key = `${s}:${version}`;
+  rebuilding.add(key);
+  const st0 = getState();
+  store(st0, s).build = { status: "building", id: version };
+  setState(st0);
+  try {
+    const dir = versionDir(s, version);
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(dir, { recursive: true });
+    const x = await sh("tar", ["-xzf", join(SOURCES, s, `${version}.tgz`), "-C", dir]);
+    if (x.code !== 0) return fail(s, version, "unpack failed (retained source)");
+
+    const b = await runThemeBuild(s, dir);
+    if (b.code !== 0) return fail(s, version, "rebuild failed", b.out.slice(-800));
+
+    // Re-admit it to the hot set so goLive can mount it, and so it survives
+    // the next prune the same way any other recent build would.
+    const st1 = getState();
+    const rec1 = store(st1, s);
+    if (!rec1.versions.includes(version)) rec1.versions.push(version);
+    setState(st1);
+
+    if (!(await goLive(s, version))) return fail(s, version, "host failed after rebuild");
+
+    const st2 = getState();
+    const rec2 = store(st2, s);
+    rec2.live = version;
+    rec2.history.push(version);
+    rec2.build = { status: "ready", id: version, preview_url: "https://themekit.kurumera.com" };
+    setState(getMerge(st2, s, rec2));
+    const semver = (rec2.meta || {})[version]?.version;
+    await control("rollback", { store: s, actor_email: actor, to_version: semver });
+  } finally {
+    rebuilding.delete(key);
+  }
 }
 
 async function rollbackStore(s, actor, version) {
@@ -1298,18 +1367,33 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (p.endsWith("/_push/versions")) {
-    // GET /_push/versions?store=<slug> — every retained build for this store,
-    // newest first. Every entry here is inherently type:"code" (this endpoint
-    // only knows about push-service-tracked builds; it has nothing to say
-    // about a store currently in builder mode — see `theme versions`'s docs).
+    // GET /_push/versions?store=<slug> — every version this store has ANY
+    // record of, newest first. Every entry here is inherently type:"code"
+    // (this endpoint only knows about push-service-tracked builds; it has
+    // nothing to say about a store currently in builder mode).
+    //
+    // "hot" ones (in rec.versions) have their build still on disk — activating
+    // one is immediate. "archived" ones only have their retained SOURCE left
+    // (see SOURCES) — activating one triggers goLiveVersion's rebuild-on-
+    // demand path instead of failing. Listing both here is what makes that
+    // path actually discoverable rather than something you have to already
+    // know the id for.
     const s = u.searchParams.get("store") || "";
     verifyOwnership(req.headers["authorization"], s, "versions").then((az) => {
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const rec = store(getState(), slug(s));
-      const versions = rec.versions.slice().reverse().map((v) => ({
+      const hot = new Set(rec.versions);
+      let archivedIds = [];
+      try {
+        archivedIds = readdirSync(join(SOURCES, slug(s)))
+          .filter((f) => f.endsWith(".tgz") && !hot.has(f.slice(0, -4)))
+          .map((f) => f.slice(0, -4));
+      } catch { /* no _sources dir yet for this store — fine, no archived entries */ }
+      const versions = [...rec.versions, ...archivedIds].reverse().map((v) => ({
         id: v,
         type: "code",
         live: v === rec.live,
+        archived: !hot.has(v),
         ...(rec.meta || {})[v],   // { theme, name, version } — semver + display name, when known
       }));
       return json(200, { store: slug(s), live: rec.live, versions });
@@ -1943,7 +2027,10 @@ const server = http.createServer((req, res) => {
         // `theme rollback --version`/`theme activate --version`) — publishStore
         // and unpublishStore simply ignore the extra argument.
         const r = await fn(s, az.actor, body.version);
-        json(r.ok === false ? (r.status || 400) : 200, { store: s, ...r, stores: livePublishedStores() });
+        // r.status wins whenever the callee set one explicitly (e.g. 202 for
+        // "rebuilding, not done yet" on an ok:true result) — every existing
+        // ok:true result leaves .status unset, so this changes nothing for them.
+        json(r.status || (r.ok === false ? 400 : 200), { store: s, ...r, stores: livePublishedStores() });
       });
       return;
     }
