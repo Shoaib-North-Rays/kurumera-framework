@@ -1403,12 +1403,19 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/source")) {
     // GET /_push/source?store=<slug>&version=<id> — the retained ORIGINAL
     // uploaded source (no node_modules/.next) for one version (see SOURCES'
-    // own comment). Same CLI bearer auth as everything else here — this is
-    // never a public/pre-signed URL, even though source_bundle_url in the DB
-    // looks like a plain link.
+    // own comment). Two accepted callers: a CLI bearer token (verifyOwnership,
+    // same as every other route here), OR the trusted service key — the
+    // dashboard's download proxy uses this second path, since the merchant's
+    // browser has its own dashboard JWT but no CLI bearer token of its own to
+    // present. Mirrors authorizeMutation's existing service-key-first check.
+    // Never a public/pre-signed URL either way, despite what source_bundle_url
+    // in the DB looks like.
     const s = u.searchParams.get("store") || "";
     const version = String(u.searchParams.get("version") || "").replace(/[^a-zA-Z0-9._-]/g, "");
-    verifyOwnership(req.headers["authorization"], s, "pull").then((az) => {
+    const az0 = (SERVICE_KEY && req.headers["x-kurumera-service"] === SERVICE_KEY)
+      ? Promise.resolve({ ok: true })
+      : verifyOwnership(req.headers["authorization"], s, "pull");
+    az0.then((az) => {
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       if (!version) return json(400, { error: "version is required" });
       const file = join(SOURCES, slug(s), `${version}.tgz`);
