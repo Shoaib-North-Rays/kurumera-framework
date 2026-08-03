@@ -1,0 +1,216 @@
+# Building a Kurumera store with the CLI (full-control / code path)
+
+This is the guide for the **second** way to build a Kurumera store: a real
+Next.js codebase, scaffolded and deployed with the `kurumera` CLI — full
+control over markup, components, and logic, as opposed to the visual
+drag-and-drop builder (JSON page documents, edited through MCP tools like
+`generate_site`/`apply_page_edits`).
+
+**Use this path when the merchant wants:** custom layouts or interactions the
+builder's component set can't express, a developer/agent-owned codebase they
+can extend indefinitely, or to build a theme to sell on the Kurumera
+marketplace. **Use the visual builder instead when:** the merchant wants to
+self-edit pages by hand later with no code, or just wants something live fast
+from a small set of proven sections.
+
+If you're an AI agent and it's not obvious which the user wants, ask them —
+in one sentence: *"Do you want a drag-and-drop site you (or the merchant) can
+keep editing visually, or a real codebase with full control that a developer
+maintains?"* Don't guess silently; the two paths produce different, largely
+non-interchangeable artifacts (`StoreTheme.mode` is `builder` or `code`,
+all-or-nothing per store).
+
+Auth is a separate concern with its own doc — **read `AUTHENTICATION.md`
+first** if the agent isn't already signed in. Everything below assumes
+`kurumera stores list` already succeeds.
+
+## The end-to-end workflow
+
+```bash
+kurumera theme init my-store        # scaffold from the base theme
+cd my-store
+npm install
+kurumera theme dev --store <slug>   # run against the store's REAL live data, http://localhost:3000
+# … edit the code …
+kurumera theme check                # validate before pushing — fix any ✗ errors
+kurumera theme push                 # upload; the platform builds it; blocks until built or ~10min timeout
+kurumera theme preview --store <slug>   # optional — opens the built, unpublished preview
+kurumera theme publish --store <slug>   # make it the store's LIVE theme
+```
+
+Each step in order, in more detail:
+
+### 1. `kurumera theme init <name>`
+
+Copies the base theme template into `./<name>` and renames `package.json`.
+Prints the exact next steps (`cd`, `npm install`, `theme dev`) — no other
+setup is needed. Run this once per project, not per session.
+
+### 2. `kurumera theme dev --store <slug>`
+
+Runs `next dev` against the **real, live data** of an existing store (its
+actual products, collections, branding) — not a mock. Auto-installs
+`node_modules` on first run if missing. Sets `KURUMERA_TENANT=<slug>` (or
+`KURUMERA_STOREFRONT_TOKEN` if `--token` is passed) and `KURUMERA_API_URL` on
+the child process automatically — you don't need to hand-write a `.env.local`
+for this step. Serves at `http://localhost:3000`.
+
+If `--store` is omitted, it falls back to the default store from
+`kurumera login`. If the agent has shell access but no browser, it still
+can't *see* the rendered page — read the component/section source instead of
+trying to visually inspect `localhost:3000`, or ask the human to look.
+
+### 3. Editing the theme
+
+The scaffolded project (from `base-theme/`) has this shape:
+
+```
+theme.config.ts        theme manifest — name/version/routes/settings (see below)
+middleware.ts           resolves the store from the request host/?store=
+app/
+  layout.tsx             root layout — exports metadata (SEO), renders Header/Footer
+  page.tsx                home
+  products/[handle]/     PDP — required route
+  collections/[handle]/  PLP — required route
+  cart/                   required route
+  search/                 required route
+  pages/[handle]/         CMS page template — required route
+  not-found.tsx           custom 404 (optional but recommended)
+components/              Header, Footer, ProductCard, AddToCart, Price, CartCount,
+                          AnnouncementBar, MobileMenu, Newsletter, Icon
+sections/                FeaturedCollections, FeaturedProducts, ValueProps
+lib/
+  kurumera.ts             getStore() — builds the per-request SDK client (below)
+  settings.ts             ThemeSettings type + defaults — the merchant-editable surface
+  demo-fetch.ts            mock data client, active only when KURUMERA_DEMO=1
+  cart-client.ts          client-side cart hook/state
+```
+
+**The required routes are load-bearing** — `theme check` fails the push if
+any of `app/page.tsx`, `app/products/[handle]/page.tsx`,
+`app/collections/[handle]/page.tsx`, `app/cart/page.tsx`,
+`app/search/page.tsx`, `app/pages/[handle]/page.tsx` are missing. Renaming or
+removing them (rather than editing their contents) breaks the theme.
+
+**Reading store data — always through `lib/kurumera.ts`'s `getStore()`**,
+never a hand-rolled `fetch`:
+
+```ts
+import { getStore } from "@/lib/kurumera";
+
+const kurumera = await getStore();
+const products = await kurumera.products.list({ limit: 12 });
+const product  = await kurumera.products.getByHandle(handle);
+const bestSellers = await kurumera.products.bestSellers();
+const deals    = await kurumera.products.deals();
+const collections = await kurumera.collections.list();
+const collection  = await kurumera.collections.getByHandle(handle);
+const bySlot   = await kurumera.collections.getBySlot("featured");
+const results  = await kurumera.search.query(q);           // → { query, limit, products, collections }
+const page     = await kurumera.pages.getByHandle(handle);   // CMS page
+const menus    = await kurumera.navigation.all();             // → Record<handle, Menu>
+const config   = await kurumera.config.get();                 // branding, contact, SEO defaults
+```
+
+Cart is a separate client-side surface (`kurumera.cart.create/get/addLine/
+updateLine/...` — POST/GET/PATCH/DELETE on `/cart/<token>/...`); see
+`lib/cart-client.ts` for the existing hook pattern to extend rather than
+re-plumbing it.
+
+**Merchant-editable presentation** lives in `lib/settings.ts`'s
+`ThemeSettings` (colors, fonts, logo, announcement bar, hero copy/CTAs, value
+props, featured-section titles) — populated from `ShopSettings.theme` via
+`getStoreConfig()`, always filled with defaults so an uncustomized store
+renders exactly like the template. Read settings through this module, don't
+duplicate the merge/defaulting logic.
+
+**Local dev vs. production data:** `getStore()` resolves the tenant from the
+request's subdomain (`<slug>.kurumera.com`) in production, or from
+`KURUMERA_TENANT`/`KURUMERA_STOREFRONT_TOKEN` env vars for local dev (which
+`theme dev` sets for you automatically — see above). If you ever run `next
+dev` directly instead of `kurumera theme dev`, or run a **pulled/downloaded**
+theme (`theme pull`, or a dashboard download), you must set
+`KURUMERA_TENANT=<slug>` in `.env.local` yourself, or you'll hit: *"No store
+resolved for this request."* — this is expected, not a bug.
+
+### 4. `kurumera theme check`
+
+Run this before every push — it's the exact ruleset the server re-validates,
+so failing locally means the push will be rejected anyway. Categories:
+**contract** (the six required routes above, a custom 404), **config**
+(`theme.config.ts` present with `name`/`version`/`framework: "nextjs"`),
+**dependencies** (`@kurumera/storefront` must be present; server/native
+packages — `express`, `pg`, `stripe`, `puppeteer`, `bcrypt`,
+`jsonwebtoken`, etc. — are forbidden, themes are client-safe only),
+**security** (no `app/api/` routes, no Node built-ins like `fs`/`child_process`/
+`net`/`http` imported anywhere, no `"use server"`, no `eval`/`new Function`),
+**commerce** (the PDP should show a price and an add-to-cart control),
+**seo** (root layout should export `metadata`), **env** (only
+`process.env.KURUMERA_*` and `NODE_ENV` are available at runtime — anything
+else you read will be `undefined` in production; the check just warns, it
+doesn't block).
+
+Only `✗` errors block a push; `⚠` warnings are advisory. Fix errors, then
+re-run until it prints "✓ theme check passed."
+
+### 5. `kurumera theme push`
+
+Tars the current directory (excluding `node_modules`/`.next`/`.git`/`dist`),
+uploads it, and **blocks** (with a spinner) until the platform's build
+finishes or ~10 minutes elapse — you'll get a clear "✓ Built" or
+"✗ Build failed" before the command returns, so you always know the outcome
+before doing anything else. On success it prints the exact next command
+(`kurumera theme publish …`). If it times out mid-build it's still running
+server-side — `kurumera theme preview` picks up the result.
+
+### 6. `kurumera theme preview --store <slug>` (optional)
+
+Opens the just-built, **unpublished** version rendered against the real
+store — useful to sanity-check before going live. Prints the URL either way
+(it also tries to open a real browser, which won't do anything useful in a
+headless agent sandbox — just relay the printed URL to the human).
+
+### 7. `kurumera theme publish --store <slug>`
+
+Makes the just-pushed build the store's live theme. `--off` reverts the
+store to the visual builder instead (an intentional escape hatch — this is
+the one operation that crosses back to the other mode).
+
+## After the store is live
+
+- `kurumera theme rollback --store <slug> [--version <id>]` — restore the
+  previous live version, or an exact retained one.
+- `kurumera theme activate --store <slug> --version <id>` — make an exact
+  version live (works even for a version whose build was pruned from hot
+  storage — it rebuilds from the permanently retained source first).
+- `kurumera theme versions --store <slug>` — every retained version, with the
+  ids the two commands above expect.
+- `kurumera theme pull --store <slug> --version <id> [--out <dir>]` —
+  download an exact version's original source to a new folder. Auto-writes
+  `.env.local` with `KURUMERA_TENANT=<slug>` so `npm install && npm run dev`
+  works immediately.
+- `kurumera theme logs --store <slug>` — latest build log, for debugging a
+  failed push.
+
+## Selling the theme (optional)
+
+`kurumera marketplace publish --store <slug>` lists the just-built theme in
+the Kurumera marketplace for other merchants to install
+(`marketplace install <theme>[@version] --store <slug>`). `marketplace list`/
+`info`/`mine`/`update`/`unpublish` manage listings; needs the
+`marketplace:publish` scope (see `AUTHENTICATION.md`'s scopes table).
+
+## Common mistakes to avoid
+
+- Don't hand-roll `fetch()` calls to the platform API — always go through
+  `getStore()`'s SDK client, or `theme check` will flag the raw import and
+  you'll lose the auth/tenant-resolution handling it does for you.
+- Don't add a database, server framework, or secrets-requiring package —
+  `theme check`'s forbidden-dependency list exists because themes run as
+  client-safe, sandboxed code; there is no server runtime to put them in.
+- Don't skip `theme check` "to save time" — a failing push wastes a full
+  build cycle finding out the same thing the local check would have told you
+  in seconds.
+- Don't publish before previewing at least once if the change is
+  non-trivial — `theme preview` costs nothing and catches rendering issues
+  before a real customer sees them.
