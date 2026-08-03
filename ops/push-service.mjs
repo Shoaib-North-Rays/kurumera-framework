@@ -20,6 +20,7 @@
  *                                        never silently falls back to unpublish; use /_push/unpublish for that)
  *   POST /_push/unpublish  {store}    → live = null, stop kurumera-store-<s> (revert to builder)
  *   GET  /_push/versions?store=s      → every retained build for this store, newest first
+ *   GET  /_push/source?store=s&version=v → download that version's original uploaded source
  *   GET  /_push/published             → { stores:[s…] } (live code-theme stores — the builder polls this)
  *   *  (anything else)                → PREVIEW proxy: ?store / kurumera_store cookie → kurumera-preview-<s>
  *
@@ -28,7 +29,7 @@
  */
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync, readFileSync, renameSync, rmSync, existsSync, appendFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, renameSync, rmSync, existsSync, appendFileSync, copyFileSync, createReadStream } from "node:fs";
 import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 
@@ -51,6 +52,12 @@ const MARKET = join(ROOT, "_market");            // shared theme registry (publi
 const MARKET_STATE = join(ROOT, "market.json");  // { themes: { <slug>: { name, description, author, latest, versions:[{version,id,published,installs}] } } }
 const SHOTS = join(ROOT, "_shots");              // static theme screenshots (thumbnails), <slug>.jpg
 const DESIGNS = join(ROOT, "_designs");          // builder-design packages (type=builder listings), <slug>.json
+// Every successfully-built version's ORIGINAL uploaded source (no node_modules,
+// no .next build output — just what the CLI pushed), retained INDEFINITELY,
+// never touched by pruneVersions(). Small (source only), so keeping every
+// version forever is cheap, unlike the full build-output dirs under versionDir.
+// This is what `theme pull --version` serves.
+const SOURCES = join(ROOT, "_sources");
 const API_URL = "https://admin.kurumera.com/api/v1";
 const NET = "website-builder_web";
 
@@ -58,6 +65,7 @@ mkdirSync(ROOT, { recursive: true });
 mkdirSync(MARKET, { recursive: true });
 mkdirSync(SHOTS, { recursive: true });
 mkdirSync(DESIGNS, { recursive: true });
+mkdirSync(SOURCES, { recursive: true });
 
 const shotPath = (theme) => join(SHOTS, `${slug(theme)}.jpg`);
 const coverUrl = (theme) => existsSync(shotPath(theme)) ? `${MARKET_PUBLIC_URL}/_push/market/shot?theme=${slug(theme)}` : "";
@@ -595,6 +603,7 @@ async function buildVersion(s, buffer, actor) {
   s = slug(s);
   building.add(s);
   const v = "v" + Date.now();
+  const tgz = join(storeDir(s), `${v}.tgz`);   // temp upload — always cleaned up in `finally` below
   try {
     const st = getState();
     store(st, s).build = { status: "building", id: v };
@@ -603,10 +612,8 @@ async function buildVersion(s, buffer, actor) {
     const dir = versionDir(s, v);
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true });
-    const tgz = join(storeDir(s), `${v}.tgz`);
     writeFileSync(tgz, buffer);
     const x = await sh("tar", ["-xzf", tgz, "-C", dir]);
-    rmSync(tgz, { force: true });
     if (x.code !== 0) return fail(s, v, "unpack failed");
 
     // Hand the tree to the sandbox uid so the unprivileged build can write it.
@@ -639,18 +646,31 @@ async function buildVersion(s, buffer, actor) {
     const themeSlug = slug(man.name || s);
     const semver = man.version || v;
 
+    // Retain the original uploaded source now that the build actually
+    // succeeded — see SOURCES' own comment for why this is cheap to keep
+    // forever. Best-effort: a copy failure must not fail an otherwise-good
+    // build; `theme pull` simply 404s for this one version if it didn't land.
+    let sourceUrl = "";
+    try {
+      const srcDir = join(SOURCES, s);
+      mkdirSync(srcDir, { recursive: true });
+      copyFileSync(tgz, join(srcDir, `${v}.tgz`));
+      sourceUrl = `${MARKET_PUBLIC_URL}/_push/source?store=${encodeURIComponent(s)}&version=${encodeURIComponent(v)}`;
+    } catch { /* best-effort */ }
+
     const st2 = getState();
     const rec = store(st2, s);
     rec.versions.push(v);
     rec.build = { status: "ready", id: v, preview_url: "https://themekit.kurumera.com" };
     (rec.meta ||= {})[v] = { theme: themeSlug, name: man.name || s, version: semver };
     setState(st2);
-    pruneVersions(s);   // reclaim disk from superseded builds
+    pruneVersions(s);   // reclaim disk from superseded builds (build-output dirs only — not _sources)
 
     // Mirror into the control plane: record the version + point preview at it.
-    await control("version", { theme_slug: themeSlug, theme_name: man.name || s, version: semver, build_status: "success", theme_config: man });
+    await control("version", { theme_slug: themeSlug, theme_name: man.name || s, version: semver, build_status: "success", theme_config: man, source_bundle_url: sourceUrl });
     await control("preview", { store: s, theme_slug: themeSlug, version: semver, actor_email: actor });
   } finally {
+    rmSync(tgz, { force: true });
     building.delete(s);
   }
 }
@@ -1271,6 +1291,31 @@ const server = http.createServer((req, res) => {
         ...(rec.meta || {})[v],   // { theme, name, version } — semver + display name, when known
       }));
       return json(200, { store: slug(s), live: rec.live, versions });
+    });
+    return;
+  }
+  if (p.endsWith("/_push/source")) {
+    // GET /_push/source?store=<slug>&version=<id> — the retained ORIGINAL
+    // uploaded source (no node_modules/.next) for one version (see SOURCES'
+    // own comment). Same CLI bearer auth as everything else here — this is
+    // never a public/pre-signed URL, even though source_bundle_url in the DB
+    // looks like a plain link.
+    const s = u.searchParams.get("store") || "";
+    const version = String(u.searchParams.get("version") || "").replace(/[^a-zA-Z0-9._-]/g, "");
+    verifyOwnership(req.headers["authorization"], s, "pull").then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
+      if (!version) return json(400, { error: "version is required" });
+      const file = join(SOURCES, slug(s), `${version}.tgz`);
+      if (!existsSync(file)) {
+        return json(404, { error: "source_not_found", detail: `No retained source for "${slug(s)}@${version}".` });
+      }
+      res.writeHead(200, {
+        "Content-Type": "application/gzip",
+        "Content-Disposition": `attachment; filename="${slug(s)}-${version}.tgz"`,
+      });
+      const rs = createReadStream(file);
+      rs.pipe(res);
+      rs.on("error", () => { try { res.end(); } catch { /* */ } });
     });
     return;
   }
