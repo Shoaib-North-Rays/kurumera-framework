@@ -695,6 +695,14 @@ function pruneVersions(s) {
     if (!keep.has(v)) { try { rmSync(versionDir(s, v), { recursive: true, force: true }); } catch { /* */ } }
   }
   rec.versions = rec.versions.filter((v) => keep.has(v));
+  // Keep history honest with what's actually still on disk. This array was
+  // previously never trimmed — only the last 2 entries were PROTECTED from
+  // deletion above, so an older entry could silently go stale (still listed
+  // here, its build long since reclaimed) and get activated by a later
+  // rollback with no error, taking the live site down. rollbackStore() has
+  // its own defensive check for the same reason, but fixing it here too
+  // means history can't accumulate stale entries in the first place.
+  rec.history = rec.history.filter((v) => rec.versions.includes(v));
   setState(getMerge(st, s, rec));
 }
 
@@ -754,13 +762,27 @@ async function rollbackStore(s, actor, version) {
   if (version) return goLiveVersion(s, version, actor);
   const st = getState();
   const rec = store(st, s);
-  if (rec.history.length >= 2) {
-    rec.history.pop();                                  // drop current
-    const prev = rec.history[rec.history.length - 1];   // restore previous
+  // The target one step back — validated against rec.versions BEFORE we touch
+  // anything. pruneVersions() only protects the last TWO history entries from
+  // disk deletion; it never trims the history ARRAY itself, so an OLDER entry
+  // can go stale (its on-disk build long since reclaimed) while still sitting
+  // here. Activating a stale entry used to "succeed" — `docker run -d`
+  // returns exit 0 even when the mounted directory is empty/missing, so
+  // goLive()'s own success check couldn't catch it — while actually taking
+  // the live site down with no error surfaced. Treat a stale target exactly
+  // like "no previous version" rather than silently guessing further back.
+  const prev = rec.history.length >= 2 ? rec.history[rec.history.length - 2] : null;
+  if (prev && rec.versions.includes(prev)) {
     if (!(await goLive(s, prev))) return { ok: false, error: "host failed" };
+    rec.history.pop();
     rec.live = prev;
     setState(getMerge(st, s, rec));
-    await control("rollback", { store: s, actor_email: actor });  // backend restores its prior live pointer
+    // Pass the resolved semver through, same as an explicit-version
+    // activation (goLiveVersion) — so a PLAIN rollback can't disagree with
+    // Django's own independently-computed "previous" any more than an
+    // explicit one can.
+    const semver = (rec.meta || {})[prev]?.version;
+    await control("rollback", { store: s, actor_email: actor, to_version: semver });
     return { ok: true, version: prev, reverted: "previous version" };
   }
   // No prior code version to restore. This USED TO silently fall back to
