@@ -1115,10 +1115,17 @@ async function publishToMarket(s, meta) {
   entry.name = meta.name || entry.name;
   if (meta.description || md.description) entry.description = meta.description || md.description;
   if (meta.author || md.author) entry.author = meta.author || md.author;
-  if (md.price != null) entry.price = md.price;
-  if (md.currency) entry.currency = md.currency;
-  if (md.tags && md.tags.length) entry.tags = md.tags;
-  if (md.category) entry.category = md.category;
+  // Request body (e.g. the dashboard's "Publish to marketplace" form) wins over
+  // whatever's baked into the pushed artifact's theme.config — same validation
+  // publishDesignToMarket already applies for builder-type listings.
+  if (meta.price != null && Number.isFinite(Number(meta.price))) entry.price = Math.min(999999, Math.max(0, Number(meta.price)));
+  else if (md.price != null) entry.price = md.price;
+  if (typeof meta.currency === "string" && CURRENCIES.has(meta.currency.toUpperCase())) entry.currency = meta.currency.toUpperCase();
+  else if (md.currency) entry.currency = md.currency;
+  if (Array.isArray(meta.tags) && meta.tags.length) entry.tags = meta.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean).slice(0, 12);
+  else if (md.tags && md.tags.length) entry.tags = md.tags;
+  if (typeof meta.category === "string" && meta.category) entry.category = meta.category.toLowerCase().trim().slice(0, 40);
+  else if (md.category) entry.category = md.category;
   if (md.demoStore) entry.demoStore = md.demoStore;
   entry.versions.push({ version, id: latest, published: Date.now(), installs: 0 });
   entry.latest = version;
