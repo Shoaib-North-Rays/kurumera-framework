@@ -549,6 +549,7 @@
     <ul class="clean">
       <li><b>Storefront token</b> (<code class="i">ksf_…</code>) is read-only + tenant-locked — safe in a client bundle (like Shopify's Storefront Access Token).</li>
       <li><b>Never ship admin credentials in a theme.</b> Themes use only the public surface + a shopper's own session.</li>
+      <li><b>Looking for merchant/staff login instead?</b> That's a separate system (<code class="i">theplantsmall-backend</code>'s <code class="i">/api/v1/auth/token/</code>, not this storefront API) — see <code class="i">docs/AUTH_LOGIN_AND_ROLES_GUIDE.md</code> in that repo for the login response shape, roles, and permissions.</li>
       <li><b>Common codes:</b> <code class="i">400</code> validation, <code class="i">401</code> missing/expired session, <code class="i">404</code> not found / unresolved store, <code class="i">409</code> conflict (e.g. out of stock).</li>
     </ul>
   </section>
