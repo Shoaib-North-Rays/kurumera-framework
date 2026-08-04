@@ -60,6 +60,22 @@ If `--store` is omitted, it falls back to the default store from
 can't *see* the rendered page — read the component/section source instead of
 trying to visually inspect `localhost:3000`, or ask the human to look.
 
+**Auto-save while you edit.** `theme dev` also checkpoints the working
+directory in the background every few minutes (an inert, disaster-recovery-
+only snapshot — never a build, never a version, never anything that could go
+live). This exists specifically for you, the agent: if your workspace/sandbox
+is destroyed mid-session **before you've ever run a successful `theme push`**,
+the edits would otherwise be gone with zero recovery — `theme push`'s own
+permanent source retention only kicks in *after* a push succeeds at least
+once. If that happens, recover with:
+```bash
+kurumera theme checkpoint restore --store <slug>
+```
+(`kurumera theme checkpoint status --store <slug>` checks whether one exists
+and how recent it is, without downloading it.) Still push for real as soon as
+a change is worth keeping — a checkpoint is a safety net, not a substitute
+for `theme push`'s permanent, immutable retention.
+
 ### 3. Editing the theme
 
 The scaffolded project (from `base-theme/`) has this shape:
@@ -188,7 +204,13 @@ the one operation that crosses back to the other mode).
 - `kurumera theme pull --store <slug> --version <id> [--out <dir>]` —
   download an exact version's original source to a new folder. Auto-writes
   `.env.local` with `KURUMERA_TENANT=<slug>` so `npm install && npm run dev`
-  works immediately.
+  works immediately. Use this once at least one push succeeded — it's a real,
+  permanent, immutable version, unlike a checkpoint.
+- `kurumera theme checkpoint restore --store <slug> [--out <dir>]` /
+  `kurumera theme checkpoint status --store <slug>` — recover the most recent
+  auto-saved in-progress snapshot from `theme dev` (see step 2). Only useful
+  for edits that never made it into a real push — once pushed, use
+  `theme pull` instead.
 - `kurumera theme logs --store <slug>` — latest build log, for debugging a
   failed push.
 
@@ -214,3 +236,7 @@ the Kurumera marketplace for other merchants to install
 - Don't publish before previewing at least once if the change is
   non-trivial — `theme preview` costs nothing and catches rendering issues
   before a real customer sees them.
+- Don't treat auto-save checkpoints as a substitute for pushing — they're a
+  disaster-recovery net for a workspace that dies mid-session, not permanent
+  storage. Push real progress as soon as it's worth keeping; a checkpoint can
+  be overwritten by the next one and isn't versioned.

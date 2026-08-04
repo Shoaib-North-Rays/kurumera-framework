@@ -29,7 +29,7 @@
  */
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync, readFileSync, renameSync, rmSync, existsSync, appendFileSync, copyFileSync, createReadStream, readdirSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, renameSync, rmSync, existsSync, appendFileSync, copyFileSync, createReadStream, readdirSync, statSync } from "node:fs";
 import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 
@@ -58,6 +58,15 @@ const DESIGNS = join(ROOT, "_designs");          // builder-design packages (typ
 // version forever is cheap, unlike the full build-output dirs under versionDir.
 // This is what `theme pull --version` serves.
 const SOURCES = join(ROOT, "_sources");
+// Background auto-save of a LOCAL, in-progress `theme dev` working directory —
+// one file per store, OVERWRITTEN each checkpoint (this is "most recent
+// snapshot for disaster recovery," not a version history; theme push +
+// permanent source retention already own real history). Deliberately never
+// touched by anything build/version/live-related: no control() call to
+// Django, no docker run, no rec.versions/rec.live write, anywhere in this
+// file. Pure inert storage, so it can never become a second "did this
+// accidentally go live" surface.
+const CHECKPOINTS = join(ROOT, "_checkpoints");
 const API_URL = "https://admin.kurumera.com/api/v1";
 const NET = "website-builder_web";
 
@@ -66,6 +75,7 @@ mkdirSync(MARKET, { recursive: true });
 mkdirSync(SHOTS, { recursive: true });
 mkdirSync(DESIGNS, { recursive: true });
 mkdirSync(SOURCES, { recursive: true });
+mkdirSync(CHECKPOINTS, { recursive: true });
 
 const shotPath = (theme) => join(SHOTS, `${slug(theme)}.jpg`);
 const coverUrl = (theme) => existsSync(shotPath(theme)) ? `${MARKET_PUBLIC_URL}/_push/market/shot?theme=${slug(theme)}` : "";
@@ -1439,6 +1449,59 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
+
+  // ── Background auto-save (`theme dev`'s checkpoint interval) ────────────────
+  // Inert disaster-recovery storage for LOCAL, un-pushed edits — see the
+  // CHECKPOINTS const comment. Never builds, never touches rec.versions/
+  // rec.live, never calls control() — a checkpoint cycle is invisible to the
+  // Django control plane entirely (verified: no control() call anywhere below).
+  if (p.endsWith("/_push/checkpoint") && req.method === "POST") {
+    const s = slug(req.headers["x-kurumera-store"] || "");
+    verifyOwnership(req.headers["authorization"], s, "checkpoint").then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
+      if (!s) return json(400, { error: "no store — pass --store or run `kurumera login`" });
+      readBody().then((buf) => {
+        if (!buf || !buf.length) return json(400, { error: "empty checkpoint body" });
+        mkdirSync(CHECKPOINTS, { recursive: true });
+        const tmp = join(CHECKPOINTS, `.${s}.${randomBytes(6).toString("hex")}.tmp`);
+        writeFileSync(tmp, buf);
+        renameSync(tmp, join(CHECKPOINTS, `${s}.tgz`));   // atomic swap — a reader never sees a half-written file
+        json(200, { ok: true, store: s, bytes: buf.length, updatedAt: new Date().toISOString() });
+      });
+    });
+    return;
+  }
+  if (p.endsWith("/_push/checkpoint/status")) {
+    const s = slug(u.searchParams.get("store") || "");
+    verifyOwnership(req.headers["authorization"], s, "checkpoint").then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
+      const file = join(CHECKPOINTS, `${s}.tgz`);
+      if (!existsSync(file)) return json(200, { exists: false });
+      const st = statSync(file);
+      json(200, { exists: true, updatedAt: st.mtime.toISOString(), bytes: st.size });
+    });
+    return;
+  }
+  if (p.endsWith("/_push/checkpoint") && req.method === "GET") {
+    const s = slug(u.searchParams.get("store") || "");
+    const az0 = (SERVICE_KEY && req.headers["x-kurumera-service"] === SERVICE_KEY)
+      ? Promise.resolve({ ok: true })
+      : verifyOwnership(req.headers["authorization"], s, "checkpoint");
+    az0.then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
+      const file = join(CHECKPOINTS, `${s}.tgz`);
+      if (!existsSync(file)) return json(404, { error: "no_checkpoint", detail: `No checkpoint retained for "${s}".` });
+      res.writeHead(200, {
+        "Content-Type": "application/gzip",
+        "Content-Disposition": `attachment; filename="${s}-checkpoint.tgz"`,
+      });
+      const rs = createReadStream(file);
+      rs.pipe(res);
+      rs.on("error", () => { try { res.end(); } catch { /* */ } });
+    });
+    return;
+  }
+
   if (p.endsWith("/_push/logs")) {
     const s = u.searchParams.get("store") || "";
     verifyOwnership(req.headers["authorization"], s, "logs").then((az) => {

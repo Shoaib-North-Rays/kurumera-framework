@@ -3,8 +3,8 @@
  * `kurumera` CLI entry point.
  *
  * Commands: login, logout, stores list, theme (init/dev/check/push/preview/
- * publish/rollback/activate/versions/pull/logs), and marketplace (publish/
- * list/info/buy/install/clone/owns/mine/update/unpublish).
+ * publish/rollback/activate/versions/pull/checkpoint/logs), and marketplace
+ * (publish/list/info/buy/install/clone/owns/mine/update/unpublish).
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -19,6 +19,7 @@ import { themePreview } from "./commands/preview.js";
 import { themePublish, themeRollback, themeActivate } from "./commands/publish.js";
 import { themeVersions } from "./commands/versions.js";
 import { themePull } from "./commands/pull.js";
+import { themeCheckpoint } from "./commands/checkpoint.js";
 import { themeLogs } from "./commands/logs.js";
 import { marketplace } from "./commands/marketplace.js";
 import { storesList, storesAdd } from "./commands/stores.js";
@@ -57,6 +58,10 @@ function help(): void {
   console.log("  theme versions --store <slug>        List every retained version for this store");
   console.log("  theme pull --store <slug> --version <id> [--out <dir>]");
   console.log("                                       Download an exact version's original source");
+  console.log("  theme checkpoint status --store <slug>");
+  console.log("                                       Check for an auto-saved in-progress snapshot");
+  console.log("  theme checkpoint restore --store <slug> [--out <dir>]");
+  console.log("                                       Recover un-pushed edits `theme dev` auto-saved");
   console.log("  theme logs --store <slug>            Show the latest build log");
   console.log("\nMarketplace:");
   console.log("  marketplace publish --store <slug>   Publish this theme's build to the registry");
@@ -108,6 +113,7 @@ async function dispatch(): Promise<number> {
   if (a === "theme" && b === "activate") return themeActivate(rest);
   if (a === "theme" && b === "versions") return themeVersions(rest);
   if (a === "theme" && b === "pull") return themePull(rest);
+  if (a === "theme" && b === "checkpoint") return themeCheckpoint(rest);
   if (a === "theme" && b === "logs") return themeLogs(rest);
   if (a === "marketplace" || a === "market") return marketplace(argv.slice(1));
   // themeDev spawns `next dev`; on success it returns 0 and the child keeps the
