@@ -1,6 +1,6 @@
 {
   "name": "@kurumera/cli",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Kurumera CLI — login, scaffold, dev, check, push, preview, publish.",
   "type": "module",
   "bin": {

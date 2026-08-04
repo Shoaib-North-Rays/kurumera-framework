@@ -1603,7 +1603,7 @@ const server = http.createServer((req, res) => {
       // is missing sourceStore. If ownership isn't recorded, force a re-publish.
       const store = slug(entry.sourceStore || "");
       if (!store) return json(400, { error: "this listing has no owner store recorded — re-publish it once to claim ownership" });
-      const az = await verifyOwnership(req.headers["authorization"], store);
+      const az = await verifyOwnership(req.headers["authorization"], store, "market_update");
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       // Apply only the editable listing fields, validated.
       if (typeof body.description === "string") entry.description = body.description.slice(0, 400);
@@ -1626,7 +1626,7 @@ const server = http.createServer((req, res) => {
       if (!entry) return json(404, { error: `no marketplace theme "${theme}"` });
       const store = slug(entry.sourceStore || "");
       if (!store) return json(400, { error: "this listing has no owner store recorded — re-publish it once to claim ownership" });
-      const az = await verifyOwnership(req.headers["authorization"], store);
+      const az = await verifyOwnership(req.headers["authorization"], store, "market_unpublish");
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       delete m.themes[theme];
       setMarket(m);
@@ -1969,7 +1969,7 @@ const server = http.createServer((req, res) => {
     readBody().then(async (buf) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
       const s = slug(body.store);
-      const az = await verifyOwnership(req.headers["authorization"], s);   // must own the source store
+      const az = await verifyOwnership(req.headers["authorization"], s, "market_publish");   // must own the source store
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const r = await publishToMarket(s, body);
       json(r.ok === false ? (r.status || 400) : 200, r);
@@ -1996,7 +1996,7 @@ const server = http.createServer((req, res) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
       if (!body.theme) return json(400, { error: "theme is required" });
       const s = slug(body.store);
-      const az = await authorizeMutation(req, s, body.actor_email);   // merchant (backend) or dev (CLI)
+      const az = await authorizeMutation(req, s, body.actor_email, "market_install");   // merchant (backend) or dev (CLI)
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const r = await installFromMarket(s, body.theme, body.version, az.actor, body.license);
       json(r.ok === false ? (r.status || 400) : 200, { ...r, stores: livePublishedStores() });

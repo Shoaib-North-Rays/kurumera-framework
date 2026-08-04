@@ -2,6 +2,7 @@ import { existsSync, readFileSync, mkdirSync, readdirSync, rmSync } from "node:f
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
 import { readConfig, writeConfig } from "../util/config.js";
+import { requestScopeAmend, tryCompletePendingAmend } from "../util/scopeAmend.js";
 
 // Minimal ANSI colour helpers (no dependency); no-op when output isn't a TTY.
 const TTY = process.stdout.isTTY;
@@ -305,18 +306,48 @@ function readManifest(dir: string): Manifest | null {
   return { name: pick("name"), version: pick("version"), description: pick("description"), author: pick("author") };
 }
 
+/**
+ * Shared POST for every marketplace mutation (publish/install/update/
+ * unpublish). Handles incremental consent the same way `theme push`/`theme
+ * publish` do: `marketplace:*` is never in the default scope set (see
+ * apps/cli_auth/scopes.py's DEFAULT_CLI_SCOPES), so a plain `kurumera login`
+ * session will 403 with `missing_scope` the first time any of these run —
+ * request just that one extra scope for the SAME session instead of failing
+ * outright. One retry: if an amendment from an EARLIER call is already
+ * approved, apply and retry transparently; otherwise print the approval
+ * URL/code and return, so the caller re-runs the same command once approved.
+ */
 async function post(path: string, token: string, body: unknown): Promise<any> {
-  try {
+  const attempt = async (): Promise<{ status: number; data: Record<string, any> }> => {
     const res = await fetch(`${PUSH_URL}${path}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     const d = (await res.json().catch(() => ({}))) as Record<string, any>;
-    return res.ok ? { ok: true, ...d } : { ok: false, error: d.error || `HTTP ${res.status}` };
+    return { status: res.status, data: d };
+  };
+
+  let res: { status: number; data: Record<string, any> };
+  try {
+    res = await attempt();
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
+
+  if (res.status === 403 && res.data.error === "missing_scope") {
+    const justGranted = await tryCompletePendingAmend();
+    if (justGranted) {
+      try { res = await attempt(); } catch (e) { return { ok: false, error: (e as Error).message }; }
+    } else if (res.data.required_scope) {
+      await requestScopeAmend(res.data.required_scope, token);
+      return { ok: false, error: "Additional permission needed — see the instructions above, then re-run this command." };
+    }
+  }
+
+  return res.status >= 200 && res.status < 300
+    ? { ok: true, ...res.data }
+    : { ok: false, error: res.data.error || `HTTP ${res.status}` };
 }
 
 function flag(args: string[], name: string): string | undefined {
