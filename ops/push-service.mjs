@@ -1976,7 +1976,7 @@ const server = http.createServer((req, res) => {
     readBody().then(async (buf) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
       const s = slug(body.store);
-      const az = await verifyOwnership(req.headers["authorization"], s, "market_publish");   // must own the source store
+      const az = await authorizeMutation(req, s, body.actor_email, "market_publish");   // trusted service key (dashboard) or dev CLI bearer
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const r = await publishToMarket(s, body);
       json(r.ok === false ? (r.status || 400) : 200, r);
