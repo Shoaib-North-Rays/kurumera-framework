@@ -13,9 +13,20 @@
  *
  * Every primitive here is a Server Component, for use in your theme's
  * page/section files. Outside the dashboard's edit mode (i.e. for every
- * real shopper) each renders plain output with ZERO extra client JS — the
- * interactive client leaf is never even included in that page's bundle,
- * not merely hidden.
+ * real shopper) each renders plain, semantic markup — no wrapper elements,
+ * no hydration, no editor behaviour, no network calls.
+ *
+ * PERF CAVEAT, measured not assumed: the editor leaves' CODE is still
+ * DOWNLOADED by shoppers (~5.5 kB gzipped per route, roughly flat no matter
+ * how many fields you wrap). It is never executed or hydrated for them, but
+ * it is in the route's client bundle. This is a Next.js constraint, not a
+ * choice: a Server Component statically imports its client leaf, and
+ * "a Server Component dynamically importing a Client Component" is
+ * explicitly unsupported for code splitting (see Next's lazy-loading guide).
+ * Eliminating it needs the editor to become one lazily-mounted overlay that
+ * attaches to `data-kurumera-field` markers, rather than a client leaf per
+ * primitive — a planned change, not yet done. Budget accordingly on
+ * latency-critical routes.
  *
  * Need `useEditableField()` or `EditableProvider` inside your OWN "use
  * client" component? Import those from `@kurumera/editable/client`

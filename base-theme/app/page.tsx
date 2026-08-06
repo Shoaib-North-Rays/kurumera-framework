@@ -4,8 +4,25 @@ import { getSettings } from "@/lib/settings";
 import { FeaturedProducts } from "@/sections/FeaturedProducts";
 import { FeaturedCollections } from "@/sections/FeaturedCollections";
 import { ValueProps } from "@/sections/ValueProps";
+import { Testimonials } from "@/sections/Testimonials";
 
-/** home template */
+/**
+ * home template
+ *
+ * TWO editing systems, and it matters which one you reach for:
+ *
+ *   1. ThemeSettings (lib/settings.ts, read via getSettings() below) — a FIXED
+ *      built-in set: colors, fonts, logo, announcement bar, hero, value props,
+ *      section titles. Already has its own editor (dashboard → Customize).
+ *      Read these through getSettings(); do NOT wrap them in Editable*.
+ *
+ *   2. @kurumera/editable — for ANY content you add that ThemeSettings doesn't
+ *      cover. See sections/Testimonials.tsx for the worked example.
+ *
+ * If you add a new headline, image, CTA or list and write it as plain JSX,
+ * the merchant can NEVER edit it — they'd need a developer for every copy
+ * change. Wrap it. That is the whole point of the Editable* components.
+ */
 export default async function HomePage() {
   const kurumera = await getStore();
   const [products, collections, settings] = await Promise.all([
@@ -34,6 +51,7 @@ export default async function HomePage() {
       <div id="featured">
         <FeaturedProducts products={products} title={featured.productsTitle} href="/search" />
       </div>
+      <Testimonials />
     </>
   );
 }

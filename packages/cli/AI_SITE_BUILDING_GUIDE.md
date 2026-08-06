@@ -168,7 +168,10 @@ import { EditableText, EditableImage, EditableRepeater } from "@kurumera/editabl
 
 `field` is any dotted key you choose (`"about.heading"`, not a fixed schema —
 `theme.config.ts` doesn't need to declare it). A shopper always gets plain,
-zero-extra-JS output; a merchant sees hover/click editing UI ONLY when
+semantic markup — no wrapper elements, no hydration, no editor behaviour
+(though the editor code itself is still in the route bundle, ~5.5 kB gzipped
+and roughly flat however many fields you wrap — see the perf note at the end
+of this section); a merchant sees hover/click editing UI ONLY when
 viewing the store through the dashboard's "Edit content" screen (a real
 draft, autosaved, never live until the merchant clicks Publish there — no
 rebuild). This is a **separate system from `ThemeSettings`** — don't wrap a
@@ -221,8 +224,23 @@ field shape and editing UI — reach for `EditableButton` for a styled CTA,
 `EditableLink` for an inline text link; they're kept as separate exports
 because they're expected to diverge (e.g. a link-only "open in new tab"
 toggle) even though today they're ~identical. `EditableVideo` renders a
-plain `<video>` or a plain iframe embed either way — no client JS in the
-live path, same guarantee as every other primitive here.
+plain `<video>` or a plain iframe embed in the live path — native elements,
+no player library.
+
+**Worked example in the scaffold:** `sections/Testimonials.tsx` (shipped with
+every `theme init`) uses `EditableSection` + `EditableRepeater` +
+`EditableText` together on a real, rendered section. Read it and copy the
+shape rather than inventing your own.
+
+**Perf note (measured, not theoretical):** wrapping fields puts the editor
+leaves' code in that route's client bundle — about **5.5 kB gzipped**, and
+roughly flat whether you wrap five fields or fifty. Shoppers download it but
+never execute it (no hydration, no listeners, no fetches). This is a Next.js
+constraint: a Server Component statically imports its client leaf, and
+dynamically importing a Client Component *from* a Server Component is
+explicitly unsupported for code splitting. So: wrap what a merchant will
+realistically want to edit, and don't blanket-wrap a latency-critical
+landing route "just in case."
 
 **Local dev vs. production data:** `getStore()` resolves the tenant from the
 request's subdomain (`<slug>.kurumera.com`) in production, or from

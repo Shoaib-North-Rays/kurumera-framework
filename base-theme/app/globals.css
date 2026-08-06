@@ -239,6 +239,15 @@ img { max-width: 100%; display: block; }
 .valueprop b { display: block; font-size: 14px; }
 .valueprop span { display: block; font-size: 12.5px; color: var(--muted); }
 
+/* ── Testimonials ───────────────────────────────── */
+.testimonials { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.testimonial {
+  display: flex; flex-direction: column; gap: 10px; padding: 20px;
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.testimonial__quote { margin: 0; font-size: 15px; line-height: 1.55; }
+.testimonial__author { font-size: 13px; font-weight: 600; color: var(--muted); font-style: normal; }
+
 /* ── Collections grid ───────────────────────────── */
 .collections { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
 .collection-card { position: relative; aspect-ratio: 4 / 3; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: var(--paper); }
