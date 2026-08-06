@@ -1,9 +1,14 @@
 "use client";
-import { createContext, useContext, useMemo, useRef, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { createKurumeraClient, type EditableMediaUpload } from "@kurumera/storefront";
 import { EditableStore } from "./store.js";
 import { createSaveQueue, type SaveQueue } from "./save-queue.js";
 import type { EditMode } from "./types.js";
+
+/** Lazily loaded so the stylesheet never reaches a shopper's bundle — see
+ * ChromeStyles.tsx for why this indirection is required, not cosmetic. */
+const ChromeStyles = dynamic(() => import("./ChromeStyles.js"));
 
 export interface EditableProviderProps {
   mode: EditMode;
@@ -65,7 +70,23 @@ export function EditableProvider({ mode, editToken, tenant, apiUrl, fields, chil
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, editToken, tenant, apiUrl]);
 
-  return <EditableContext.Provider value={value}>{children}</EditableContext.Provider>;
+  // `.kurumera-edit-mode` on <html> is what scopes every chrome rule, so a
+  // shopper's DOM carries no editor styling even if a stale style tag existed.
+  useEffect(() => {
+    if (mode !== "edit") return;
+    const root = document.documentElement;
+    root.classList.add("kurumera-edit-mode");
+    return () => root.classList.remove("kurumera-edit-mode");
+  }, [mode]);
+
+  return (
+    <EditableContext.Provider value={value}>
+      {/* Editor chrome CSS — lazily fetched ONLY in edit mode, so a real
+          shopper never downloads or applies a single byte of it. */}
+      {mode === "edit" ? <ChromeStyles /> : null}
+      {children}
+    </EditableContext.Provider>
+  );
 }
 
 const FALLBACK_STORE = new EditableStore({});

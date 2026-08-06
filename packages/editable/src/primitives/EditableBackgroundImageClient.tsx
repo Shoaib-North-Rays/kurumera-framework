@@ -36,7 +36,7 @@ export function EditableBackgroundImageClient({ field, defaultSrc, as, className
 
   return (
     <As
-      className={editableClassName(className, status)}
+      className={`kurumera-editable-bg ${editableClassName(className, status)}`}
       style={{ backgroundImage: `url(${value})`, position: "relative" }}
       data-kurumera-field={field}
       title={status === "error" ? "Couldn't save — click to retry" : undefined}

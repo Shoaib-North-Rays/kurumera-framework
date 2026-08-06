@@ -1,6 +1,6 @@
 {
   "name": "@kurumera/editable",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Kurumera Editable Components — inline, draft/publish, no-rebuild content editing for code themes.",
   "type": "module",
   "main": "dist/index.js",
