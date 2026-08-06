@@ -48,6 +48,7 @@ npm login
 npm run build
 npm publish -w @kurumera/storefront
 npm publish -w @kurumera/theme
+npm publish -w @kurumera/editable
 npm publish -w @kurumera/cli          # bundles base-theme via prepack
 ```
 
