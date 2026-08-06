@@ -12,7 +12,7 @@ const nextConfig = {
   // Theme images come from the store's media/CDN — allow remote sources.
   images: { remotePatterns: [{ protocol: "https", hostname: "**" }] },
   // The SDK packages ship as ESM workspace deps.
-  transpilePackages: ["@kurumera/storefront", "@kurumera/theme"],
+  transpilePackages: ["@kurumera/storefront", "@kurumera/theme", "@kurumera/editable"],
   async headers() {
     return [
       {

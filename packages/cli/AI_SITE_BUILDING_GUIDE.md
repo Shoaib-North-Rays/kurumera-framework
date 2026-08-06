@@ -140,6 +140,90 @@ props, featured-section titles) — populated from `ShopSettings.theme` via
 renders exactly like the template. Read settings through this module, don't
 duplicate the merge/defaulting logic.
 
+**Arbitrary editable content — `@kurumera/editable`.** `ThemeSettings` above
+covers one FIXED, built-in set of fields. For anything else — a testimonial
+list, a CMS-style block of copy on a custom page, an about-page hero — wrap
+it in a component from `@kurumera/editable` instead of hand-writing it:
+
+```tsx
+import { EditableText, EditableImage, EditableRepeater } from "@kurumera/editable";
+
+<EditableText field="about.heading" defaultValue="Our story" as="h1" />
+<EditableImage field="about.heroImage" defaultSrc="/img/about.jpg" defaultAlt="Our team" />
+
+<EditableRepeater
+  field="about.testimonials"
+  defaultItems={[{ quote: "Great products.", author: "A. Merchant" }]}
+  itemDefaults={{ quote: "New testimonial", author: "Customer name" }}
+  itemClassName="testimonial-card"
+>
+  {(item) => (
+    <>
+      <EditableText field={item.fieldFor("quote")} defaultValue={item.data.quote} />
+      <EditableText field={item.fieldFor("author")} defaultValue={item.data.author} as="p" />
+    </>
+  )}
+</EditableRepeater>
+```
+
+`field` is any dotted key you choose (`"about.heading"`, not a fixed schema —
+`theme.config.ts` doesn't need to declare it). A shopper always gets plain,
+zero-extra-JS output; a merchant sees hover/click editing UI ONLY when
+viewing the store through the dashboard's "Edit content" screen (a real
+draft, autosaved, never live until the merchant clicks Publish there — no
+rebuild). This is a **separate system from `ThemeSettings`** — don't wrap a
+field that's already driven by `getSettings()` (e.g. don't put
+`EditableText` around `hero.title`), or the two will fight over which value
+wins. Use `ThemeSettings` for the built-in presentation fields it already
+covers; use `@kurumera/editable` for everything else.
+
+Full primitive list: `EditableText`, `EditableRichText`, `EditableImage`,
+`EditableBackgroundImage`, `EditableButton`, `EditableLink`, `EditableVideo`,
+`EditableSection` (hide/show a whole block), `EditableRepeater`, and
+`useEditableField()` (the hook the primitives are built on, for a field
+shape none of them cover).
+
+**Importing `useEditableField()`/`EditableProvider` yourself — use
+`@kurumera/editable/client`, not the bare package.** The 9 primitives above
+(imported from plain `"@kurumera/editable"`) are Server Components that
+internally read request headers — fine everywhere you'd normally use them
+(page/section files), but if your OWN `"use client"` component imports
+`useEditableField` from the bare `"@kurumera/editable"` entry, the build
+fails with *"You're importing a component that needs next/headers"* — even
+though the hook itself doesn't touch headers, because it'd be reached
+through the same module graph as the primitives that do. Import it from the
+dedicated client-safe entry instead:
+```tsx
+"use client";
+import { useEditableField } from "@kurumera/editable/client";
+```
+A plain `import type { ... } from "@kurumera/editable"` (types only, no
+runtime import) is always safe from either entry.
+
+A few notes on the less obvious primitives:
+
+```tsx
+import { EditableBackgroundImage, EditableButton, EditableVideo } from "@kurumera/editable";
+
+{/* IS the container — not a wrapper around one you'd otherwise write */}
+<EditableBackgroundImage field="home.hero.bg" defaultSrc="/img/hero.jpg" className="hero">
+  <h1>Welcome</h1>
+</EditableBackgroundImage>
+
+<EditableButton field="home.hero.cta" defaultLabel="Shop now" defaultHref="/search" className="btn btn--primary" />
+
+{/* provider is auto-detected from a pasted YouTube/Vimeo URL, or "file" for an upload */}
+<EditableVideo field="home.hero.video" defaultSrc="/video/hero.mp4" muted autoPlay loop />
+```
+
+`EditableButton` and `EditableLink` share the exact same `{label, href}`
+field shape and editing UI — reach for `EditableButton` for a styled CTA,
+`EditableLink` for an inline text link; they're kept as separate exports
+because they're expected to diverge (e.g. a link-only "open in new tab"
+toggle) even though today they're ~identical. `EditableVideo` renders a
+plain `<video>` or a plain iframe embed either way — no client JS in the
+live path, same guarantee as every other primitive here.
+
 **Local dev vs. production data:** `getStore()` resolves the tenant from the
 request's subdomain (`<slug>.kurumera.com`) in production, or from
 `KURUMERA_TENANT`/`KURUMERA_STOREFRONT_TOKEN` env vars for local dev (which
@@ -240,3 +324,8 @@ the Kurumera marketplace for other merchants to install
   disaster-recovery net for a workspace that dies mid-session, not permanent
   storage. Push real progress as soon as it's worth keeping; a checkpoint can
   be overwritten by the next one and isn't versioned.
+- Don't hand-write your own hover/click editing UI for merchant-editable
+  copy — wrap the field in `@kurumera/editable`'s `EditableText`/
+  `EditableImage`/etc. instead. Writing plain JSX around it (no wrapper) means
+  the merchant can never edit it from the dashboard at all — that's the
+  system's actual safety boundary, not an oversight to work around.

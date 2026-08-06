@@ -25,6 +25,15 @@ export interface ClientConfig {
   apiUrl?: string;
   /** Inject a fetch implementation (tests, older runtimes). Defaults to global fetch. */
   fetch?: typeof fetch;
+  /**
+   * Short-lived `kes_…` credential minted by the admin dashboard when a
+   * merchant opens the Kurumera Editable Components content editor. Only
+   * needed by `client.content.getAll()` (to see drafts) and
+   * `.setDraft()`/`.uploadMedia()` (to write them) — harmless to omit, and
+   * harmless to send alongside any other endpoint. Additive: does not
+   * change the token/tenant/domain resolution above.
+   */
+  editSessionToken?: string;
 }
 
 export class KurumeraError extends Error {
@@ -60,6 +69,9 @@ export interface Http {
   post<T>(path: string, body?: unknown): Promise<T>;
   patch<T>(path: string, body?: unknown): Promise<T>;
   del<T>(path: string): Promise<T>;
+  /** POST a `multipart/form-data` body (file uploads) — no JSON encoding, no
+   * Content-Type override (the browser sets the multipart boundary itself). */
+  postForm<T>(path: string, form: FormData): Promise<T>;
 }
 
 export function createHttp(config: ClientConfig): Http {
@@ -71,11 +83,21 @@ export function createHttp(config: ClientConfig): Http {
   if (typeof doFetch !== "function") {
     throw new Error("No fetch available — pass `fetch` in the client config.");
   }
-  const authHeaders: Record<string, string> = config.token
-    ? { "X-Kurumera-Storefront-Token": config.token }
-    : config.tenant
-      ? { "X-Tenant-ID": config.tenant }
-      : { "X-Tenant-Domain": config.domain! };
+  const authHeaders: Record<string, string> = {
+    ...(config.token
+      ? { "X-Kurumera-Storefront-Token": config.token }
+      : config.tenant
+        ? { "X-Tenant-ID": config.tenant }
+        : { "X-Tenant-Domain": config.domain! }),
+    ...(config.editSessionToken ? { "X-Kurumera-Edit-Session": config.editSessionToken } : {}),
+  };
+
+  async function handleResponse<T>(res: Response): Promise<T> {
+    const text = await res.text();
+    const data = text ? safeJson(text) : null;
+    if (!res.ok) throw new KurumeraError(res.status, data);
+    return data as T;
+  }
 
   async function request<T>(method: string, path: string, opts: { query?: Query; body?: unknown } = {}): Promise<T> {
     const url = base + path + queryString(opts.query);
@@ -88,10 +110,15 @@ export function createHttp(config: ClientConfig): Http {
       },
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     });
-    const text = await res.text();
-    const data = text ? safeJson(text) : null;
-    if (!res.ok) throw new KurumeraError(res.status, data);
-    return data as T;
+    return handleResponse<T>(res);
+  }
+
+  async function requestForm<T>(path: string, form: FormData): Promise<T> {
+    const url = base + path;
+    // No Content-Type header — the platform's fetch sets the multipart
+    // boundary itself; overriding it here would break the upload.
+    const res = await doFetch(url, { method: "POST", headers: { ...authHeaders, Accept: "application/json" }, body: form });
+    return handleResponse<T>(res);
   }
 
   return {
@@ -99,6 +126,7 @@ export function createHttp(config: ClientConfig): Http {
     post: <T>(path: string, body?: unknown) => request<T>("POST", path, { body }),
     patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, { body }),
     del: <T>(path: string) => request<T>("DELETE", path),
+    postForm: <T>(path: string, form: FormData) => requestForm<T>(path, form),
   };
 }
 

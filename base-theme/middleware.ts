@@ -31,13 +31,35 @@ export function middleware(req: NextRequest) {
   // Sticky store for the ?store= demo so internal navigation keeps context.
   if (!tenant && !domain && cookie) tenant = cookie;
 
+  // Kurumera Editable Components: the admin dashboard's content editor embeds
+  // this storefront in an iframe with ?__kurumera_edit=<token>&__kurumera_mode=
+  // edit|preview — same convention as ?store= above. Sticky-cookied so the
+  // token survives internal navigation inside the iframe, same as kurumera_store
+  // does; the cookie is just plumbing, apps.editable_content.EditSession.resolve()
+  // on the backend is the real security boundary (a stale/forged cookie value
+  // just resolves to "not editable", never a hard error).
+  const editTokenParam = req.nextUrl.searchParams.get("__kurumera_edit");
+  const editModeParam = req.nextUrl.searchParams.get("__kurumera_mode");
+  const editTokenCookie = req.cookies.get("kurumera_edit")?.value;
+  const editToken = editTokenParam || editTokenCookie || "";
+  const editMode = editModeParam || (editToken ? req.cookies.get("kurumera_edit_mode")?.value : "") || "";
+
   const headers = new Headers(req.headers);
   if (tenant) headers.set("x-kurumera-tenant", tenant);
   if (domain) headers.set("x-kurumera-domain", domain);
+  if (editToken) headers.set("x-kurumera-edit-token", editToken);
+  if (editMode) headers.set("x-kurumera-edit-mode", editMode);
 
   const res = NextResponse.next({ request: { headers } });
   // Remember an explicit ?store choice so links without it still resolve.
   if (q && tenant) res.cookies.set("kurumera_store", tenant, { path: "/", sameSite: "lax" });
+  if (editTokenParam) {
+    // Short-lived cookie — a courtesy for in-iframe navigation, not the
+    // security boundary (see comment above). Matches EditSession's own
+    // 2-hour server-side TTL.
+    res.cookies.set("kurumera_edit", editTokenParam, { path: "/", sameSite: "none", secure: true, maxAge: 2 * 60 * 60 });
+    if (editModeParam) res.cookies.set("kurumera_edit_mode", editModeParam, { path: "/", sameSite: "none", secure: true, maxAge: 2 * 60 * 60 });
+  }
   return res;
 }
 

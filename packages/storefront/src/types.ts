@@ -154,6 +154,30 @@ export interface TenantConfig {
   [k: string]: unknown;
 }
 
+/** One merchant-editable field's resolved value (Kurumera Editable Components).
+ * `value`'s shape depends on which Editable* primitive owns the field — the SDK
+ * never interprets it, only the theme component that declared `field` does. */
+export interface EditableFieldValue {
+  value: unknown;
+  type?: string;
+}
+
+/** GET /storefront/editable-content/ response. `editable` is false (and
+ * `fields` is live-only) unless a valid edit-session token was supplied. */
+export interface EditableContentResponse {
+  editable: boolean;
+  fields: Record<string, EditableFieldValue>;
+}
+
+/** POST /storefront/editable-content/media/ response — a FileUpload row. */
+export interface EditableMediaUpload {
+  id: string;
+  url: string | null;
+  filename: string;
+  mime_type: string;
+  [k: string]: unknown;
+}
+
 /** Token-based cart. Line/total shapes are permissive until the cart theme UI lands. */
 export interface Cart {
   token: string;

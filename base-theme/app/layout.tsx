@@ -5,6 +5,8 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { getSettings, themeCssVars } from "@/lib/settings";
 import { getTenantSlug } from "@/lib/kurumera";
+import { EditableProvider } from "@kurumera/editable/client";
+import { resolveEditableContent } from "@kurumera/editable/server";
 
 // The store is resolved per-request (multi-tenant), so every route renders
 // dynamically — never statically prerendered at build with no store context.
@@ -21,7 +23,11 @@ export async function generateMetadata() {
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const [s, tenantSlug] = await Promise.all([getSettings(), getTenantSlug()]);
+  const [s, tenantSlug, editable] = await Promise.all([
+    getSettings(),
+    getTenantSlug(),
+    resolveEditableContent(),
+  ]);
   const css = themeCssVars(s);
   return (
     <html lang="en">
@@ -38,10 +44,23 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         ) : null}
         {/* Per-store presentation overrides (colors / fonts / radius). */}
         {css ? <style dangerouslySetInnerHTML={{ __html: css }} /> : null}
-        <AnnouncementBar />
-        <Header />
-        <main className="site-main">{children}</main>
-        <Footer />
+        {/* Kurumera Editable Components — seeded from the SAME request-scoped
+            resolveEditableContent() every EditableText/EditableImage/etc.
+            Server Component also calls independently (React cache()-dedupes
+            to one network call per request). See @kurumera/editable's docs
+            for why this needs to be a two-tier (Server + Context) setup. */}
+        <EditableProvider
+          mode={editable.mode}
+          editToken={editable.editToken}
+          tenant={editable.tenant}
+          apiUrl={editable.apiUrl}
+          fields={editable.fields}
+        >
+          <AnnouncementBar />
+          <Header />
+          <main className="site-main">{children}</main>
+          <Footer />
+        </EditableProvider>
       </body>
     </html>
   );

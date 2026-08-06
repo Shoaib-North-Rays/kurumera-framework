@@ -20,6 +20,7 @@ import { pagesResource } from "./resources/pages.js";
 import { navigationResource } from "./resources/navigation.js";
 import { configResource } from "./resources/config.js";
 import { cartResource } from "./resources/cart.js";
+import { contentResource } from "./resources/content.js";
 
 export * from "./types.js";
 export { KurumeraError, DEFAULT_API_URL, collectAll } from "./http.js";
@@ -34,6 +35,8 @@ export interface KurumeraClient {
   navigation: ReturnType<typeof navigationResource>;
   config: ReturnType<typeof configResource>;
   cart: ReturnType<typeof cartResource>;
+  /** Kurumera Editable Components — merchant-editable inline content. */
+  content: ReturnType<typeof contentResource>;
   /** Escape hatch: call any storefront endpoint the typed resources don't cover. */
   http: Http;
 }
@@ -48,6 +51,7 @@ export function createKurumeraClient(config: ClientConfig): KurumeraClient {
     navigation: navigationResource(http),
     config: configResource(http),
     cart: cartResource(http),
+    content: contentResource(http),
     http,
   };
 }
