@@ -2042,6 +2042,21 @@ const server = http.createServer((req, res) => {
       const az = await authorizeMutation(req, s, body.actor_email, "market_publish");   // trusted service key (dashboard) or dev CLI bearer
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const r = await publishToMarket(s, body);
+      // Capture a cover here TOO, not just on the builder-design path below.
+      //
+      // captureCover was wired only to /publish-design, so every CODE theme —
+      // which is currently the entire public catalogue — shipped with
+      // coverImage:"" forever. The marketplace then had no image to show and
+      // fell back to framing the live theme in an iframe on every card, which
+      // is why its home page mounts 16 cross-origin iframes, several of the
+      // same theme. The capture pipeline itself was never broken: run by hand
+      // it succeeds in ~20s and produces a 64 KB jpg.
+      //
+      // Same contract as the builder path: fire-and-forget, never blocks or
+      // fails a publish, and a missing cover still falls back to the iframe.
+      if (r && r.ok !== false) {
+        try { captureCover(r.theme || body.theme || s); } catch { /* cover is best-effort */ }
+      }
       json(r.ok === false ? (r.status || 400) : 200, r);
     });
     return;
