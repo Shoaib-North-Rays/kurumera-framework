@@ -1,0 +1,442 @@
+/* ═════════════════════════════════════════════════════════════════════════════
+   TEMPLATE DETAIL — the conversion surface.
+
+   Scoped entirely under `.dp`. Nothing here is global, and globals.css is not
+   touched: the handful of `.dp .pdp__*` rules below re-dress the preview
+   components (DetailPreview / BuilderPreview) from the outside, because those
+   files carry preview state that must not be edited.
+
+   THE ONE IDEA: on this page the live preview IS the product photograph. No
+   template in the registry ships artwork this page could hero, so the
+   composition gives the iframe the height and the framing a hero image would
+   have got, and puts the price and the acquire button in a rail that stays with
+   it the whole way down.
+
+   Everything sits on the tokens.css scales. No new sizes, no new easings.
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+.dp {
+  /* One knob for the rail width; the preview takes whatever is left. */
+  --dp-rail: 352px;
+}
+
+/* ── MASTHEAD ────────────────────────────────────────────────────────────────
+   The title used to live inside the 372px rail at 28px, which is why the page
+   read as a form with a picture next to it. Pulled out to full width at
+   --t-page-title it becomes the first beat of the page, and the rail is freed
+   to do one job: sell.                                                        */
+.dp-head {
+  padding-block: var(--s-5) var(--s-7);
+}
+.dp-head .crumbs {
+  margin-bottom: var(--s-7);
+}
+.dp-head__eyebrow {
+  display: block;
+  margin-bottom: var(--s-4);
+}
+.dp-title {
+  font-size: var(--t-page-title);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--ls-display);
+  font-weight: var(--fw-black);
+  max-width: var(--w-content);
+  text-wrap: balance;
+  /* Real names in the registry are single unspaced tokens —
+     "markabluxurymobility", "kalicosmeticsluxe". At 64px one of those is wider
+     than a phone, so the break is allowed rather than left to overflow. */
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* The masthead rule: author, release and type as one metadata line under a
+   hairline. Chrome-sized on purpose — it orients, it does not compete. */
+.dp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  margin-top: var(--s-6);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--border);
+  font-size: var(--t-caption);
+  line-height: var(--lh-title);
+  color: var(--muted);
+  max-width: var(--w-content);
+}
+.dp-meta__by {
+  color: var(--ink);
+  font-weight: var(--fw-semibold);
+}
+.dp-meta__sep {
+  color: var(--border-strong);
+}
+
+/* ── THE TWO COLUMNS ───────────────────────────────────────────────────────── */
+.dp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--dp-rail);
+  gap: var(--s-7) var(--s-8);
+  align-items: start;
+  padding-bottom: var(--sec-md);
+}
+
+/* ── PREVIEW (re-dressing DetailPreview / BuilderPreview from outside) ────────
+   Taller, quieter frame, heavier lift on the device — the stage should read as
+   a plinth, not as another card in a page of cards. */
+.dp-preview {
+  /* The reveal wrapper is the grid item, so the min-width:0 that stops a wide
+     iframe from blowing out the column has to live here, not on .pdp__left. */
+  min-width: 0;
+}
+.dp .pdp__left {
+  min-width: 0;
+}
+.dp .pdp__toolbar {
+  margin-bottom: var(--s-3);
+}
+.dp .pdp__stage {
+  padding: var(--s-3);
+  border-radius: var(--r-md);
+}
+.dp .pdp__device {
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-lift);
+}
+/* The single most important number on the page: how much of the template you
+   can actually see without opening it. Viewport-relative so a large monitor
+   shows more of the fold, capped so it never outruns the rail. */
+.dp .pdp__device iframe {
+  height: clamp(30rem, 72vh, 50rem);
+}
+
+/* A quiet line under the stage rather than a second toolbar — the full-screen
+   affordance already lives above it. */
+.dp-stage-note {
+  margin-top: var(--s-3);
+  font-size: var(--t-meta);
+  line-height: var(--lh-title);
+  color: var(--faint);
+}
+
+/* ── PURCHASE RAIL ─────────────────────────────────────────────────────────── */
+.dp-rail {
+  position: sticky;
+  top: var(--sticky-top);
+  display: grid;
+  gap: var(--s-5);
+}
+.dp-buy {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s-6);
+  box-shadow: var(--shadow-sm);
+}
+.dp-price {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  margin-bottom: var(--s-5);
+}
+.dp-price b {
+  font-family: var(--font-head);
+  font-size: var(--t-h3);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--ls-heading);
+  font-weight: var(--fw-black);
+}
+.dp-price .free {
+  color: var(--green-dark);
+}
+.dp-price span {
+  font-size: var(--t-caption);
+  color: var(--muted);
+}
+.dp-save {
+  margin-top: var(--s-3);
+  display: flex;
+  justify-content: center;
+}
+
+/* Facts as a definition list on hairlines. Two columns, value right-aligned:
+   the shape reads as a spec sheet, which is what it is. */
+.dp-facts {
+  margin: var(--s-6) 0 0;
+  display: grid;
+  border-bottom: 1px solid var(--border);
+}
+.dp-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-3) 0;
+  border-top: 1px solid var(--border);
+  font-size: var(--t-caption);
+  line-height: var(--lh-title);
+}
+.dp-fact dt {
+  color: var(--muted);
+}
+.dp-fact dd {
+  margin: 0;
+  font-weight: var(--fw-semibold);
+  text-align: right;
+}
+.dp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+/* ── SPEC BAND (tabs) ──────────────────────────────────────────────────────── */
+.dp-info {
+  padding-block: var(--sec-sm) var(--sec-md);
+  border-top: 1px solid var(--border);
+}
+
+/* Tabs as editorial labels, not chrome pills: uppercase, hairline-anchored,
+   with an underline that grows from the leading edge on selection. */
+.dt-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-6);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--s-7);
+}
+.dt-tab {
+  position: relative;
+  border: 0;
+  background: none;
+  padding: 0 0 var(--s-3);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  line-height: var(--lh-title);
+  text-transform: uppercase;
+  color: var(--muted);
+  transition: color var(--d-fast) var(--e-out);
+}
+.dt-tab:hover,
+.dt-tab[aria-selected="true"] {
+  color: var(--ink);
+}
+.dt-tab::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--green);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--d-normal) var(--e-out);
+}
+.dt-tab[aria-selected="true"]::after {
+  transform: scaleX(1);
+}
+
+/* ── PANES ─────────────────────────────────────────────────────────────────── */
+.dt-pane {
+  max-width: var(--w-narrow);
+}
+.dt-pane p {
+  font-size: var(--t-body-lg);
+  line-height: var(--lh-body);
+  color: var(--muted);
+  text-wrap: pretty;
+}
+.dt-pane p + p {
+  margin-top: var(--s-4);
+}
+/* First paragraph of a real description carries the weight of a lede. */
+.dt-pane p.dt-lead {
+  color: var(--ink);
+  font-size: var(--t-h4);
+  line-height: var(--lh-title);
+  letter-spacing: var(--ls-heading);
+}
+/* Three of seven templates ship no description. Rather than a void or invented
+   marketing copy, the pane says so plainly and then states what IS known. */
+.dt-pane p.dt-nodesc {
+  border-left: 2px solid var(--border-strong);
+  padding-left: var(--s-5);
+  color: var(--faint);
+}
+.dt-sub {
+  font-family: var(--font-body);
+  margin: var(--s-7) 0 var(--s-4);
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  line-height: var(--lh-title);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.dt-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.dt-points li {
+  position: relative;
+  padding: var(--s-3) 0 var(--s-3) var(--s-6);
+  border-top: 1px solid var(--border);
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+  color: var(--muted);
+}
+.dt-points li:last-child {
+  border-bottom: 1px solid var(--border);
+}
+.dt-points li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: calc(var(--s-3) + 0.62em);
+  width: 14px;
+  height: 1px;
+  background: var(--green);
+}
+
+/* Details: a two-column spec table built from dl, so the label/value pairing is
+   in the markup and not only in the layout. */
+.dt-spec {
+  display: grid;
+  grid-template-columns: minmax(8rem, 13rem) minmax(0, 1fr);
+  max-width: var(--w-content);
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+}
+.dt-spec dt,
+.dt-spec dd {
+  padding: var(--s-4) 0;
+  border-top: 1px solid var(--border);
+  margin: 0;
+  line-height: var(--lh-body);
+}
+.dt-spec dt {
+  font-size: var(--t-caption);
+  color: var(--muted);
+}
+.dt-spec dd {
+  font-size: var(--t-body);
+  color: var(--ink);
+  overflow-wrap: break-word;
+}
+
+/* Versions: a release list. Woodora has eight; five templates have one. Both
+   have to look deliberate, so it is a plain ruled list either way. */
+.dt-versions {
+  display: grid;
+  max-width: 30rem;
+  border-bottom: 1px solid var(--border);
+}
+.dt-version {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-4) 0;
+  border-top: 1px solid var(--border);
+}
+.dt-version__v {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: var(--t-caption);
+  color: var(--ink);
+}
+.dt-version:not(.is-latest) .dt-version__v {
+  color: var(--muted);
+}
+.dt-version__tag {
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--green-dark);
+}
+
+/* ── RELATED ───────────────────────────────────────────────────────────────── */
+.dp-related {
+  border-top: 1px solid var(--border);
+  padding-block: var(--sec-sm) var(--sec-md);
+}
+/* The reveal wrapper must not become a shorter grid item than the card it
+   holds, or the row loses its even bottom edge. */
+.dp-rel-item {
+  display: flex;
+}
+.dp-rel-item > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── MOTION ──────────────────────────────────────────────────────────────────
+   One animation is defined in this file and it is FEEDBACK: switching a tab
+   swaps the pane below with no layout cue that anything happened. A 320ms rise
+   confirms the click and carries the eye to the new content. Everything else on
+   this page uses the shared <Reveal> primitives from Phase 1.
+
+   Gated on html.js like every other hidden-then-shown state in the system, and
+   `both` fill means the reduced-motion kill switch in globals.css leaves the
+   pane at its natural, visible style.                                         */
+@media (prefers-reduced-motion: no-preference) {
+  html.js .dt-pane {
+    animation: dt-pane-in var(--d-normal) var(--e-out) both;
+  }
+  @keyframes dt-pane-in {
+    from { opacity: 0; transform: translate3d(0, 6px, 0); }
+    to   { opacity: 1; transform: none; }
+  }
+}
+
+/* ── RESPONSIVE ────────────────────────────────────────────────────────────── */
+@media (max-width: 1120px) {
+  .dp {
+    --dp-rail: 320px;
+  }
+  .dp-grid {
+    gap: var(--s-6) var(--s-7);
+  }
+}
+
+@media (max-width: 980px) {
+  .dp-grid {
+    grid-template-columns: 1fr;
+  }
+  /* Single column: the masthead already carries the name, so the order becomes
+     read it → look at it → buy it. The rail stops being sticky because a
+     full-width sticky block would eat the phone viewport. */
+  .dp-rail {
+    position: static;
+  }
+  .dp-buy {
+    padding: var(--s-5);
+  }
+  .dp .pdp__device iframe {
+    height: clamp(22rem, 58vh, 34rem);
+  }
+  .dt-spec {
+    grid-template-columns: 1fr;
+    border-bottom: 0;
+  }
+  .dt-spec dd {
+    padding-top: 0;
+    padding-bottom: var(--s-4);
+    border-top: 0;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+/* A short viewport cannot hold the rail AND the header offset, and a sticky
+   element taller than its scrollport never moves — worse than not sticking. */
+@media (min-width: 981px) and (max-height: 620px) {
+  .dp-rail {
+    position: static;
+  }
+}

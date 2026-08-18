@@ -20,5 +20,5 @@ export default async function CategoryPage({
   searchParams: Promise<SP>;
 }) {
   const { category } = await params;
-  return <DiscoveryView params={await searchParams} forced={{ category }} />;
+  return <DiscoveryView params={await searchParams} forced={{ category }} base={`/templates/category/${category}`} />;
 }

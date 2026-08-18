@@ -1,7 +1,10 @@
 import Link from "next/link";
-import { Search, Bolt } from "@/components/Icons";
+import { Bolt } from "@/components/Icons";
 import { SignInButton } from "@/components/SignInButton";
 import { MobileNav } from "@/components/MobileNav";
+import { SearchOverlay } from "@/components/SearchOverlay";
+import { HeaderScrollState } from "@/components/HeaderScrollState";
+import "@/app/chrome.css";
 
 // Every item resolves to a real page (no dead `#`/sign-in-wall links).
 export const NAV = [
@@ -11,9 +14,16 @@ export const NAV = [
   { label: "For Creators", href: "/creator" },
 ];
 
+/**
+ * Stays a SERVER component. The brand, the primary nav and the CTA are the
+ * links every crawler and every no-JS visitor needs, and they cost nothing to
+ * render here; only the three genuinely interactive controls (sign-in, search,
+ * drawer) plus the scroll-state probe are client leaves.
+ */
 export function Header() {
   return (
     <header className="site-header">
+      <HeaderScrollState />
       <div className="wrap site-header__row">
         <Link href="/" className="brand" aria-label="Kurumera Templates home">
           <span className="brand__mark">K</span>
@@ -25,7 +35,7 @@ export function Header() {
           ))}
         </nav>
         <div className="header-actions">
-          <Link href="/templates" className="icon-btn" aria-label="Search templates"><Search /></Link>
+          <SearchOverlay />
           <SignInButton />
           <Link href="/templates" className="btn btn--primary header-cta"><Bolt /> Start Building</Link>
           <MobileNav items={NAV} />

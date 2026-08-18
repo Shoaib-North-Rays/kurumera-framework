@@ -1,0 +1,277 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   DISCOVERY SURFACE — /templates, /templates/free, /templates/paid,
+   /templates/category/[category].
+
+   Scoped on purpose. Every rule here is nested under .disc-side / .disc-grid /
+   .disc-list, so the same <TemplateCard> keeps rendering exactly as it does on
+   the home page and the related-templates rail. globals.css is untouched.
+
+   Two things this file exists to do:
+
+   1. ONE filter panel, two presentations. The panel is in the DOM exactly once.
+      Above 880px it is a sticky column. Below, the SAME element becomes a
+      bottom sheet whose open state is the URL fragment (#filters), so it needs
+      no JavaScript and no duplicate markup — which is what the old
+      desktop-div + mobile-details pair was paying for.
+
+   2. Editorial rhythm in the results grid without breaking scannability. A
+      12-track grid with a small span vocabulary, so a promoted card can be
+      twice the width of its neighbours and every row still closes flush.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── FILTERS ────────────────────────────────────────────────────────────── */
+
+.disc-side { position: relative; }
+
+/* Chrome that only the sheet needs. Hidden by default = desktop is the plain
+   column it always was, with nothing extra in the accessibility tree. */
+.disc-side__trigger,
+.disc-side__head,
+.disc-side__scrim { display: none; }
+
+.disc-side__panel {
+  display: grid;
+  gap: var(--s-2);
+  align-content: start;
+  position: sticky;
+  top: var(--sticky-top);
+}
+
+@media (max-width: 880px) {
+  .disc-side__trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    height: var(--h-control);
+    padding: 0 var(--s-4);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-btn);
+    color: var(--ink);
+    font-size: var(--t-caption);
+    font-weight: var(--fw-semibold);
+  }
+  .disc-side__trigger:hover { background: var(--sunken); }
+  .disc-side__trigger svg { width: 18px; height: 18px; }
+
+  /* How many filters are applied — the one thing a collapsed panel hides that
+     the user actually needs to know. */
+  .disc-side__n {
+    display: inline-grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 var(--s-1);
+    border-radius: 999px;
+    background: var(--green);
+    color: #fff;
+    font-size: var(--t-meta);
+    font-weight: var(--fw-bold);
+  }
+
+  .disc-side__panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: 18vh;
+    z-index: 60;
+    padding: 0 var(--gutter) var(--s-8);
+    background: var(--surface);
+    border-radius: var(--r-md) var(--r-md) 0 0;
+    box-shadow: var(--shadow-lift);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* Slides from the edge it is anchored to, so the sheet reads as arriving
+       from the button rather than appearing from nowhere. Orientation. */
+    transform: translate3d(0, 100%, 0);
+    visibility: hidden;
+    transition:
+      transform var(--d-normal) var(--e-in),
+      visibility var(--d-normal) step-end;
+  }
+
+  /* :target — the open state lives in the URL, like every other piece of
+     discovery state on this page. No JS, no duplicated markup. */
+  .disc-side__panel:target {
+    transform: none;
+    visibility: visible;
+    transition:
+      transform var(--d-normal) var(--e-out),
+      visibility 0s;
+  }
+
+  .disc-side__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-4);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding-block: var(--s-4);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-weight: var(--fw-semibold);
+    font-size: var(--t-caption);
+  }
+  .disc-side__close {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--r-sm);
+    color: var(--muted);
+  }
+  .disc-side__close:hover { background: var(--sunken); color: var(--ink); }
+
+  .disc-side__scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 59;
+    background: rgba(15, 23, 42, .42);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--d-normal) var(--e-out);
+  }
+  .disc-side__panel:target ~ .disc-side__scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* ── RESULTS GRID ───────────────────────────────────────────────────────── */
+
+.disc-grid {
+  display: grid;
+  /* minmax(0,…), not 1fr: a track that keeps its automatic minimum lets one
+     long template name push the whole row wider than the column. */
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--s-6);
+}
+
+/* The whole span vocabulary — four values and no more, so the rhythm stays
+   legible: 12 = banner, 6 = feature, 4 = third, 3 = quarter. */
+.disc-grid > [data-span="12"] { grid-column: span 12; }
+.disc-grid > [data-span="6"]  { grid-column: span 6; }
+.disc-grid > [data-span="4"]  { grid-column: span 4; }
+.disc-grid > [data-span="3"]  { grid-column: span 3; }
+
+/* A quarter-width card below ~1180px is a thumbnail, not a card. Small spans
+   collapse to halves first, then to full width. The promoted cards keep their
+   emphasis through taller media and a larger name, not through width alone. */
+@media (max-width: 1180px) {
+  .disc-grid > [data-span="4"],
+  .disc-grid > [data-span="3"] { grid-column: span 6; }
+}
+@media (max-width: 700px) {
+  .disc-grid { gap: var(--s-5); }
+  .disc-grid > [data-span] { grid-column: span 12; }
+}
+
+/* Promoted card: more room for the live preview, and a name one step up. */
+.disc-grid > [data-span="6"] .tpl-card__media,
+.disc-grid > [data-span="12"] .tpl-card__media { aspect-ratio: 16 / 10; }
+.disc-grid > [data-span="6"] .tpl-card__body,
+.disc-grid > [data-span="12"] .tpl-card__body { padding: var(--s-6); gap: var(--s-3); }
+.disc-grid > [data-span="6"] .tpl-card__name,
+.disc-grid > [data-span="12"] .tpl-card__name { font-size: var(--t-h3); line-height: var(--lh-heading); }
+
+/* Banner card — the row-filling variant. Horizontal, so a full-width card does
+   not become a full-width picture frame with three words underneath it. */
+.disc-grid > [data-span="12"] { flex-direction: row; }
+.disc-grid > [data-span="12"] .tpl-card__media {
+  width: 52%;
+  flex: none;
+  aspect-ratio: 16 / 9;
+  border-bottom: 0;
+  border-right: 1px solid var(--border);
+}
+.disc-grid > [data-span="12"] .tpl-card__body { justify-content: center; padding: var(--s-8); }
+@media (max-width: 900px) {
+  .disc-grid > [data-span="12"] { flex-direction: column; }
+  .disc-grid > [data-span="12"] .tpl-card__media {
+    width: auto;
+    aspect-ratio: 16 / 10;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .disc-grid > [data-span="12"] .tpl-card__body { padding: var(--s-6); }
+}
+
+/* Description exists on only 4 of the 7 published templates, so it renders
+   conditionally and only on promoted cards — never as a filler line. */
+.tpl-card__desc {
+  color: var(--muted);
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+  max-width: 56ch;
+  text-wrap: pretty;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── CARD AS ONE REAL LINK ──────────────────────────────────────────────────
+   The card was a <div> whose body happened to be a link, so most of its
+   surface was dead to a click.
+
+   Stretched-link pattern instead: the body link grows a pseudo-element across
+   the whole card. Still exactly one <a>, no nesting, and the overlay actions
+   stay clickable by sitting above it. Scoped to the discovery surfaces so the
+   shared card behaves identically everywhere else it is used. */
+:is(.disc-grid, .disc-list) .tpl-card { position: relative; }
+:is(.disc-grid, .disc-list) .tpl-card__body::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+:is(.disc-grid, .disc-list) .tpl-card__badges { z-index: 3; pointer-events: none; }
+:is(.disc-grid, .disc-list) .tpl-card__save { z-index: 5; }
+
+/* The hover overlay is pointer-only. On touch there is no hover, so leaving it
+   in the layer stack meant an invisible sheet over the preview — which, with a
+   stretched link underneath, would have made the media dead to a tap. */
+:is(.disc-grid, .disc-list) .tpl-card__hover { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  :is(.disc-grid, .disc-list) .tpl-card__hover {
+    display: flex;
+    z-index: 4;
+    pointer-events: none;
+  }
+  :is(.disc-grid, .disc-list) .tpl-card__hover a { pointer-events: auto; }
+
+  /* The card is the hover target, so the card's arrow is what advances: the
+     .mi-arrow primitive, driven from the card rather than from itself. */
+  :is(.disc-grid, .disc-list) .tpl-card:hover .mi-arrow > svg,
+  :is(.disc-grid, .disc-list) .tpl-card:focus-within .mi-arrow > svg {
+    transform: translate3d(4px, 0, 0);
+  }
+}
+
+.tpl-card__title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+.tpl-card__go { flex: none; color: var(--green-dark); line-height: 0; }
+.tpl-card__go svg { width: 20px; height: 20px; }
+
+/* ── RESULTS BAR ────────────────────────────────────────────────────────── */
+
+.disc-bar__left {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+
+/* Sort is a navigation, so it needs a pending state: without one the select
+   snaps back to the previous value for the length of the round trip and reads
+   as broken. This is the only reason SortSelect is a client component. */
+.sortsel[data-pending="1"] { opacity: .6; }
+.sortsel[data-pending="1"] select { cursor: progress; }

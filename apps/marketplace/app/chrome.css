@@ -1,0 +1,258 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   CHROME — header surface state, the search overlay, and the mobile drawer.
+
+   Scoped to the site chrome on purpose: globals.css owns the content layer and
+   is not touched here. Everything below runs on the tokens.css scales (--s-*,
+   --t-*, --d-*, --e-*) and the globals.css palette, so the chrome moves and
+   measures like the rest of the system rather than inventing a second one.
+
+   MOTION POLICY IN THIS FILE — three animations, each with a job:
+     · header surface        orientation: "you have left the top of the page"
+     · overlay backdrop fade orientation: the page has been pushed behind a layer
+     · overlay panel descend orientation: the layer arrives FROM the header,
+                             which is where the trigger the user just hit lives
+   There is no fourth. Row hovers are feedback and use the shared --d-fast step.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Header surface state ───────────────────────────────────────────────────
+   Deliberately NOT a height change. `.site-header` is `position: sticky`, so
+   its box still occupies flow space at the top of the document; shrinking it
+   shortens the document and yanks the content upward mid-scroll (Safari has no
+   scroll anchoring to paper over it). So the compaction is a surface change:
+   the translucent, hairline-bordered top-of-page bar becomes an opaque,
+   shadowed bar that sits ON the content. Same signal, zero reflow — crossing
+   the threshold only ever repaints. */
+.site-header {
+  transition:
+    background-color var(--d-normal) var(--e-out),
+    box-shadow var(--d-normal) var(--e-out),
+    border-bottom-color var(--d-normal) var(--e-out);
+}
+html[data-scrolled] .site-header {
+  background: var(--surface);
+  border-bottom-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+/* The trigger is a real button now, not a link wearing a magnifier. `.icon-btn`
+   in globals.css already gives it its box; this only marks the open state so
+   the control reads as "this is the thing that is currently expanded". */
+.searchov-trigger[aria-expanded="true"] {
+  background: var(--sunken);
+  color: var(--ink);
+}
+
+/* ── Search overlay ─────────────────────────────────────────────────────────
+   z-index sits above the header (60) and the mobile drawer (90), either of
+   which can be on screen when it opens. */
+.searchov {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  padding: var(--s-5);
+}
+.searchov__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, .42);
+  backdrop-filter: blur(3px);
+}
+.searchov__panel {
+  position: relative;
+  align-self: flex-start;
+  width: 100%;
+  max-width: var(--w-narrow);
+  /* Anchored high, under the header it came from — not vertically centred,
+     which would drag the eye away from the control the user just pressed. */
+  margin-top: min(11vh, var(--s-9));
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - var(--s-10));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-modal);
+  box-shadow: var(--shadow-lift);
+  overflow: hidden;
+}
+
+/* Field row — the large input the header never had. */
+.searchov__field {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 0 var(--s-4) 0 var(--s-5);
+  border-bottom: 1px solid var(--border);
+}
+.searchov__field > svg { width: 22px; height: 22px; color: var(--muted); flex: none; }
+.searchov__input {
+  flex: 1;
+  min-width: 0;
+  height: 76px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-head);
+  font-size: var(--t-h4);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-title);
+  letter-spacing: var(--ls-heading);
+}
+.searchov__input:focus { outline: none; }
+.searchov__input::placeholder {
+  color: var(--faint);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--ls-body);
+}
+.searchov__input::-webkit-search-cancel-button { display: none; }
+.searchov__close {
+  flex: none;
+  width: var(--h-control);
+  height: var(--h-control);
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color var(--d-fast) var(--e-out), color var(--d-fast) var(--e-out);
+}
+.searchov__close:hover { background: var(--sunken); color: var(--ink); }
+.searchov__close svg { width: 18px; height: 18px; }
+
+.searchov__body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-block: var(--s-2);
+}
+.searchov__label {
+  display: block;
+  padding: var(--s-3) var(--s-5) var(--s-2);
+  font-family: var(--font-body);
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  line-height: var(--lh-title);
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* One row shape for every kind of suggestion (template hit, recent query, the
+   see-all escape hatch) so the list reads as one column, not three widgets. */
+.searchov__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  width: 100%;
+  padding: var(--s-3) var(--s-5);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--d-fast) var(--e-out);
+}
+.searchov__row:hover { background: var(--sunken); }
+.searchov__row:focus-visible {
+  outline: none;
+  background: var(--sunken);
+  box-shadow: inset 3px 0 0 var(--green);
+}
+.searchov__row > svg { width: 18px; height: 18px; color: var(--muted); flex: none; }
+.searchov__rowmain { min-width: 0; }
+.searchov__name {
+  display: block;
+  font-size: var(--t-body);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-title);
+  letter-spacing: var(--ls-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.searchov__by {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--t-caption);
+  color: var(--muted);
+  line-height: var(--lh-title);
+}
+.searchov__price {
+  margin-left: auto;
+  flex: none;
+  font-size: var(--t-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--ink);
+}
+.searchov__price.free { color: var(--green-dark); }
+.searchov__note {
+  padding: var(--s-4) var(--s-5) var(--s-5);
+  margin: 0;
+  font-size: var(--t-caption);
+  color: var(--muted);
+  line-height: var(--lh-body);
+}
+
+.searchov__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s-5);
+  padding: var(--s-3) var(--s-5);
+  border-top: 1px solid var(--border);
+  background: var(--page);
+  font-size: var(--t-meta);
+  line-height: var(--lh-title);
+  color: var(--muted);
+}
+.searchov__foot span { display: inline-flex; align-items: center; gap: var(--s-2); }
+.searchov kbd {
+  font-family: var(--font-body);
+  font-size: var(--t-meta);
+  font-weight: var(--fw-semibold);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--r-sm);
+  padding: 1px var(--s-2);
+}
+
+/* Entrance. The default state is the SETTLED state, so when globals.css strips
+   animation under prefers-reduced-motion the overlay simply appears. */
+@media (prefers-reduced-motion: no-preference) {
+  .searchov__backdrop { animation: searchov-fade var(--d-fast) var(--e-out) both; }
+  .searchov__panel { animation: searchov-drop var(--d-normal) var(--e-out) both; }
+}
+@keyframes searchov-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes searchov-drop {
+  from { opacity: 0; transform: translate3d(0, -12px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* On a phone the overlay IS the screen — a floating card inside a 24px gutter
+   spends the only space a result list has on decoration. */
+@media (max-width: 640px) {
+  .searchov { padding: 0; }
+  .searchov__panel {
+    margin-top: 0;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: var(--r-none);
+  }
+  .searchov__field { padding-left: var(--s-4); }
+  .searchov__input { height: 64px; }
+  .searchov__body { flex: 1; }
+}
+
+/* ── Mobile drawer ──────────────────────────────────────────────────────────
+   The drawer is the only navigation a phone user has, so it is also the only
+   place the site can answer "which section am I in". */
+.mobile-nav__panel a[aria-current="page"] {
+  background: var(--mint);
+  color: var(--green-dark);
+}

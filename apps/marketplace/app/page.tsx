@@ -1,43 +1,70 @@
 import Link from "next/link";
-import Image from "next/image";
+import "./home.css";
 import {
-  fetchTemplates, categoryCounts, matchesCategory, CATEGORIES, isFree, isBuilder, priceLabel,
+  fetchTemplates, categoryCounts, CATEGORIES, isFree, isBuilder, priceLabel,
   featureLabels, categoryLabel, builderPreviewUrl, BUILDER_ORIGIN, type Template,
 } from "@/lib/registry";
-import { TemplateCard } from "@/components/TemplateCard";
 import { LivePreview } from "@/components/LivePreview";
-import { CategoryRail } from "@/components/CategoryRail";
-import { Search, Arrow, Bolt, Shield, Layers, Grid, Devices, Headset, Check } from "@/components/Icons";
+import { Reveal, RevealGroup, RevealLines } from "@/components/motion/Reveal";
+import { Arrow } from "@/components/Icons";
+import { SearchForm } from "@/components/SearchForm";
 
-const SEARCH_CHIPS = ["Restaurant templates", "Ecommerce templates", "Dark portfolio", "Free agency templates", "One-page landing pages"];
+/* ─────────────────────────────────────────────────────────────────────────────
+   HOME — an index, not a catalogue front.
 
-// Static hero imagery — a live-iframe collage (LivePreview) doesn't belong in this
-// transformed/staggered layout: its scale is computed from a JS-measured container
-// size, and that measurement broke inside the rotated flex items here, letting the
-// iframe render unscaled and spill across the whole page. Real screenshots avoid
-// that entire class of bug and match how the reference design does it too.
-const HERO_IMAGES = [
-  { src: "/hfc.png", label: "Restaurant", alt: "A restaurant storefront built on Kurumera" },
-  { src: "/woodra.png", label: "Furniture", alt: "A furniture storefront built on Kurumera" },
-  { src: "/shamre.png", label: "Fashion", alt: "A fashion storefront built on Kurumera" },
+   WHAT THE DATA ACTUALLY SUPPORTS (measured against the live registry, not
+   assumed). Eight published templates. Three installs in total across all of
+   them. Eight authors, one template each. Four free, four paid ($10–$300).
+   Four of the twelve categories are empty. Three of the eight descriptions are
+   empty strings. Every template does now have a real 1280×900 cover screenshot
+   — that changed in 290ed5f, which extended cover capture to code themes.
+
+   Everything on this page is derived from those facts, and the sections that
+   could only be filled by inventing something are gone rather than padded:
+
+     · The stats band. "3 installs" is not social proof, and dressing it up as
+       "Trusted by creators" is the exact failure the brief names.
+     · "Trending templates". Nothing with a maximum of one install is trending.
+     · "Free templates" as a separate row. It repeated four of the same eight
+       listings under a second heading; price is now on every index entry and
+       /templates/free is one link away.
+     · The use-case grid. It declared three columns and rendered one card,
+       because two of its three categories resolve to nothing.
+     · The spotlight. "Most installed" means one install.
+     · The top-creators grid. Eight avatars each reading "1 template".
+     · The six-icon "Blazing fast / SEO ready" grid. Six unverifiable claims.
+     · Install counts anywhere on the page.
+
+   What replaces them is one complete index of all eight, because at this size
+   showing everything is both the honest move and the stronger composition.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/** Spelled-out counts read as editorial; digits read as a dashboard. Falls back
+ *  to digits past twenty, where the word is longer than the number it saves. */
+const WORDS = [
+  "Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+  "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen", "Twenty",
 ];
+const numWord = (n: number) => (n >= 0 && n < WORDS.length ? WORDS[n] : String(n));
+const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
-const WHY = [
-  { icon: Layers, title: "Easy customization", body: "Drag, drop, done — no code needed." },
-  { icon: Devices, title: "Fully responsive", body: "Looks right on desktop, tablet, and phone." },
-  { icon: Bolt, title: "Blazing fast", body: "Lightning-fast performance out of the box." },
-  { icon: Search, title: "SEO ready", body: "Clean markup and metadata, ready to rank." },
-  { icon: Shield, title: "Own what you build", body: "Free or paid, your site is yours — no lock-in." },
-  { icon: Headset, title: "Real support", body: "Reach a human at support@kurumera.com." },
-];
+/** "A, B or C" — used for the empty-category invitation. */
+function listWords(xs: string[]): string {
+  if (xs.length <= 1) return xs[0] || "";
+  return `${xs.slice(0, -1).join(", ")} or ${xs[xs.length - 1]}`;
+}
 
-// Three broad use cases, each mapped to a real category — copy is generic/editorial,
-// not a data claim, so it stays honest without needing any number behind it.
-const USE_CASES = [
-  { key: "ecommerce", title: "Launch your online store", body: "High-converting templates for stores that sell more." },
-  { key: "portfolio", title: "Showcase your work", body: "Portfolio templates built to highlight your best work." },
-  { key: "business", title: "Grow your brand", body: "Professional templates for agencies, SaaS, and businesses." },
-];
+/**
+ * Tag labels, filtered.
+ *
+ * featureLabels() is the site-wide helper and stays authoritative, but one live
+ * listing carries the tag ": real-estate", which it renders verbatim as
+ * ": Real-estate". A stray leading colon reads as a rendering bug at this type
+ * size, so anything that is not a clean word is dropped rather than repaired —
+ * inventing a label the creator did not write would be worse.
+ */
+const CLEAN_TAG = /^[A-Za-z][A-Za-z0-9 &+-]*$/;
+const cleanTags = (t: Template, limit = 3) => featureLabels(t, limit + 2).filter((x) => CLEAN_TAG.test(x)).slice(0, limit);
 
 const FAQ = [
   {
@@ -58,278 +85,250 @@ const FAQ = [
   },
 ];
 
-function Row({ title, eyebrow, href, items }: { title: string; eyebrow: string; href: string; items: Template[] }) {
-  if (!items.length) return null;
+/**
+ * One index entry.
+ *
+ * The cover screenshot is the primary image now that every listing has one;
+ * LivePreview stays as the fallback for the moment a newly published template
+ * exists before its screenshot has been captured. That ordering also means the
+ * page mounts zero cross-origin iframes in the common case, where the previous
+ * home page mounted sixteen.
+ */
+function IndexEntry({ t, n }: { t: Template; n: number }) {
+  const href = `/templates/${t.slug}`;
+  const kind = t.category ? categoryLabel(t.category) : isBuilder(t) ? "Builder design" : "";
+  const tags = cleanTags(t);
+
   return (
-    <section className="section">
-      <div className="wrap">
-        <div className="section__head">
-          <div><span className="eyebrow">{eyebrow}</span><h2 className="section__title">{title}</h2></div>
-          <Link className="section__more" href={href}>View all <Arrow /></Link>
-        </div>
-        <div className="tpl-grid">{items.slice(0, 4).map((t) => <TemplateCard key={t.slug} t={t} />)}</div>
+    <Reveal as="article" className="hm-idx__item">
+      <div className="hm-idx__label">
+        <span>{String(n).padStart(2, "0")}{kind && ` · ${kind}`}</span>
+        <span className={`hm-idx__price${isFree(t) ? " hm-idx__price--free" : ""}`}>{priceLabel(t)}</span>
       </div>
-    </section>
+
+      {/* Not a tab stop and not announced: the heading link below is the one
+          real target, so the image would otherwise duplicate every entry for
+          keyboard and screen-reader users. */}
+      <Link href={href} className="hm-idx__shot mi-media" tabIndex={-1} aria-hidden="true">
+        {t.coverImage
+          ? <img className="hm-idx__img" src={t.coverImage} alt="" loading="lazy" decoding="async" />
+          : <LivePreview slug={t.slug} name={t.name} url={isBuilder(t) ? builderPreviewUrl(t.slug) : undefined} />}
+      </Link>
+
+      <h3 className="hm-idx__name"><Link className="mi-link" href={href}>{t.name}</Link></h3>
+      <p className="hm-idx__by">by {t.author}</p>
+      {/* No filler for the three listings whose creators left this blank. */}
+      {t.description && <p className="hm-idx__desc">{t.description}</p>}
+      {tags.length > 0 && <p className="hm-idx__tags">{tags.join(" · ")}</p>}
+    </Reveal>
   );
 }
 
 export default async function HomePage() {
   const templates = await fetchTemplates();
   const counts = categoryCounts(templates);
-  const popular = templates.slice(0, 4); // fetchTemplates() already sorts by installs desc — this IS the top 4
-  const free = templates.filter(isFree).slice(0, 4);
-  const top = templates[0];
-  const creators = Array.from(new Set(templates.map((t) => t.author)))
-    .map((name) => ({ name, count: templates.filter((t) => t.author === name).length }))
-    .sort((a, b) => b.count - a.count).slice(0, 6);
-  const allCreatorsCount = new Set(templates.map((t) => t.author)).size;
-  const categoriesCovered = CATEGORIES.filter((c) => (counts[c.key] || 0) > 0).length;
+
+  const total = templates.length;
+  const freeCount = templates.filter(isFree).length;
+  const paid = templates.filter((t) => !isFree(t));
+  const prices = paid.map((t) => t.price).sort((a, b) => a - b);
+  const creatorCount = new Set(templates.map((t) => t.author)).size;
+
+  const filledCats = CATEGORIES.filter((c) => (counts[c.key] || 0) > 0);
+  const emptyCats = CATEGORIES.filter((c) => !(counts[c.key] || 0));
+  // Chips have to lead somewhere real — the old ones offered "Dark portfolio"
+  // and "One-page landing pages", both of which return nothing.
+  const chips = filledCats.slice().sort((a, b) => (counts[b.key] || 0) - (counts[a.key] || 0)).slice(0, 5);
+
+  const headline = total
+    ? [`${numWord(total)} ${plural(total, "template", "templates")}.`, "Open every one", "before you decide."]
+    : ["The marketplace", "is warming up.", "Nothing published yet."];
+
+  const priceRange = prices.length === 0 ? ""
+    : prices.length === 1 ? `The one paid template is $${prices[0]}.`
+    : `The paid ones run from $${prices[0]} to $${prices[prices.length - 1]}.`;
+
+  const creatorHead = emptyCats.length
+    ? [`${numWord(emptyCats.length)} ${plural(emptyCats.length, "category", "categories")}`, plural(emptyCats.length, "is still empty.", "are still empty.")]
+    : ["Publish your", "own template."];
 
   return (
     <>
-      {/* HERO */}
-      <section className="hero">
-        <div className="wrap hero__grid">
-          <div>
-            <span className="hero__eyebrow"><span className="dot" /> Kurumera Template Marketplace</span>
-            <h1>Find the perfect website template.<br /><span className="accent">Customize it without limits.</span></h1>
-            <p className="hero__lede">Explore professionally designed free and premium templates for businesses, stores, portfolios, agencies, restaurants, and more.</p>
-            <div className="hero__cta">
-              <Link className="btn btn--primary btn--lg" href="/templates">Explore templates <Arrow /></Link>
-              <Link className="btn btn--secondary btn--lg" href={BUILDER_ORIGIN}>Start from scratch</Link>
-            </div>
-            <form className="hero__search searchbox" action="/templates" role="search">
-              <Search />
-              <input className="input" type="search" name="q" placeholder="Search templates, industries, styles, or features…" aria-label="Search templates" />
-            </form>
-            <div className="hero__chips">
-              {SEARCH_CHIPS.map((c) => <Link key={c} className="chip" href={`/templates?q=${encodeURIComponent(c)}`}>{c}</Link>)}
-            </div>
-          </div>
+      {/* ── 1 · HERO ─────────────────────────────────────────────────────────
+          Typographic. The headline owns the full measure instead of sharing the
+          row with a screenshot collage, and the asymmetry is in the footer:
+          what you can DO at column 1, what is IN the catalogue at column 9. */}
+      <section className="hm-band hm-band--surface hm-band--ruled-below">
+        <div className="wrap hm-hero">
+          <Reveal as="span" variant="fade" className="hm-eyebrow">Kurumera Template Marketplace</Reveal>
+          <RevealLines as="h1" className="hm-display hm-lines hm-hero__h1" lines={headline} />
 
-          <div className="collage3">
-            <span className="collage3__badge collage3__badge--bl"><span><Grid /></span>{HERO_IMAGES[0].label}</span>
-            <span className="collage3__badge collage3__badge--tr"><span><Grid /></span>{HERO_IMAGES[1].label}</span>
-            <span className="collage3__badge collage3__badge--br"><span><Grid /></span>{HERO_IMAGES[2].label}</span>
-            <div className="collage3__item collage3__item--left">
-              <Image src={HERO_IMAGES[0].src} alt={HERO_IMAGES[0].alt} fill sizes="(max-width: 940px) 0px, 40vw" style={{ objectFit: "cover" }} priority />
+          <div className="hm-grid hm-hero__foot">
+            <div className="hm-hero__lead">
+              <Reveal as="p" variant="fade" className="hm-lede hm-hero__lede">
+                Free and premium website templates you can preview live, customize in the visual builder, and publish on your own domain.
+              </Reveal>
+              <Reveal variant="fade">
+                {/* Router-driven. A native GET here reloaded the document, and
+                    this page mounts every template as a live cross-origin
+                    preview iframe — all of them destroyed and refetched from
+                    their origin to change one query param. */}
+                <SearchForm
+                  className="hm-hero__search searchbox"
+                  placeholder="Search templates, industries, styles…"
+                />
+              </Reveal>
+              {chips.length > 0 && (
+                <RevealGroup className="hm-hero__chips">
+                  {chips.map((c) => (
+                    <Reveal as={Link} variant="fade" key={c.key} className="hm-chip" href={`/templates/category/${c.key}`}>
+                      {c.label}
+                    </Reveal>
+                  ))}
+                </RevealGroup>
+              )}
             </div>
-            <div className="collage3__item collage3__item--center">
-              <Image src={HERO_IMAGES[1].src} alt={HERO_IMAGES[1].alt} fill sizes="(max-width: 940px) 0px, 50vw" style={{ objectFit: "cover" }} priority />
-            </div>
-            <div className="collage3__item collage3__item--right">
-              <Image src={HERO_IMAGES[2].src} alt={HERO_IMAGES[2].alt} fill sizes="(max-width: 940px) 0px, 38vw" style={{ objectFit: "cover" }} />
-            </div>
+
+            {/* Catalogue facts as a colophon: same size as their own labels, no
+                install count, no "trusted by". Numbers this small are only
+                honest when they are presented as an index rather than a boast. */}
+            {total > 0 && (
+              <Reveal variant="fade" className="hm-colophon">
+                <dl>
+                  <dt>Templates</dt><dd>{total}</dd>
+                  <dt>Creators</dt><dd>{creatorCount}</dd>
+                  <dt>Free</dt><dd>{freeCount}</dd>
+                  {prices.length > 0 && (<><dt>Paid</dt><dd>{paid.length}, from ${prices[0]}</dd></>)}
+                  <dt>Categories</dt><dd>{filledCats.length} of {CATEGORIES.length}</dd>
+                </dl>
+              </Reveal>
+            )}
           </div>
         </div>
       </section>
 
-      {/* HONEST STATS */}
-      {templates.length > 0 && (
-        <section className="section section--tight">
-          <div className="wrap">
-            <div className="stats">
-              <div className="stats__lead"><span><Shield /></span>Trusted by creators building real stores</div>
-              <div className="stats__item"><b>{templates.length}+</b><span>Templates published</span></div>
-              <div className="stats__item"><b>{categoriesCovered}</b><span>Industries covered</span></div>
-              <div className="stats__item"><b>{allCreatorsCount}</b><span>Creators publishing</span></div>
+      {/* ── 2 · THE INDEX ────────────────────────────────────────────────── */}
+      {total > 0 && (
+        <section className="hm-band hm-band--page">
+          <div className="wrap hm-index">
+            <div className="hm-grid hm-index__head">
+              <RevealLines as="h2" className="hm-h2 hm-lines" lines={["Small enough to show", "you all of it."]} />
+              <Reveal as="p" variant="fade" className="hm-index__note">
+                Every template published on Kurumera, in one list — nothing held back for a second page.
+                {freeCount > 0 && ` ${numWord(freeCount)} ${plural(freeCount, "is", "are")} free.`}
+                {priceRange && ` ${priceRange}`}
+              </Reveal>
+            </div>
+
+            <RevealGroup className="hm-idx">
+              {templates.map((t, i) => <IndexEntry key={t.slug} t={t} n={i + 1} />)}
+            </RevealGroup>
+
+            <div className="hm-index__foot">
+              <Link className="hm-more mi-arrow" href="/templates">Filter and sort all {total} <Arrow /></Link>
+              {freeCount > 0 && <Link className="hm-more hm-more--quiet mi-link" href="/templates/free">Free ({freeCount})</Link>}
+              {paid.length > 0 && <Link className="hm-more hm-more--quiet mi-link" href="/templates/paid">Paid ({paid.length})</Link>}
             </div>
           </div>
         </section>
       )}
 
-      {/* CATEGORIES */}
-      <section className="section">
-        <div className="wrap">
-          <div className="section__head">
-            <div><span className="eyebrow">Browse by category</span><h2 className="section__title">Explore by industry</h2></div>
-            <Link className="section__more" href="/templates">All templates <Arrow /></Link>
-          </div>
-          <CategoryRail>
-            {CATEGORIES.map((c) => {
-              const n = counts[c.key] || 0;
-              const sample = templates.find((t) => matchesCategory(t, c.key));
-              return (
-                <Link key={c.key} href={`/templates/category/${c.key}`} className="cat-card">
-                  <div className="cat-card__thumb">
-                    {sample ? <LivePreview slug={sample.slug} name={c.label} base={1000} /> : <span className="frame__ph">{c.label[0]}</span>}
-                  </div>
-                  <div>
-                    <div className="cat-card__name">{c.label}</div>
-                    <div className="cat-card__count">{n} template{n === 1 ? "" : "s"}</div>
-                  </div>
-                </Link>
-              );
-            })}
-          </CategoryRail>
-        </div>
-      </section>
-
-      <Row eyebrow="Popular" title="Trending templates" href="/templates?sort=installs" items={popular} />
-
-      {/* MADE FOR EVERY KIND OF BUSINESS */}
-      <section className="section">
-        <div className="wrap">
-          <div className="section__head" style={{ justifyContent: "center", textAlign: "center" }}>
-            <div style={{ margin: "0 auto" }}>
-              <span className="eyebrow">By use case</span>
-              <h2 className="section__title">Made for every kind of business</h2>
-              <p className="section__sub" style={{ margin: "8px auto 0" }}>Curated collections to help you launch faster.</p>
-            </div>
-          </div>
-          <div className="usecase-grid">
-            {USE_CASES.map((u) => {
-              const sample = templates.find((t) => matchesCategory(t, u.key));
-              const n = counts[u.key] || 0;
-              if (!sample) return null;
-              return (
-                <Link key={u.key} href={`/templates/category/${u.key}`} className="usecase-card">
-                  <div className="usecase-card__thumb"><LivePreview slug={sample.slug} name={u.title} base={1000} /></div>
-                  <h3>{u.title}</h3>
-                  <p>{u.body}</p>
-                  <span className="usecase-card__link">Explore {n} template{n === 1 ? "" : "s"} <Arrow /></span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* SPOTLIGHT — the single most-installed template, real data only */}
-      {top && (
-        <section className="section">
-          <div className="wrap">
-            <div className="spotlight">
-              <div className="spotlight__grid">
-                <div className="spotlight__body">
-                  <span className="spotlight__eyebrow"><Bolt /> Most installed</span>
-                  {top.category && <div className="spotlight__cat">{categoryLabel(top.category)}</div>}
-                  <h2>{top.name}</h2>
-                  {top.description && <p className="spotlight__desc">{top.description}</p>}
-                  {featureLabels(top, 4).length > 0 && (
-                    <div className="spotlight__feats">
-                      {featureLabels(top, 4).map((f) => <div key={f}><Check />{f}</div>)}
-                    </div>
-                  )}
-                  <div className="spotlight__meta">
-                    <span>by <b style={{ fontSize: 14.5 }}>{top.author}</b></span>
-                    <span><b>{top.installs.toLocaleString()}</b> installs</span>
-                    <span><b>{priceLabel(top)}</b></span>
-                  </div>
-                  <Link className="btn btn--primary btn--lg" href={`/templates/${top.slug}`}>Explore {top.name} <Arrow /></Link>
-                  <div className="spotlight__badges">
-                    <div><Check /> Fully responsive</div>
-                    <div><Check /> No coding required</div>
-                    <div><Check /> Support included</div>
-                  </div>
-                </div>
-                <div className="spotlight__preview">
-                  {top.coverImage
-                    ? <div className="frame"><img className="frame__img" src={top.coverImage} alt={`${top.name} preview`} loading="lazy" /></div>
-                    : isBuilder(top)
-                      ? <LivePreview slug={top.slug} name={top.name} url={builderPreviewUrl(top.slug)} />
-                      : <LivePreview slug={top.slug} name={top.name} />}
-                </div>
+      {/* ── 3 · CATEGORIES ───────────────────────────────────────────────────
+          Names and real counts only. A thumbnail here would be one member's
+          screenshot standing in for a category that holds one template. */}
+      {filledCats.length > 0 && (
+        <section className="hm-band hm-band--surface hm-band--ruled">
+          <div className="wrap hm-cats">
+            <div className="hm-grid">
+              <div className="hm-cats__head">
+                <Reveal as="span" variant="fade" className="hm-eyebrow">Browse</Reveal>
+                <RevealLines as="h2" className="hm-h2 hm-lines" lines={["By industry."]} />
               </div>
+              <RevealGroup className="hm-cats__list">
+                {filledCats.map((c) => (
+                  <Reveal as={Link} variant="fade" key={c.key} className="hm-cat" href={`/templates/category/${c.key}`}>
+                    {c.label} <b>{counts[c.key]}</b>
+                  </Reveal>
+                ))}
+              </RevealGroup>
             </div>
           </div>
         </section>
       )}
 
-      {/* WHY BUILD WITH KURUMERA */}
-      <section className="section">
-        <div className="wrap">
-          <div className="section__head"><div><span className="eyebrow">Why Kurumera</span><h2 className="section__title">Everything you need to launch fast</h2></div></div>
-          <div className="why-grid">
-            {WHY.map(({ icon: Icon, title, body }) => (
-              <div key={title} className="why-grid__item">
-                <span><Icon /></span>
-                <h3>{title}</h3>
-                <p>{body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <Row eyebrow="Free" title="Free templates" href="/templates/free" items={free} />
-
-      {/* TOP CREATORS */}
-      {creators.length > 0 && (
-        <section className="section">
-          <div className="wrap">
-            <div className="section__head"><div><span className="eyebrow">Top creators</span><h2 className="section__title">Designers on Kurumera</h2></div></div>
-            <div className="cat-grid">
-              {creators.map((c) => (
-                <div key={c.name} className="cat-card" style={{ minHeight: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ width: 44, height: 44, borderRadius: 12, background: "var(--mint)", color: "var(--green-dark)", display: "grid", placeItems: "center", fontFamily: "var(--font-head)", fontWeight: 800 }}>{c.name[0]?.toUpperCase()}</span>
-                    <div>
-                      <div className="cat-card__name">{c.name}</div>
-                      <div className="cat-card__count">{c.count} template{c.count === 1 ? "" : "s"}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+      {/* ── 4 · STATEMENT ────────────────────────────────────────────────── */}
+      <section className="hm-band hm-band--ink">
+        <div className="wrap hm-stmt">
+          <div className="hm-grid">
+            <div className="hm-stmt__head">
+              <Reveal as="span" variant="fade" className="hm-eyebrow">What you are buying</Reveal>
+              <RevealLines as="h2" className="hm-h2 hm-lines" lines={["No mockups.", "No lock-in."]} />
             </div>
-          </div>
-        </section>
-      )}
-
-      {/* BECOME A CREATOR */}
-      <section className="section">
-        <div className="wrap">
-          <div className="creator-cta">
-            <div>
-              <h2>Create once. Earn on every install.</h2>
-              <p className="creator-cta__sub">Publish a template through the creator dashboard — you set the price, you keep ownership, and it's listed for the whole marketplace to find.</p>
-              <div className="creator-cta__feats">
-                <div><span><Check /></span>Upload your templates</div>
-                <div><span><Check /></span>Get discovered</div>
-                <div><span><Check /></span>Set your own price</div>
-              </div>
-            </div>
-            <div className="creator-cta__aside">
-              <div className="creator-cta__stat">{allCreatorsCount}</div>
-              <div className="creator-cta__statlabel">creator{allCreatorsCount === 1 ? "" : "s"} already publishing</div>
-              <Link className="btn btn--primary btn--lg" href="/creator">Become a creator <Arrow /></Link>
+            <div className="hm-stmt__body">
+              <Reveal as="p" variant="fade" className="hm-lede">
+                Every listing is a site that already runs — a Next.js theme or a visual-builder design, not a picture of one.
+                Open its live preview before you decide. Free templates install straight away; paid ones unlock with a license
+                key you keep. Either way you customize it in the builder and publish it on your own domain.
+              </Reveal>
+              <Reveal variant="fade" className="hm-actions">
+                <Link className="btn btn--primary btn--lg mi-arrow" href="/templates">Browse templates <Arrow /></Link>
+                <a className="btn btn--secondary btn--lg" href={BUILDER_ORIGIN}>Start from scratch</a>
+              </Reveal>
             </div>
           </div>
         </div>
       </section>
 
-      {/* FAQ */}
-      <section className="section">
-        <div className="wrap">
-          <div className="section__head"><div><span className="eyebrow">FAQ</span><h2 className="section__title">Frequently asked questions</h2></div></div>
-          <div className="faq-grid">
-            <div className="faq">
+      {/* ── 5 · FAQ ──────────────────────────────────────────────────────── */}
+      <section className="hm-band hm-band--page">
+        <div className="wrap hm-faq">
+          <div className="hm-grid">
+            <div className="hm-faq__rail">
+              <Reveal as="span" variant="fade" className="hm-eyebrow">FAQ</Reveal>
+              <RevealLines as="h2" className="hm-h2 hm-lines" lines={["Questions,", "answered."]} />
+              <Reveal as="p" variant="fade" className="hm-lede">Anything not covered here reaches a real person.</Reveal>
+              <Reveal variant="fade">
+                <a className="hm-more mi-link" href="mailto:support@kurumera.com">support@kurumera.com</a>
+              </Reveal>
+            </div>
+            <RevealGroup className="hm-faq__list faq">
               {FAQ.map((f) => (
-                <details key={f.q} className="fgroup">
+                <Reveal as="details" variant="fade" key={f.q} className="fgroup">
                   <summary>{f.q}</summary>
                   <div className="fgroup__body"><p>{f.a}</p></div>
-                </details>
+                </Reveal>
               ))}
-            </div>
-            <div className="faq-contact">
-              <span className="faq-contact__icon"><Headset /></span>
-              <h3>Still have questions?</h3>
-              <p>We're here to help — reach a real person any time.</p>
-              <a className="btn btn--primary btn--block" href="mailto:support@kurumera.com">Contact support</a>
-            </div>
+            </RevealGroup>
           </div>
         </div>
       </section>
 
-      {/* CLOSING CTA */}
-      <section className="section">
-        <div className="wrap">
-          <div className="closing-cta">
-            <div>
-              <h2>Ready to launch your site?</h2>
-              <p>Browse the full collection of free and premium templates.</p>
+      {/* ── 6 · CREATOR ──────────────────────────────────────────────────────
+          The empty categories are the honest argument for publishing, so the
+          page closes on them by name instead of on a creator headcount. */}
+      <section className="hm-band hm-band--mint hm-band--ruled">
+        <div className="wrap hm-creator">
+          <div className="hm-grid">
+            <div className="hm-creator__head">
+              <Reveal as="span" variant="fade" className="hm-eyebrow">Become a creator</Reveal>
+              <RevealLines as="h2" className="hm-h2 hm-lines" lines={creatorHead} />
             </div>
-            <Link className="btn btn--primary btn--lg" href="/templates">Explore templates <Arrow /></Link>
+            <div className="hm-creator__body">
+              <Reveal as="p" variant="fade" className="hm-lede">
+                {emptyCats.length
+                  // Phrased with the categories AFTER the noun: several labels
+                  // are already plural ("Landing Pages"), so "a landing pages
+                  // template" would be ungrammatical for some of the set.
+                  ? `Nothing has been published under ${listWords(emptyCats.map((c) => c.label.toLowerCase()))} yet. The first template in a category gets it to itself.`
+                  : "Publish through the creator dashboard and your template is listed for the whole marketplace to find."}
+              </Reveal>
+              <Reveal variant="fade" className="hm-actions">
+                <Link className="btn btn--primary btn--lg mi-arrow" href="/creator">Open the creator dashboard <Arrow /></Link>
+              </Reveal>
+              <Reveal as="p" variant="fade" className="hm-creator__terms">
+                You set the price and keep ownership of your work; Kurumera lists it under the platform&rsquo;s terms.
+              </Reveal>
+            </div>
           </div>
         </div>
       </section>
