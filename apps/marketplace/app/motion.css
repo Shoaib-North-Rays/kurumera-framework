@@ -1,0 +1,157 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   MOTION PRIMITIVES — the one animation language every section consumes.
+
+   THE RULE THIS FILE ENFORCES STRUCTURALLY: content is visible unless we can
+   prove motion is both possible and wanted.
+
+   A reveal is normally written as "opacity:0, then animate to 1". Done naively
+   that has two failure modes, and both leave the page permanently BLANK rather
+   than merely un-animated:
+     · JavaScript never runs (error, blocked, slow network) → nothing removes
+       the hidden state.
+     · prefers-reduced-motion is on → globals.css kills `animation`/`transition`
+       with !important, so the element never transitions out of opacity:0.
+
+   So the hidden state is gated TWICE — on `html.js` (added by an inline script,
+   therefore only when JS is alive) and on `prefers-reduced-motion: no-preference`.
+   If either is false the element simply renders, fully visible, with no motion.
+   Reduced motion means "no movement", never "no content".
+
+   Every primitive below animates ONLY transform / opacity / clip-path — all
+   compositor-friendly, none triggering layout.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* ── REVEAL ──────────────────────────────────────────────────────────────
+     Default: rise + fade. The workhorse for text blocks and cards. */
+  html.js [data-reveal] {
+    opacity: 0;
+    transform: translate3d(0, var(--reveal-y), 0);
+    transition:
+      opacity var(--d-slow) var(--e-out),
+      transform var(--d-slow) var(--e-out);
+    transition-delay: var(--reveal-delay, 0ms);
+    will-change: opacity, transform;
+  }
+
+  /* MASK: a clip-path wipe. Reserved for headline lines and section titles —
+     it reads as typographic, and overused it becomes noise. */
+  html.js [data-reveal="mask"] {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 105% 0);
+    transition: clip-path var(--d-slow) var(--e-expo);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  /* SCALE: imagery settles from slightly oversized. Pair with overflow:hidden
+     on the frame so the crop changes rather than the box. */
+  html.js [data-reveal="scale"] {
+    opacity: 0;
+    transform: scale(var(--reveal-scale));
+    transition:
+      opacity var(--d-cinematic) var(--e-expo),
+      transform var(--d-cinematic) var(--e-expo);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  /* FADE: no movement. For anything already in place — a background, an
+     overlay, a metadata line beneath something that moved. */
+  html.js [data-reveal="fade"] {
+    opacity: 0;
+    transform: none;
+    transition: opacity var(--d-slow) var(--e-out);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  /* Settled state — one class, whatever the variant. */
+  html.js [data-reveal].is-revealed {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 0 0);
+    will-change: auto;
+  }
+}
+
+/* ── HOVER MICRO-INTERACTIONS ───────────────────────────────────────────────
+   Pointer-only. On touch there is no hover state to reward, and applying these
+   there causes the sticky-hover bug where a tapped card stays "hovered".
+   Kept out of the reduced-motion block deliberately: these are direct feedback
+   for a deliberate action, and globals.css already strips their transitions
+   under reduced motion, so the end state still applies — instantly. */
+@media (hover: hover) and (pointer: fine) {
+  /* Underline that grows from the leading edge. */
+  .mi-link {
+    position: relative;
+    text-decoration: none;
+  }
+  .mi-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    width: 100%;
+    height: 1px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--d-normal) var(--e-out);
+  }
+  .mi-link:hover::after,
+  .mi-link:focus-visible::after { transform: scaleX(1); }
+
+  /* Media frame: the IMAGE scales, the frame does not. */
+  .mi-media { overflow: hidden; }
+  .mi-media img,
+  .mi-media > picture > img {
+    transition: transform var(--d-slow) var(--e-out);
+    will-change: transform;
+  }
+  .mi-media:hover img,
+  .mi-media:focus-within img { transform: scale(1.04); }
+
+  /* Arrow that advances on hover — the cheapest possible "this goes somewhere". */
+  .mi-arrow > svg,
+  .mi-arrow > .mi-arrow__glyph {
+    transition: transform var(--d-normal) var(--e-out);
+  }
+  .mi-arrow:hover > svg,
+  .mi-arrow:hover > .mi-arrow__glyph,
+  .mi-arrow:focus-visible > svg { transform: translate3d(4px, 0, 0); }
+}
+
+/* ── PAGE TRANSITION ────────────────────────────────────────────────────────
+   Entrance only, and short. A leave animation would have to block navigation to
+   be seen, which trades real responsiveness for decoration — the brief's own
+   "never feels like the user is waiting". */
+@media (prefers-reduced-motion: no-preference) {
+  html.js .page-enter {
+    animation: page-enter var(--d-normal) var(--e-out) both;
+  }
+  @keyframes page-enter {
+    from { opacity: 0; transform: translate3d(0, 8px, 0); }
+    to   { opacity: 1; transform: none; }
+  }
+}
+
+/* ── UTILITIES ──────────────────────────────────────────────────────────────
+   The full-bleed escape hatch: break out of a max-width wrapper without
+   restructuring the section. Paired with the band rule — a section owns its
+   background and spans the viewport; only its content is constrained. */
+.full-bleed {
+  width: 100vw;
+  max-width: 100vw;
+  margin-inline: calc(50% - 50vw);
+}
+
+/* Section rhythm helpers. Named for intent so a section says what it is. */
+.band        { padding-block: var(--sec-md); }
+.band--tight { padding-block: var(--sec-tight); }
+.band--sm    { padding-block: var(--sec-sm); }
+.band--lg    { padding-block: var(--sec-lg); }
+.band--xl    { padding-block: var(--sec-xl); }
+
+/* Editorial measures. */
+.measure        { max-width: var(--w-narrow); }
+.measure-content{ max-width: var(--w-content); }
+.measure-wide   { max-width: var(--w-wide); }
