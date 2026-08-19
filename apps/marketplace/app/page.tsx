@@ -1,5 +1,7 @@
 import Link from "next/link";
 import "./home.css";
+import "./mosaic.css";
+import { TemplateMosaic } from "@/components/TemplateMosaic";
 import {
   fetchTemplates, categoryCounts, CATEGORIES, isFree, isBuilder, priceLabel,
   featureLabels, categoryLabel, builderPreviewUrl, BUILDER_ORIGIN, type Template,
@@ -132,6 +134,9 @@ export default async function HomePage() {
   const freeCount = templates.filter(isFree).length;
   const paid = templates.filter((t) => !isFree(t));
   const prices = paid.map((t) => t.price).sort((a, b) => a - b);
+  // Only templates with a real cover belong in an image-led band; a fallback
+  // tile among screenshots reads as a gap rather than a design choice.
+  const withCovers = templates.filter((t) => !!t.coverImage);
   const creatorCount = new Set(templates.map((t) => t.author)).size;
 
   const filledCats = CATEGORIES.filter((c) => (counts[c.key] || 0) > 0);
@@ -206,6 +211,20 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── 1b · THE SHOWCASE ────────────────────────────────────────────────
+          Imagery leads, then the index gives the full list in text. This band
+          only became possible when the covers were fixed: before that every
+          listing had coverImage:"" and a visual showcase would have been eight
+          live iframes. */}
+      {withCovers.length > 0 && (
+        <TemplateMosaic
+          templates={withCovers}
+          eyebrow="The catalogue"
+          title="See them before you choose."
+          hrefLabel={`All ${total} templates`}
+        />
+      )}
 
       {/* ── 2 · THE INDEX ────────────────────────────────────────────────── */}
       {total > 0 && (

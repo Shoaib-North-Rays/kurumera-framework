@@ -1,0 +1,242 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   TEMPLATE MOSAIC — horizontal showcase rail with a hover reveal.
+
+   Consumes the Phase 1 tokens and motion primitives; defines no durations,
+   easings or spacing of its own.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.mos { padding-block: var(--sec-lg); }
+
+.mos__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-5);
+  max-width: var(--maxw);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+  margin-bottom: var(--s-7);
+}
+.mos__eyebrow {
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--green-dark);
+  margin-bottom: var(--s-3);
+}
+.mos__title {
+  font-family: var(--font-head);
+  font-size: var(--t-h1);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--ls-heading);
+  font-weight: var(--fw-black);
+  color: var(--ink);
+  max-width: 16ch;
+  text-wrap: balance;
+}
+.mos__all {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--t-body);
+  font-weight: var(--fw-semibold);
+  color: var(--ink);
+  white-space: nowrap;
+  padding-bottom: 2px;
+}
+
+/* ── The rail ──────────────────────────────────────────────────────────────
+   Full-bleed so tiles run to the viewport edge, with the leading edge aligned
+   to the page gutter. Scroll padding matches, so a snapped tile lands on the
+   text column rather than hard against the edge. */
+.mos__rail {
+  display: flex;
+  gap: var(--s-5);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: max(var(--gutter), calc((100vw - var(--maxw)) / 2 + var(--gutter)));
+  padding-inline: max(var(--gutter), calc((100vw - var(--maxw)) / 2 + var(--gutter)));
+  padding-block: var(--s-2);
+  /* Deliberately keeps the scrollbar: on desktop it is the honest affordance
+     that this scrolls, and hiding it is a common reason people never discover
+     a rail at all. */
+  scrollbar-width: thin;
+}
+.mos__rail:focus-visible {
+  outline: 2.5px solid var(--green);
+  outline-offset: 4px;
+}
+
+.mos__tile {
+  scroll-snap-align: start;
+  flex: 0 0 auto;
+  /* The next tile stays partly visible — the cheapest possible "there is more". */
+  width: min(78vw, 27rem);
+}
+.mos__tile.is-wide { width: min(88vw, 38rem); }
+.mos__tile.is-tall { width: min(64vw, 22rem); }
+
+.mos__frame {
+  position: relative;
+  height: clamp(20rem, 42vw, 30rem);
+  border-radius: var(--r-media);
+  overflow: hidden;
+  background: var(--sunken);
+  isolation: isolate;
+}
+.mos__tile.is-tall .mos__frame { height: clamp(24rem, 50vw, 36rem); }
+
+.mos__img,
+.mos__fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;   /* a site screenshot reads from the top */
+}
+.mos__fallback {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-family: var(--font-head);
+  font-size: var(--t-h3);
+  font-weight: var(--fw-bold);
+  text-align: center;
+  padding: var(--s-5);
+}
+
+/* Veil: sits under the copy so it stays legible over any screenshot. */
+.mos__veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(8, 15, 12, .92) 0%, rgba(8, 15, 12, .55) 42%, rgba(8, 15, 12, 0) 78%);
+  opacity: 0;
+}
+
+.mos__body {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  padding: var(--s-6);
+  color: #fff;
+  z-index: 1;
+}
+.mos__meta {
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .82);
+  margin-bottom: var(--s-2);
+}
+.mos__name {
+  font-family: var(--font-head);
+  font-size: var(--t-h3);
+  line-height: var(--lh-title);
+  letter-spacing: var(--ls-heading);
+  font-weight: var(--fw-bold);
+}
+.mos__link { color: inherit; text-decoration: none; }
+/* Stretched link: the whole tile is the target, while the accessible name stays
+   just the template title. */
+.mos__link::after { content: ""; position: absolute; inset: 0; z-index: 2; }
+.mos__link:focus-visible { outline: none; }
+.mos__frame:has(.mos__link:focus-visible) {
+  outline: 2.5px solid var(--green);
+  outline-offset: 3px;
+}
+
+.mos__desc {
+  font-size: var(--t-caption);
+  line-height: var(--lh-body);
+  color: rgba(255, 255, 255, .88);
+  margin-top: var(--s-3);
+  max-width: 46ch;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mos__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: var(--s-4);
+  list-style: none;
+}
+.mos__tags li {
+  font-size: var(--t-meta);
+  font-weight: var(--fw-medium);
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, .38);
+  border-radius: 999px;
+  color: #fff;
+}
+
+/* The arrow: states that the tile leads somewhere. */
+.mos__go {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  width: 4.5rem;
+  height: 4.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--green-bright);
+  color: var(--green-dark);
+  font-size: 1.5rem;
+  z-index: 1;
+  opacity: 0;
+  scale: .8;
+}
+
+/* ── Hover / focus reveal ──────────────────────────────────────────────────
+   Pointer-only. On touch the overlay is permanent instead (below), because a
+   reveal that needs hover is simply unreachable there. */
+@media (hover: hover) and (pointer: fine) {
+  .mos__body { opacity: 0; transform: translate3d(0, var(--s-4), 0); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .mos__veil { transition: opacity var(--d-normal) var(--e-out); }
+    .mos__body {
+      transition:
+        opacity var(--d-normal) var(--e-out),
+        transform var(--d-normal) var(--e-out);
+    }
+    .mos__go {
+      transition:
+        opacity var(--d-normal) var(--e-out),
+        scale var(--d-normal) var(--e-out);
+    }
+    .mos__img { transition: scale var(--d-slow) var(--e-out); }
+  }
+
+  .mos__frame:hover .mos__veil,
+  .mos__frame:focus-within .mos__veil { opacity: 1; }
+
+  .mos__frame:hover .mos__body,
+  .mos__frame:focus-within .mos__body { opacity: 1; transform: none; }
+
+  .mos__frame:hover .mos__go,
+  .mos__frame:focus-within .mos__go { opacity: 1; scale: 1; }
+
+  .mos__frame:hover .mos__img,
+  .mos__frame:focus-within .mos__img { scale: 1.05; }
+}
+
+/* Touch and any coarse pointer: show everything, always. */
+@media not all and (hover: hover) {
+  .mos__veil { opacity: 1; }
+  .mos__go { display: none; }   /* tapping the tile IS the affordance */
+}
+
+@media (max-width: 720px) {
+  .mos__head { flex-direction: column; align-items: flex-start; gap: var(--s-4); }
+  .mos__body { padding: var(--s-5); }
+  .mos__desc { -webkit-line-clamp: 2; }
+}

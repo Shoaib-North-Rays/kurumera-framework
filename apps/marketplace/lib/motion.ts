@@ -25,7 +25,14 @@ const SELECTOR = "[data-reveal]:not(." + REVEALED + ")";
  *  the scroll" rather than popping after the fact. */
 const THRESHOLD = 0.12;
 /** Start slightly before the true viewport edge, and never trigger from the
- *  bottom margin (which would reveal things the user has scrolled PAST). */
+ *  bottom margin (which would reveal things the user has scrolled PAST).
+ *
+ *  Kept modest deliberately. An earlier attempt at the stranded-element problem
+ *  below used a huge top margin (100000px) to make "already above the viewport"
+ *  count as intersecting. Measured: the observer then fired exactly once, at
+ *  observe() time, and never again through a full scroll — an extreme root
+ *  makes it inert, so every reveal on the page stopped working. The sweep below
+ *  solves the same problem without touching the observer's geometry. */
 const ROOT_MARGIN = "0px 0px -8% 0px";
 
 let observer: IntersectionObserver | null = null;
@@ -71,8 +78,33 @@ function ensureObserver(): IntersectionObserver | null {
   observer = new IntersectionObserver(
     (entries, obs) => {
       for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
         const el = entry.target as HTMLElement;
+
+        // SCROLLED PAST WITHOUT EVER INTERSECTING.
+        //
+        // An element only reveals when it enters the viewport, which quietly
+        // assumes the viewport travels over it. It does not always: an anchor
+        // jump, scrollIntoView, a restored scroll position on reload, or simply
+        // flicking hard on a trackpad can land the user below something that
+        // was never on screen for a frame. That element would stay clipped or
+        // at opacity 0 permanently, and scrolling back UP does not help,
+        // because it is above the viewport rather than entering it.
+        //
+        // Caught this on the mosaic: scrolling the rail into view jumped the
+        // section heading, which then sat at clip-path: inset(0 0 105%) — the
+        // title simply absent from the page.
+        //
+        // So an element now above the viewport is treated as seen. No
+        // transition is played (there is nothing to watch up there); it is just
+        // made visible, which is the correct end state either way.
+        if (!entry.isIntersecting) {
+          if (entry.boundingClientRect.bottom <= 0) {
+            el.classList.add(REVEALED);
+            obs.unobserve(el);
+          }
+          continue;
+        }
+
         reveal(el);
         obs.unobserve(el); // one-way: never re-hide
       }
@@ -114,21 +146,102 @@ export function observeReveals(root: ParentNode = document): void {
   }
 
   for (const el of targets) {
+    const rect = el.getBoundingClientRect();
+
     // Already on screen at mount (above the fold): reveal immediately rather
     // than waiting for a scroll that may never come.
-    const rect = el.getBoundingClientRect();
     if (rect.top < window.innerHeight && rect.bottom > 0) {
       reveal(el);
       continue;
     }
+
+    // Already scrolled PAST at mount — a reload that restores scroll position,
+    // or a deep link to an anchor. Nothing above the viewport will ever enter
+    // it, so observing would leave it hidden for good.
+    if (rect.bottom <= 0) {
+      el.classList.add(REVEALED);
+      continue;
+    }
+
     io.observe(el);
   }
+
+  // Anything observed can still be jumped over — arm the sweep.
+  attachSweep();
+}
+
+/**
+ * Sweep for elements the viewport has PASSED without ever revealing them.
+ *
+ * IntersectionObserver reports threshold CROSSINGS, not positions. If the
+ * viewport moves from below an element to above it without a frame in between
+ * — scrollIntoView, an anchor link, a restored scroll position on reload, one
+ * hard flick on a trackpad — no callback is delivered, and the element stays
+ * clipped or transparent for good. Scrolling back up cannot rescue it either:
+ * it is above the viewport, not entering it.
+ *
+ * Measured on the home page before this existed: jumping to the bottom left 44
+ * elements permanently invisible.
+ *
+ * So on scroll, anything now entirely above the viewport is marked seen. No
+ * transition is played — there is nothing to watch up there — it is simply made
+ * visible, which is the correct end state either way.
+ *
+ * Cheap by construction: one passive listener, coalesced to a frame, reading
+ * only getBoundingClientRect on the shrinking set of unrevealed targets, and it
+ * removes itself once none are left.
+ */
+let sweepScheduled = false;
+let sweepAttached = false;
+
+function sweepPassed(): void {
+  sweepScheduled = false;
+  const remaining = document.querySelectorAll<HTMLElement>(SELECTOR);
+  if (remaining.length === 0) {
+    detachSweep();
+    return;
+  }
+  // Reveal anything that has reached the same line the observer triggers on.
+  //
+  // Not just "fully above the viewport": a jump can leave an element straddling
+  // the top edge — partly visible, already scrolled to, and still never having
+  // crossed a threshold. That is exactly what happened to the mosaic heading
+  // (top -71, bottom +105: on screen, and clipped to nothing).
+  //
+  // Using the observer's own trigger line makes this a true safety net rather
+  // than a special case: whatever the observer should have caught and did not,
+  // the next scroll frame catches.
+  const line = window.innerHeight * 0.92; // mirrors the -8% bottom rootMargin
+  for (const el of remaining) {
+    if (el.getBoundingClientRect().top < line) reveal(el);
+  }
+}
+
+function onScroll(): void {
+  if (sweepScheduled) return;
+  sweepScheduled = true;
+  requestAnimationFrame(sweepPassed);
+}
+
+function attachSweep(): void {
+  if (sweepAttached || typeof window === "undefined") return;
+  sweepAttached = true;
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", onScroll, { passive: true });
+}
+
+function detachSweep(): void {
+  if (!sweepAttached) return;
+  sweepAttached = false;
+  window.removeEventListener("scroll", onScroll);
+  window.removeEventListener("resize", onScroll);
 }
 
 /** Release everything — for teardown in tests or a full client re-render. */
 export function disconnectReveals(): void {
   observer?.disconnect();
   observer = null;
+  detachSweep();
 }
 
 /**
