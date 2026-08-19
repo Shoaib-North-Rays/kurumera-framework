@@ -162,11 +162,11 @@
 .ew__disc {
   position: absolute;
   z-index: 3;
-  top: 178px;
+  top: 34%;
   left: 50%;
   translate: -50% 0;
-  width: 96px;
-  height: 96px;
+  width: clamp(56px, 5vw, 84px);
+  height: clamp(56px, 5vw, 84px);
   border-radius: 999px;
   background: #cbb2f7;
   display: grid;
@@ -187,7 +187,7 @@
   position: absolute;
   inset: 0;
   z-index: 3;
-  padding: 0 40px 34px;
+  padding: 0 28px 26px;
   opacity: 0;
   display: flex;
   flex-direction: column;
@@ -195,33 +195,36 @@
   color: #fff;
 }
 .ew__feature-title {
-  position: absolute;
-  top: 300px;
-  left: 24px; right: 24px;
-  text-align: center;
+  /* IN FLOW, not absolutely placed. It used to sit at a fixed `top` while the
+     description sat in the flex flow below — so on a narrower card, or a name
+     long enough to wrap ("MARKABLUXURYMOBILITY"), the two collided and printed
+     over each other. Fixed offsets cannot survive four different card widths;
+     stacking them does. */
   font-family: var(--font-manrope), system-ui, sans-serif;
-  font-size: 30px;
-  line-height: 1.1;
-  letter-spacing: .22em;      /* the reference sets the name wide, not large */
+  font-size: clamp(17px, 1.5vw, 26px);
+  line-height: 1.15;
+  letter-spacing: .16em;
   font-weight: 700;
   text-transform: uppercase;
-  overflow-wrap: anywhere;    /* a long slug must never overflow the card */
+  overflow-wrap: anywhere;
+  margin-bottom: 6px;
 }
 .ew__feature-by {
-  position: absolute;
-  top: 344px;
-  left: 0; right: 0;
-  text-align: center;
-  font-size: 15px;
-  font-weight: 400;
-  color: rgba(255,255,255,.92);
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,.78);
+  margin-bottom: 14px;
 }
 .ew__feature-desc {
-  font-size: 18px;
-  line-height: 1.35;
-  font-weight: 600;
-  margin-bottom: 18px;
-  max-width: 32ch;
+  font-size: clamp(13px, 1.05vw, 16px);
+  line-height: 1.4;
+  font-weight: 500;
+  margin-bottom: 14px;
+  max-width: 40ch;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .ew__tags { display: flex; flex-wrap: wrap; gap: 10px; }
