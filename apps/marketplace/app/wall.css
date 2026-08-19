@@ -1,0 +1,214 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   EDITORIAL MEDIA WALL
+
+   Geometry measured from the reference at ~1907x773 and written as explicit
+   pixel tracks rather than fractions — the composition depends on the row NOT
+   fitting the viewport, which a fr-based grid would quietly "fix".
+
+   NOTHING HERE MOVES ON ITS OWN. No animation, no transition on position, no
+   transform loop. The only motion is a hover scale on the image.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.ew {
+  --ew-gap: 24px;
+  /* 560, not 640: at 773 tall, 110 top + 640 + 24 leaves row 2 invisible.
+     560 puts row 2 ~79px into the viewport, as the reference shows. */
+  --ew-h: 560px;
+  --ew-radius: 8px;
+  --ew-bg: #111111;
+  /* How far the row is pulled left so card 1 is clipped by the viewport. */
+  --ew-bleed: 170px;
+
+  background: var(--ew-bg);
+  padding-block: 110px 0;  /* dark space above, measured */
+  overflow: hidden;        /* the wall clips at the viewport, by design */
+}
+
+.ew__rail {
+  /* Full-bleed: escapes any centred container it is placed inside. */
+  width: 100vw;
+  max-width: 100vw;
+  margin-inline: calc(50% - 50vw);
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* Scrollbar hidden, scrolling intact. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.ew__rail::-webkit-scrollbar { display: none; }
+.ew__rail:focus-visible { outline: 2px solid #b9a7ff; outline-offset: -4px; }
+
+.ew__row {
+  display: flex;
+  gap: var(--ew-gap);
+  /* The negative start is what clips card 1 against the left viewport edge. */
+  margin-left: calc(var(--ew-bleed) * -1);
+  /* Room for the row to run past the right edge. */
+  padding-right: 120px;
+  width: max-content;
+}
+.ew__row--2 { margin-top: var(--ew-gap); }
+
+/* ── Card sizes — explicit, unequal, measured ──────────────────────────────── */
+.ew__card {
+  position: relative;
+  flex: 0 0 auto;
+  height: var(--ew-h);
+  border-radius: var(--ew-radius);
+  overflow: hidden;
+  background: #1a1a1a;
+}
+.ew__card--edgeL { width: 480px; }   /* 310px visible after the 170 bleed */
+.ew__card--lg    { width: 620px; }
+.ew__card--feature { width: 620px; }
+.ew__card--edgeR { width: 470px; }   /* ~285px visible before the edge */
+.ew__card--md    { width: 420px; }
+
+/* Row 2 is shorter — only its top edge enters the viewport. */
+.ew__row--2 .ew__card { height: 400px; }
+
+.ew__hit { display: block; position: absolute; inset: 0; text-decoration: none; color: #fff; }
+
+.ew__img { object-fit: cover; }
+.ew__fallback { position: absolute; inset: 0; }
+
+/* Hover: restrained, as specified. 1.00 -> 1.02. */
+@media (hover: hover) and (pointer: fine) {
+  @media (prefers-reduced-motion: no-preference) {
+    .ew__img { transition: scale 480ms cubic-bezier(.22,1,.36,1); }
+  }
+  .ew__card:hover .ew__img { scale: 1.02; }
+}
+
+/* Plain cards carry only a quiet name, bottom-left. */
+.ew__caption {
+  position: absolute;
+  left: 20px;
+  bottom: 18px;
+  z-index: 2;
+  text-shadow: 0 1px 12px rgba(0,0,0,.55);
+}
+.ew__caption-name {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  color: rgba(255,255,255,.94);
+}
+
+/* ── Featured case-study card ──────────────────────────────────────────────── */
+.ew__img--feature { filter: saturate(.92); }
+
+.ew__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 12, 14, .68);
+  z-index: 1;
+}
+
+.ew__brand {
+  position: absolute;
+  top: 34px;
+  left: 34px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: #fff;
+}
+.ew__brand-mark {
+  width: 20px; height: 20px; border-radius: 5px;
+  background: #16A34A;
+  display: inline-block;
+}
+.ew__brand-thin { font-weight: 400; opacity: .85; }
+
+/* The lavender disc — behind the title, intersecting it. */
+.ew__disc {
+  position: absolute;
+  z-index: 2;                 /* under the title (z-3), over the scrim (z-1) */
+  top: 150px;
+  left: 292px;
+  width: 118px;
+  height: 118px;
+  border-radius: 999px;
+  background: #cbb2f7;
+}
+
+.ew__feature-body {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: 0 44px 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  color: #fff;
+}
+.ew__feature-title {
+  position: absolute;
+  top: 172px;
+  left: 0; right: 0;
+  text-align: center;
+  font-family: var(--font-manrope), Georgia, "Times New Roman", serif;
+  font-size: 52px;
+  line-height: 1;
+  letter-spacing: .01em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.ew__feature-by {
+  position: absolute;
+  top: 232px;
+  left: 0; right: 0;
+  text-align: center;
+  font-size: 19px;
+  font-weight: 400;
+  color: rgba(255,255,255,.92);
+}
+.ew__feature-desc {
+  font-size: 21px;
+  line-height: 1.35;
+  font-weight: 500;
+  margin-bottom: 22px;
+  max-width: 34ch;
+}
+
+.ew__tags { display: flex; flex-wrap: wrap; gap: 10px; }
+.ew__tag {
+  font-size: 13.5px;
+  line-height: 1;
+  padding: 9px 14px;
+  border: 1px solid #d8f36b;
+  color: #d8f36b;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ── Responsive: keep the asymmetry, reduce the scale ──────────────────────── */
+@media (max-width: 1280px) {
+  .ew { --ew-h: 520px; --ew-bleed: 110px; }
+  .ew__card--edgeL { width: 380px; }
+  .ew__card--lg, .ew__card--feature { width: 520px; }
+  .ew__card--edgeR { width: 380px; }
+  .ew__feature-title { font-size: 42px; top: 160px; }
+  .ew__feature-by { top: 212px; }
+  .ew__disc { top: 142px; left: 230px; width: 96px; height: 96px; }
+  .ew__feature-desc { font-size: 18px; }
+  .ew__row--2 .ew__card { height: 340px; }
+}
+
+@media (max-width: 760px) {
+  .ew { --ew-h: 420px; --ew-bleed: 40px; padding-block: 56px 0; }
+  .ew__card--edgeL, .ew__card--edgeR, .ew__card--md { width: 250px; }
+  .ew__card--lg, .ew__card--feature { width: 320px; }
+  .ew__feature-title { font-size: 28px; top: 96px; }
+  .ew__feature-by { top: 130px; font-size: 15px; }
+  .ew__disc { top: 84px; left: 118px; width: 64px; height: 64px; }
+  .ew__feature-body { padding: 0 22px 22px; }
+  .ew__feature-desc { font-size: 15px; margin-bottom: 14px; }
+  .ew__tag { font-size: 11.5px; padding: 7px 11px; }
+  .ew__row--2 .ew__card { height: 260px; }
+}

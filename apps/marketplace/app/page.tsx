@@ -1,7 +1,7 @@
 import Link from "next/link";
 import "./home.css";
-import "./mosaic.css";
-import { TemplateMosaic } from "@/components/TemplateMosaic";
+import "./wall.css";
+import { EditorialWall } from "@/components/EditorialWall";
 import {
   fetchTemplates, categoryCounts, CATEGORIES, isFree, isBuilder, priceLabel,
   featureLabels, categoryLabel, builderPreviewUrl, BUILDER_ORIGIN, type Template,
@@ -217,14 +217,7 @@ export default async function HomePage() {
           only became possible when the covers were fixed: before that every
           listing had coverImage:"" and a visual showcase would have been eight
           live iframes. */}
-      {withCovers.length > 0 && (
-        <TemplateMosaic
-          templates={withCovers}
-          eyebrow="The catalogue"
-          title="See them before you choose."
-          hrefLabel={`All ${total} templates`}
-        />
-      )}
+      {withCovers.length >= 4 && <EditorialWall templates={withCovers} />}
 
       {/* ── 2 · THE INDEX ────────────────────────────────────────────────── */}
       {total > 0 && (
