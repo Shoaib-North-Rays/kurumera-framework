@@ -84,8 +84,16 @@
      reaches the same content. */
   @media (prefers-reduced-motion: no-preference) {
     .ew__scrim, .ew__feature-body, .ew__brand { transition: opacity 260ms cubic-bezier(.22,1,.36,1); }
-    .ew__disc { transition: opacity 260ms cubic-bezier(.22,1,.36,1), scale 260ms cubic-bezier(.22,1,.36,1); }
+    .ew__disc {
+      transition:
+        opacity 260ms cubic-bezier(.22,1,.36,1),
+        scale 260ms cubic-bezier(.22,1,.36,1),
+        /* Slower than the fade — the lag IS the effect. An arrow that tracked
+           the cursor exactly would read as a stuck cursor, not a followed one. */
+        translate 420ms cubic-bezier(.22,1,.36,1);
+    }
   }
+
   .ew__card:hover .ew__scrim,
   .ew__card:focus-within .ew__scrim,
   .ew__card:hover .ew__feature-body,
@@ -102,69 +110,15 @@
   .ew__disc { display: none; }
 }
 
-/* Plain cards carry only a quiet name, bottom-left. */
-.ew__caption { display: none;
-  position: absolute;
-  left: 20px;
-  bottom: 18px;
-  z-index: 2;
-  text-shadow: 0 1px 12px rgba(0,0,0,.55);
-}
-.ew__caption-name {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: .01em;
-  color: rgba(255,255,255,.94);
-}
-
-/* ── Featured case-study card ──────────────────────────────────────────────── */
-.ew__img--feature { filter: saturate(.92); }
-
-.ew__scrim {
-  position: absolute;
-  inset: 0;
-  background: rgba(12, 12, 14, .72);
-  z-index: 1;
-  opacity: 0;
-}
-
-.ew__brand {
-  position: absolute;
-  top: 34px;
-  left: 34px;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .14em;
-  color: #fff;
-  /* Part of the overlay, not a permanent watermark. It was left ungated when
-     the rest of the featured content became a hover state, so it sat on top of
-     the photograph at rest — a floating label over someone's design. */
-  opacity: 0;
-}
-.ew__brand-mark {
-  width: 9px; height: 9px; border-radius: 999px;
-  background: #16A34A;
-  display: inline-block;
-}
-.ew__brand-thin {
-  font-weight: 600;
-  color: #d8f36b;
-  margin-left: 4px;
-}
-.ew__brand-thin::before { content: "· "; color: rgba(255,255,255,.5); }
-
-/* Lavender arrow button, centred above the title — as in the reference, where
-   it is the affordance rather than decoration behind the type. */
+/* The arrow, positioned by the pointer. --ax/--ay are written by CursorArrow on
+   pointermove and fall back to the card's centre, so it is correctly placed
+   before the cursor arrives and wherever the script never runs. */
 .ew__disc {
   position: absolute;
   z-index: 3;
-  top: 34%;
-  left: 50%;
-  translate: -50% 0;
+  top: 0;
+  left: 0;
+  translate: calc(var(--ax, 50%) - 50%) calc(var(--ay, 40%) - 50%);
   width: clamp(56px, 5vw, 84px);
   height: clamp(56px, 5vw, 84px);
   border-radius: 999px;
@@ -173,12 +127,12 @@
   place-items: center;
   opacity: 0;
   scale: .86;
+  pointer-events: none;   /* never steals the click from the card link */
 }
 .ew__disc::after {
   content: "";
   width: 30px; height: 30px;
   background: #17171b;
-  /* arrow glyph */
   -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M5 12h14M13 6l6 6-6 6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/contain no-repeat;
   mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M5 12h14M13 6l6 6-6 6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/contain no-repeat;
 }
@@ -246,7 +200,9 @@
   .ew__card--edgeR { width: 380px; }
   .ew__feature-title { font-size: 42px; top: 160px; }
   .ew__feature-by { top: 212px; }
-  .ew__disc { top: 142px; left: 230px; width: 96px; height: 96px; }
+  /* Size only. top/left must stay 0 — the arrow is placed by translate
+     from the pointer, and re-pinning it here would freeze it. */
+  .ew__disc { width: 76px; height: 76px; }
   .ew__feature-desc { font-size: 18px; }
   .ew__row--2 .ew__card { height: 340px; }
 }
@@ -257,7 +213,7 @@
   .ew__card--lg, .ew__card--feature { width: 320px; }
   .ew__feature-title { font-size: 28px; top: 96px; }
   .ew__feature-by { top: 130px; font-size: 15px; }
-  .ew__disc { top: 84px; left: 118px; width: 64px; height: 64px; }
+  .ew__disc { width: 56px; height: 56px; }
   .ew__feature-body { padding: 0 22px 22px; }
   .ew__feature-desc { font-size: 15px; margin-bottom: 14px; }
   .ew__tag { font-size: 11.5px; padding: 7px 11px; }

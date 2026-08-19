@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Template } from "@/lib/registry";
 import { WallAutoScroll } from "./WallAutoScroll";
+import { CursorArrow } from "./CursorArrow";
 
 /**
  * Editorial media wall — a deterministic asymmetric composition, NOT a carousel.
@@ -162,6 +163,7 @@ export function EditorialWall({ templates }: { templates: Template[] }) {
         </div>
       </div>
 
+      <CursorArrow selector=".ew" />
       <WallAutoScroll selector=".ew__rail--1" direction="right" />
       <WallAutoScroll selector=".ew__rail--2" direction="left" />
     </section>
