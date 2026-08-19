@@ -29,6 +29,18 @@ import { WallAutoScroll } from "./WallAutoScroll";
  * for a template marketplace would misrepresent the product.
  */
 
+/**
+ * A template's own tags, cleaned — never substituted.
+ *
+ * The data is creator-entered and not all of it is presentable: one live
+ * listing carries the tag ": real-estate", which renders as a stray colon and
+ * reads as a bug at this size. Malformed entries are DROPPED rather than
+ * repaired, because guessing what a creator meant is inventing their content.
+ * A template with no usable tags shows none.
+ */
+const CLEAN_TAG = /^[A-Za-z][A-Za-z0-9 &+-]*$/;
+const tagsOf = (t: Template) => t.tags.filter((x) => CLEAN_TAG.test(x.trim())).slice(0, 5);
+
 function priceOf(t: Template): string {
   if (!t.price) return "Free";
   try {
@@ -39,15 +51,6 @@ function priceOf(t: Template): string {
     return `${t.currency || "USD"} ${t.price}`;
   }
 }
-
-const FEATURED_TAGS = [
-  "Ecommerce",
-  "Growth",
-  "Conversion",
-  "CX Design",
-  "Development",
-  "Brand Strategy",
-];
 
 /**
  * ONE card treatment, used for every tile.
@@ -105,13 +108,20 @@ function Card({
               ? t.description.slice(0, 150)
               : `A complete ${t.category || "storefront"} theme — built to launch fast and stay yours.`}
           </span>
-          <span className="ew__tags">
-            {(t.tags.length ? t.tags.slice(0, 4) : FEATURED_TAGS.slice(0, 3)).map((tag) => (
-              <span className="ew__tag" key={tag}>
-                {tag}
-              </span>
-            ))}
-          </span>
+          {/* The template's OWN tags, and nothing else. There used to be a
+              hardcoded fallback here ("Ecommerce / Growth / Conversion") for
+              listings with none — service labels invented by this component and
+              attributed to someone else's template. A card with no tags simply
+              shows none. */}
+          {tagsOf(t).length > 0 && (
+            <span className="ew__tags">
+              {tagsOf(t).map((tag) => (
+                <span className="ew__tag" key={tag}>
+                  {tag}
+                </span>
+              ))}
+            </span>
+          )}
         </span>
       </Link>
     </article>
