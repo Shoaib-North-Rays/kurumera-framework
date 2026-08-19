@@ -83,20 +83,22 @@
      card is just the photograph. Also fires on focus-within so a keyboard user
      reaches the same content. */
   @media (prefers-reduced-motion: no-preference) {
-    .ew__scrim, .ew__feature-body { transition: opacity 260ms cubic-bezier(.22,1,.36,1); }
+    .ew__scrim, .ew__feature-body, .ew__brand { transition: opacity 260ms cubic-bezier(.22,1,.36,1); }
     .ew__disc { transition: opacity 260ms cubic-bezier(.22,1,.36,1), scale 260ms cubic-bezier(.22,1,.36,1); }
   }
   .ew__card--feature:hover .ew__scrim,
   .ew__card--feature:focus-within .ew__scrim,
   .ew__card--feature:hover .ew__feature-body,
-  .ew__card--feature:focus-within .ew__feature-body { opacity: 1; }
+  .ew__card--feature:focus-within .ew__feature-body,
+  .ew__card--feature:hover .ew__brand,
+  .ew__card--feature:focus-within .ew__brand { opacity: 1; }
   .ew__card--feature:hover .ew__disc,
   .ew__card--feature:focus-within .ew__disc { opacity: 1; scale: 1; }
 }
 
 /* No hover available (touch): show it, since it cannot be revealed. */
 @media not all and (hover: hover) {
-  .ew__scrim, .ew__feature-body { opacity: 1; }
+  .ew__scrim, .ew__feature-body, .ew__brand { opacity: 1; }
   .ew__disc { display: none; }
 }
 
@@ -134,17 +136,26 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 20px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: -.02em;
+  letter-spacing: .14em;
   color: #fff;
+  /* Part of the overlay, not a permanent watermark. It was left ungated when
+     the rest of the featured content became a hover state, so it sat on top of
+     the photograph at rest — a floating label over someone's design. */
+  opacity: 0;
 }
 .ew__brand-mark {
-  width: 20px; height: 20px; border-radius: 5px;
+  width: 9px; height: 9px; border-radius: 999px;
   background: #16A34A;
   display: inline-block;
 }
-.ew__brand-thin { font-weight: 400; opacity: .85; }
+.ew__brand-thin {
+  font-weight: 600;
+  color: #d8f36b;
+  margin-left: 4px;
+}
+.ew__brand-thin::before { content: "· "; color: rgba(255,255,255,.5); }
 
 /* Lavender arrow button, centred above the title — as in the reference, where
    it is the affordance rather than decoration behind the type. */

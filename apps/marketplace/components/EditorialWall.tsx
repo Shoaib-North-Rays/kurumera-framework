@@ -29,6 +29,17 @@ import { WallAutoScroll } from "./WallAutoScroll";
  * for a template marketplace would misrepresent the product.
  */
 
+function priceOf(t: Template): string {
+  if (!t.price) return "Free";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency", currency: t.currency || "USD", maximumFractionDigits: 0,
+    }).format(t.price);
+  } catch {
+    return `${t.currency || "USD"} ${t.price}`;
+  }
+}
+
 const FEATURED_TAGS = [
   "Ecommerce",
   "Growth",
@@ -84,9 +95,16 @@ function Featured({ t }: { t: Template }) {
         {/* Translucent, not opaque: the photograph stays readable underneath. */}
         <span className="ew__scrim" aria-hidden />
 
-        <span className="ew__brand" aria-hidden>
+        {/* The reference puts a platform logo here ("shopify plus"), which tells
+            you what the case study was built on. Stamping "kurumera templates"
+            in the same slot said nothing — every card on this page is a
+            Kurumera template — while covering the design being sold. So the
+            slot carries the facts a buyer actually needs instead: what kind of
+            store it is, and what it costs. */}
+        <span className="ew__brand">
           <span className="ew__brand-mark" />
-          kurumera<span className="ew__brand-thin">templates</span>
+          {(t.category || t.type).toUpperCase()}
+          <span className="ew__brand-thin">{priceOf(t)}</span>
         </span>
 
         {/* Sits BEHIND the title, intersecting it — not a badge beside it. */}
