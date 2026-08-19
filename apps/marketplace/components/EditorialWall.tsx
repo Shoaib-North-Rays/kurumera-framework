@@ -127,17 +127,18 @@ export function EditorialWall({ templates }: { templates: Template[] }) {
 
   return (
     <section className="ew" aria-label="Featured templates">
-      {/* Focusable + labelled so the overflow is reachable without a pointer.
-          Nothing scrolls it automatically. */}
-      <div className="ew__rail" tabIndex={0} role="region" aria-label="Template gallery, scroll horizontally">
+      {/* TWO independent scroll containers, not one. The rows drift in opposite
+          directions, which is only possible if each owns its own scrollLeft. */}
+      <div className="ew__rail ew__rail--1" tabIndex={0} role="region" aria-label="Featured templates, row one">
         <div className="ew__row">
           <Card t={r1[0]} className="ew__card--edgeL" priority />
           <Card t={r1[1]} className="ew__card--lg" priority />
           <Featured t={r1[2]} />
           <Card t={r1[3]} className="ew__card--edgeR" />
         </div>
+      </div>
 
-        {/* Row 2 breaks the bottom edge — the wall continues past the viewport. */}
+      <div className="ew__rail ew__rail--2" tabIndex={0} role="region" aria-label="Featured templates, row two">
         <div className="ew__row ew__row--2">
           <Card t={r2[0]} className="ew__card--md" objectPosition="center" />
           <Card t={r2[1]} className="ew__card--lg" objectPosition="center" />
@@ -146,7 +147,8 @@ export function EditorialWall({ templates }: { templates: Template[] }) {
         </div>
       </div>
 
-      <WallAutoScroll selector=".ew__rail" />
+      <WallAutoScroll selector=".ew__rail--1" direction="right" />
+      <WallAutoScroll selector=".ew__rail--2" direction="left" />
     </section>
   );
 }

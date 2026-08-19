@@ -27,7 +27,16 @@ const PX_PER_FRAME = 0.3;
 /** How long to wait after the user stops before drifting again. */
 const RESUME_AFTER_MS = 2600;
 
-export function WallAutoScroll({ selector }: { selector: string }) {
+export function WallAutoScroll({
+  selector,
+  direction = "right",
+}: {
+  selector: string;
+  /** "right" drifts toward the end; "left" drifts back toward the start. Two
+   *  rows moving opposite ways is what makes the wall read as a moving surface
+   *  rather than one long belt. */
+  direction?: "left" | "right";
+}) {
   useEffect(() => {
     const rail = document.querySelector<HTMLElement>(selector);
     if (!rail) return;
@@ -45,6 +54,8 @@ export function WallAutoScroll({ selector }: { selector: string }) {
      * effect mounts, rAF fires, the element is scrollable, and nothing moves.
      * Accumulating in a float and assigning the total each frame fixes it.
      */
+    // A left-drifting row must START at the end, or it has nowhere to travel.
+    if (direction === "left") rail.scrollLeft = rail.scrollWidth - rail.clientWidth;
     let pos = rail.scrollLeft;
     let resumeTimer: number | undefined;
     let disposed = false;
@@ -65,7 +76,11 @@ export function WallAutoScroll({ selector }: { selector: string }) {
       // Measured EVERY frame, never once at mount — see the note above.
       const max = rail.scrollWidth - rail.clientWidth;
       if (!paused && !document.hidden && max > 1) {
-        pos = pos >= max - 1 ? 0 : pos + PX_PER_FRAME;   // wrap at the end
+        if (direction === "right") {
+          pos = pos >= max - 1 ? 0 : pos + PX_PER_FRAME;   // wrap at the end
+        } else {
+          pos = pos <= 1 ? max : pos - PX_PER_FRAME;       // wrap at the start
+        }
         rail.scrollLeft = pos;
       }
       raf = requestAnimationFrame(step);
@@ -96,7 +111,7 @@ export function WallAutoScroll({ selector }: { selector: string }) {
       rail.removeEventListener("touchstart", pause);
       rail.removeEventListener("keydown", pause);
     };
-  }, [selector]);
+  }, [selector, direction]);
 
   return null;
 }
