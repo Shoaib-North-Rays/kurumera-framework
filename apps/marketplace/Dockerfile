@@ -13,15 +13,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN mkdir -p public          # ensure it exists even if the app ships no static assets
-# Build ONLY this app, not every workspace.
-#
-# `npm run build` at the root compiles the whole monorepo, so the marketplace
-# image was being blocked by an unrelated package: @kurumera/base-theme fails to
-# resolve @kurumera/editable (added after this image was last built), and its
-# failure aborted the marketplace build with it. The marketplace has no
-# workspace dependencies — next/react/react-dom only — so it builds alone, and
-# a broken sibling theme can no longer stop the storefront shipping.
-RUN npm run build -w @kurumera/marketplace
+RUN npm run build
 
 FROM node:20-alpine AS run
 WORKDIR /app
