@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Template } from "@/lib/registry";
+import { RailAutoScroll } from "./RailAutoScroll";
 
 /**
  * Horizontal mosaic of templates — the marketplace's showcase surface.
@@ -11,10 +12,10 @@ import type { Template } from "@/lib/registry";
  * cost a full theme document each. With real covers this becomes an image
  * composition, which is what makes the whole treatment affordable.
  *
- * COMPOSITION: tiles alternate wide/tall/standard instead of a uniform grid, so
- * the eye moves along the row rather than scanning a table. The rail scrolls
- * horizontally and deliberately leaves the next tile partly visible — the
- * clearest possible signal that there is more without adding a control.
+ * COMPOSITION: every tile is the SAME size. A showcase is a comparison, and
+ * varying the frames makes two designs look different when only the frame
+ * changed — the imagery supplies the variety. The rail scrolls horizontally and
+ * leaves the next tile partly visible, the cheapest possible "there is more".
  *
  * MOTION, and what each piece earns its place with (nothing here is decorative):
  *   · overlay + copy on hover  -> DISCOVERY. The name, what it is and its tags
@@ -44,9 +45,6 @@ function priceLabel(t: Template): string {
     return `${t.currency || "USD"} ${t.price}`;
   }
 }
-
-/** Rhythm for the tile widths. Repeats, so any catalogue size stays varied. */
-const SHAPES = ["is-wide", "is-std", "is-tall", "is-std", "is-wide", "is-std"] as const;
 
 export function TemplateMosaic({
   templates,
@@ -91,10 +89,10 @@ export function TemplateMosaic({
         tabIndex={0}
         data-reveal-group=""
       >
-        {templates.map((t, i) => (
+        {templates.map((t) => (
           <article
             key={t.slug}
-            className={`mos__tile ${SHAPES[i % SHAPES.length]}`}
+            className="mos__tile"
             data-reveal="scale"
           >
             <div className="mos__frame">
@@ -103,9 +101,9 @@ export function TemplateMosaic({
                   className="mos__img"
                   src={t.coverImage}
                   alt=""
-                  width={960}
-                  height={600}
-                  sizes="(max-width: 720px) 78vw, 40vw"
+                  width={1280}
+                  height={900}
+                  sizes="(max-width: 720px) 80vw, 30rem"
                   /* Decorative: the accessible name comes from the link below,
                      so alt="" avoids announcing the same thing twice. */
                 />
@@ -150,6 +148,9 @@ export function TemplateMosaic({
           </article>
         ))}
       </div>
+
+      {/* Drifts once the rail is on screen; stops for good on any interaction. */}
+      <RailAutoScroll selector=".mos__rail" />
     </section>
   );
 }

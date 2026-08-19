@@ -69,24 +69,31 @@
   outline-offset: 4px;
 }
 
+/* EQUAL TILES. An earlier version varied the width per position, which sounded
+   editorial and read as inconsistent — a template showcase is a comparison, and
+   different-sized frames make two designs look different when only the frame
+   changed. Every tile is the same size; the imagery supplies the variety. The
+   width is chosen so the next tile is always partly visible, which is the
+   cheapest possible "there is more". */
 .mos__tile {
   scroll-snap-align: start;
   flex: 0 0 auto;
-  /* The next tile stays partly visible — the cheapest possible "there is more". */
-  width: min(78vw, 27rem);
+  width: min(80vw, 30rem);
 }
-.mos__tile.is-wide { width: min(88vw, 38rem); }
-.mos__tile.is-tall { width: min(64vw, 22rem); }
 
 .mos__frame {
   position: relative;
-  height: clamp(20rem, 42vw, 30rem);
+  /* MATCHES THE COVER SCREENSHOT (1280x900). The tiles used to vary in HEIGHT
+     against a fixed-ratio image, so `object-fit: cover` cropped the sides — a
+     template's own logo and headline were being sliced off ("Woodora" rendering
+     as "oodora"), which is the one thing a template showcase must not do. Only
+     the WIDTH varies now; every tile shows the whole design. */
+  aspect-ratio: 1280 / 900;
   border-radius: var(--r-media);
   overflow: hidden;
   background: var(--sunken);
   isolation: isolate;
 }
-.mos__tile.is-tall .mos__frame { height: clamp(24rem, 50vw, 36rem); }
 
 .mos__img,
 .mos__fallback {
