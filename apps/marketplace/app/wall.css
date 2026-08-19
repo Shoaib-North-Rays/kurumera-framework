@@ -86,14 +86,14 @@
     .ew__scrim, .ew__feature-body, .ew__brand { transition: opacity 260ms cubic-bezier(.22,1,.36,1); }
     .ew__disc { transition: opacity 260ms cubic-bezier(.22,1,.36,1), scale 260ms cubic-bezier(.22,1,.36,1); }
   }
-  .ew__card--feature:hover .ew__scrim,
-  .ew__card--feature:focus-within .ew__scrim,
-  .ew__card--feature:hover .ew__feature-body,
-  .ew__card--feature:focus-within .ew__feature-body,
-  .ew__card--feature:hover .ew__brand,
-  .ew__card--feature:focus-within .ew__brand { opacity: 1; }
-  .ew__card--feature:hover .ew__disc,
-  .ew__card--feature:focus-within .ew__disc { opacity: 1; scale: 1; }
+  .ew__card:hover .ew__scrim,
+  .ew__card:focus-within .ew__scrim,
+  .ew__card:hover .ew__feature-body,
+  .ew__card:focus-within .ew__feature-body,
+  .ew__card:hover .ew__brand,
+  .ew__card:focus-within .ew__brand { opacity: 1; }
+  .ew__card:hover .ew__disc,
+  .ew__card:focus-within .ew__disc { opacity: 1; scale: 1; }
 }
 
 /* No hover available (touch): show it, since it cannot be revealed. */
@@ -103,7 +103,7 @@
 }
 
 /* Plain cards carry only a quiet name, bottom-left. */
-.ew__caption {
+.ew__caption { display: none;
   position: absolute;
   left: 20px;
   bottom: 18px;

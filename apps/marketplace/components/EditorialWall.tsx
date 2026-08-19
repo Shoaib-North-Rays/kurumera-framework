@@ -49,6 +49,16 @@ const FEATURED_TAGS = [
   "Brand Strategy",
 ];
 
+/**
+ * ONE card treatment, used for every tile.
+ *
+ * This started as two components — a plain image card plus one elaborate
+ * "featured" card — mirroring the reference, which has a single dark case study
+ * among photographs. That is right for an agency portfolio and wrong here: on a
+ * marketplace every tile is a product someone is deciding whether to buy, so
+ * every tile has to answer the same questions. Reserving the name, price,
+ * description and tags for one card left the other seven as anonymous pictures.
+ */
 function Card({
   t,
   className,
@@ -76,38 +86,15 @@ function Card({
         ) : (
           <span className="ew__fallback" style={{ background: t.coverColor || "#1b1b1b" }} />
         )}
-        <span className="ew__caption">
-          <span className="ew__caption-name">{t.name}</span>
-        </span>
-      </Link>
-    </article>
-  );
-}
 
-/** The dark case-study card — the compositional anchor of the reference. */
-function Featured({ t }: { t: Template }) {
-  return (
-    <article className="ew__card ew__card--feature">
-      <Link href={`/templates/${t.slug}`} className="ew__hit" aria-label={`${t.name} — case study`}>
-        {t.coverImage && (
-          <Image className="ew__img ew__img--feature" src={t.coverImage} alt="" fill sizes="640px" priority />
-        )}
-        {/* Translucent, not opaque: the photograph stays readable underneath. */}
         <span className="ew__scrim" aria-hidden />
 
-        {/* The reference puts a platform logo here ("shopify plus"), which tells
-            you what the case study was built on. Stamping "kurumera templates"
-            in the same slot said nothing — every card on this page is a
-            Kurumera template — while covering the design being sold. So the
-            slot carries the facts a buyer actually needs instead: what kind of
-            store it is, and what it costs. */}
         <span className="ew__brand">
           <span className="ew__brand-mark" />
           {(t.category || t.type).toUpperCase()}
           <span className="ew__brand-thin">{priceOf(t)}</span>
         </span>
 
-        {/* Sits BEHIND the title, intersecting it — not a badge beside it. */}
         <span className="ew__disc" aria-hidden />
 
         <span className="ew__feature-body">
@@ -115,11 +102,11 @@ function Featured({ t }: { t: Template }) {
           <span className="ew__feature-by">by {t.author}</span>
           <span className="ew__feature-desc">
             {t.description
-              ? t.description.slice(0, 190)
+              ? t.description.slice(0, 150)
               : `A complete ${t.category || "storefront"} theme — built to launch fast and stay yours.`}
           </span>
           <span className="ew__tags">
-            {FEATURED_TAGS.map((tag) => (
+            {(t.tags.length ? t.tags.slice(0, 4) : FEATURED_TAGS.slice(0, 3)).map((tag) => (
               <span className="ew__tag" key={tag}>
                 {tag}
               </span>
@@ -151,7 +138,7 @@ export function EditorialWall({ templates }: { templates: Template[] }) {
         <div className="ew__row">
           <Card t={r1[0]} className="ew__card--edgeL" priority />
           <Card t={r1[1]} className="ew__card--lg" priority />
-          <Featured t={r1[2]} />
+          <Card t={r1[2]} className="ew__card--lg" priority />
           <Card t={r1[3]} className="ew__card--edgeR" />
         </div>
       </div>
