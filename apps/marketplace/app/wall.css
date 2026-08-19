@@ -78,6 +78,26 @@
     .ew__img { transition: scale 480ms cubic-bezier(.22,1,.36,1); }
   }
   .ew__card:hover .ew__img { scale: 1.02; }
+
+  /* The featured overlay is a HOVER state, as in the reference: at rest the
+     card is just the photograph. Also fires on focus-within so a keyboard user
+     reaches the same content. */
+  @media (prefers-reduced-motion: no-preference) {
+    .ew__scrim, .ew__feature-body { transition: opacity 260ms cubic-bezier(.22,1,.36,1); }
+    .ew__disc { transition: opacity 260ms cubic-bezier(.22,1,.36,1), scale 260ms cubic-bezier(.22,1,.36,1); }
+  }
+  .ew__card--feature:hover .ew__scrim,
+  .ew__card--feature:focus-within .ew__scrim,
+  .ew__card--feature:hover .ew__feature-body,
+  .ew__card--feature:focus-within .ew__feature-body { opacity: 1; }
+  .ew__card--feature:hover .ew__disc,
+  .ew__card--feature:focus-within .ew__disc { opacity: 1; scale: 1; }
+}
+
+/* No hover available (touch): show it, since it cannot be revealed. */
+@media not all and (hover: hover) {
+  .ew__scrim, .ew__feature-body { opacity: 1; }
+  .ew__disc { display: none; }
 }
 
 /* Plain cards carry only a quiet name, bottom-left. */
@@ -101,8 +121,9 @@
 .ew__scrim {
   position: absolute;
   inset: 0;
-  background: rgba(12, 12, 14, .68);
+  background: rgba(12, 12, 14, .72);
   z-index: 1;
+  opacity: 0;
 }
 
 .ew__brand {
@@ -125,23 +146,38 @@
 }
 .ew__brand-thin { font-weight: 400; opacity: .85; }
 
-/* The lavender disc — behind the title, intersecting it. */
+/* Lavender arrow button, centred above the title — as in the reference, where
+   it is the affordance rather than decoration behind the type. */
 .ew__disc {
   position: absolute;
-  z-index: 2;                 /* under the title (z-3), over the scrim (z-1) */
-  top: 150px;
-  left: 292px;
-  width: 118px;
-  height: 118px;
+  z-index: 3;
+  top: 178px;
+  left: 50%;
+  translate: -50% 0;
+  width: 96px;
+  height: 96px;
   border-radius: 999px;
   background: #cbb2f7;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  scale: .86;
+}
+.ew__disc::after {
+  content: "";
+  width: 30px; height: 30px;
+  background: #17171b;
+  /* arrow glyph */
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M5 12h14M13 6l6 6-6 6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M5 12h14M13 6l6 6-6 6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/contain no-repeat;
 }
 
 .ew__feature-body {
   position: absolute;
   inset: 0;
   z-index: 3;
-  padding: 0 44px 40px;
+  padding: 0 40px 34px;
+  opacity: 0;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -149,38 +185,39 @@
 }
 .ew__feature-title {
   position: absolute;
-  top: 172px;
-  left: 0; right: 0;
+  top: 300px;
+  left: 24px; right: 24px;
   text-align: center;
-  font-family: var(--font-manrope), Georgia, "Times New Roman", serif;
-  font-size: 52px;
-  line-height: 1;
-  letter-spacing: .01em;
+  font-family: var(--font-manrope), system-ui, sans-serif;
+  font-size: 30px;
+  line-height: 1.1;
+  letter-spacing: .22em;      /* the reference sets the name wide, not large */
   font-weight: 700;
   text-transform: uppercase;
+  overflow-wrap: anywhere;    /* a long slug must never overflow the card */
 }
 .ew__feature-by {
   position: absolute;
-  top: 232px;
+  top: 344px;
   left: 0; right: 0;
   text-align: center;
-  font-size: 19px;
+  font-size: 15px;
   font-weight: 400;
   color: rgba(255,255,255,.92);
 }
 .ew__feature-desc {
-  font-size: 21px;
+  font-size: 18px;
   line-height: 1.35;
-  font-weight: 500;
-  margin-bottom: 22px;
-  max-width: 34ch;
+  font-weight: 600;
+  margin-bottom: 18px;
+  max-width: 32ch;
 }
 
 .ew__tags { display: flex; flex-wrap: wrap; gap: 10px; }
 .ew__tag {
-  font-size: 13.5px;
+  font-size: 12.5px;
   line-height: 1;
-  padding: 9px 14px;
+  padding: 7px 12px;
   border: 1px solid #d8f36b;
   color: #d8f36b;
   border-radius: 999px;
