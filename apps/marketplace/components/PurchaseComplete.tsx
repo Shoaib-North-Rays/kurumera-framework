@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Check, Shield } from "@/components/Icons";
-import { BUILDER_ORIGIN, getTemplate } from "@/lib/registry";
+import { BUILDER_ORIGIN } from "@/lib/registry";
 
 function CopyBox({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
@@ -47,14 +47,22 @@ export function PurchaseComplete() {
         if (!r.ok || !d.ok) { setState("error"); setErr(d?.error || "We couldn't verify your purchase."); return; }
         setData(d as License); setState("ok");
         // The licence response does not carry the listing type, so read it from
-        // the catalogue. Deliberately AFTER the success state: a slow or failed
-        // lookup must never hold up (or break) the page confirming a payment —
-        // it only decides which follow-up we offer, and "unknown" falls back to
-        // the CLI block, which is the safe default for the older `code` themes.
+        // the catalogue — through the SAME-ORIGIN relay, not lib/registry's
+        // fetchTemplates(). That helper hits ${MARKET_ORIGIN}/_push/market with
+        // a server-only `next: { revalidate }` option; from the browser it is a
+        // cross-origin request that fails and is swallowed by its own
+        // `catch { return [] }`, so the type came back unknown and every buyer
+        // — including builder ones — landed in the CLI branch.
+        //
+        // Runs AFTER the success state: a slow lookup must never delay the page
+        // confirming a payment.
         try {
-          const t = await getTemplate(String((d as License).theme || ""));
+          const lr = await fetch("/api/market/list", { cache: "no-store" });
+          const list = (await lr.json()) as { themes?: { slug?: string; type?: string }[] };
+          const slug = String((d as License).theme || "");
+          const t = (list.themes || []).find((x) => x.slug === slug);
           setKind(t?.type === "builder" ? "builder" : t ? "code" : "unknown");
-        } catch { /* keep "unknown" */ }
+        } catch { /* keep "unknown" — see the both-paths fallback below */ }
       } catch { setState("error"); setErr("Network error verifying your purchase."); }
     })();
   }, [sid]);
@@ -76,7 +84,11 @@ export function PurchaseComplete() {
     <div className="purchase">
       <div className="purchase__badge"><Check width={24} height={24} /></div>
       <h1>You now own &ldquo;{data.name}&rdquo;</h1>
-      {kind === "builder" ? (
+      {/* UNKNOWN shows BOTH paths, never CLI alone. Silently choosing CLI is
+          what hid the editor from builder buyers when the type lookup failed;
+          an extra button a code-theme buyer ignores is a far cheaper mistake
+          than a builder buyer having no route into the editor at all. */}
+      {kind !== "code" ? (
         <>
           <p className="muted">
             Add it to your site and start editing — everything is customisable in the builder.
@@ -99,6 +111,15 @@ export function PurchaseComplete() {
           <p className="muted" style={{ marginTop: "2.5rem", fontSize: "0.875rem" }}>Your license key, for installing again later:</p>
           <CopyBox label="license key" value={data.key} />
           <p className="purchase__note"><Shield /> Keep this key somewhere safe — it&rsquo;s tied to your purchase.</p>
+          {kind === "unknown" && (
+            <>
+              <p className="muted" style={{ marginTop: "2rem", fontSize: "0.875rem" }}>
+                Prefer to work in code? This template can also be installed from the terminal:
+              </p>
+              <CopyBox label="install into a store (go live)" value={`kurumera marketplace install ${data.theme} --store <your-store> --license ${data.key}`} />
+              <CopyBox label="clone the source (customize the code)" value={`kurumera marketplace clone ${data.theme} --license ${data.key}`} />
+            </>
+          )}
         </>
       ) : (
         <>
