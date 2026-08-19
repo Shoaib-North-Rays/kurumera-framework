@@ -59,11 +59,15 @@
   scroll-padding-inline: max(var(--gutter), calc((100vw - var(--maxw)) / 2 + var(--gutter)));
   padding-inline: max(var(--gutter), calc((100vw - var(--maxw)) / 2 + var(--gutter)));
   padding-block: var(--s-2);
-  /* Deliberately keeps the scrollbar: on desktop it is the honest affordance
-     that this scrolls, and hiding it is a common reason people never discover
-     a rail at all. */
-  scrollbar-width: thin;
+  /* No scrollbar. A grey track under an editorial band reads as a browser
+     artefact rather than part of the design, and the affordance is carried
+     anyway: the next tile is always partly visible, and the rail drifts on
+     approach. Scrolling itself is untouched — wheel, trackpad, touch drag and
+     the keyboard (the rail is focusable) all still work. */
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* legacy Edge */
 }
+.mos__rail::-webkit-scrollbar { display: none; }   /* Chromium, Safari */
 .mos__rail:focus-visible {
   outline: 2.5px solid var(--green);
   outline-offset: 4px;
