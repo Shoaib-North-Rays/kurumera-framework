@@ -45,12 +45,12 @@ export function CreatorDashboard() {
        on the left states something the platform actually does — nothing here
        claims an audience, a payout figure or a creator count. */
     return (
-      <div className="cgate">
+      <div className="wrap cgate">
         <div className="cgate__pitch">
           <h2 className="cgate__h">Your templates,<br />your terms.</h2>
           <ul className="cgate__list">
             <li>Set your own price — free, or paid from any amount.</li>
-            <li>Edit pricing, descriptions and tags whenever you like; changes go live immediately.</li>
+            <li>Edit pricing, descriptions and tags whenever you like; changes reach the marketplace within a minute.</li>
             <li>Keep ownership of your work. Kurumera lists it under the platform&rsquo;s terms.</li>
             <li>Publish from the visual builder or as a Next.js code theme.</li>
           </ul>

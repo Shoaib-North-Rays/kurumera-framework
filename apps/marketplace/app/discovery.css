@@ -23,6 +23,17 @@
 
 .disc-side { position: relative; }
 
+/* THE STICKY RAIL NEEDS TRAVEL. `.disc` sets `align-items: start`, which sizes
+   this column to its own content — so the sticky panel inside it had a
+   scroll range of zero and simply never stuck. It scrolled away with the page
+   on all four discovery routes, which is the one thing a filter rail must not
+   do. Stretching the COLUMN (not the panel) to the row height gives the panel
+   the full height of the results grid to travel through. Only above the
+   breakpoint: below it the panel is a bottom sheet and must not be stretched. */
+@media (min-width: 881px) {
+  .disc-side { align-self: stretch; }
+}
+
 /* Chrome that only the sheet needs. Hidden by default = desktop is the plain
    column it always was, with nothing extra in the accessibility tree. */
 .disc-side__trigger,

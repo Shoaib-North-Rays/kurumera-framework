@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CATEGORIES, STYLES, type Template } from "@/lib/registry";
+import { CATEGORIES, STYLES, type Template, authorLabel } from "@/lib/registry";
 import { spGet, type SP } from "@/lib/params";
 import { Check } from "@/components/Icons";
 
@@ -87,8 +87,11 @@ export function FilterSidebar({
           <summary>Creator</summary>
           <div className="fgroup__body">
             {opt(!activeAuthor, href({ author: undefined }), "All creators")}
+            {/* The LABEL is masked, the filter VALUE is not — the href has to
+                carry the real author string for the filter to match, but the
+                visible text must not publish a working email address. */}
             {authors.map((a) =>
-              opt(activeAuthor === a, href({ author: a }), a))}
+              opt(activeAuthor === a, href({ author: a }), authorLabel(a)))}
           </div>
         </details>
       )}

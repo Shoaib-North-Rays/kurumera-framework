@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { categoryLabel, isBuilder, type Template } from "@/lib/registry";
+import { categoryLabel, isBuilder, type Template, authorLabel } from "@/lib/registry";
 
 /**
  * The factual half of the detail page.
@@ -96,7 +96,7 @@ export function DetailTabs({ t }: { t: Template }) {
             ))
           ) : (
             <p className="dt-nodesc">
-              {t.author} has not written a description for this template yet. The live preview above is
+              {authorLabel(t.author)} has not written a description for this template yet. The live preview above is
               the honest version of one — it is the real published site, not a screenshot.
             </p>
           )}
@@ -119,7 +119,7 @@ export function DetailTabs({ t }: { t: Template }) {
         <div className="dt-pane" key="details" id="dt-pane-details" role="tabpanel" aria-labelledby="dt-tab-details" tabIndex={-1}>
           <dl className="dt-spec">
             <dt>Creator</dt>
-            <dd>{t.author}</dd>
+            <dd>{authorLabel(t.author)}</dd>
 
             {t.category && (
               <>

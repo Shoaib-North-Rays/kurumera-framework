@@ -64,13 +64,31 @@
     transition-delay: var(--reveal-delay, 0ms);
   }
 
-  /* Settled state — one class, whatever the variant. */
+  /* Settled state — one class, whatever the variant.
+
+     `clip-path: none`, NOT `inset(0 0 0 0)`. An inset of zero still establishes
+     a clip against the border box, so every revealed element quietly became a
+     clipping container FOREVER. That broke three separate things, none of them
+     obviously a motion bug:
+
+       · the hero's "More" categories dropdown — absolutely positioned below its
+         row, so it was clipped to nothing: invisible AND unclickable.
+       · every :focus-visible ring on a revealed element (the outline sits
+         OUTSIDE the border box) — the category rows had no visible focus
+         indicator at all, and the hero chips kept only the sliver of ring that
+         happened to fall inside.
+       · the hero search field's focus ring, same cause.
+
+     Only the mask variant needs to keep the inset: it is what it animates TO,
+     and `none` is not interpolable. It is used on headline lines and the footer
+     wordmark, none of which have anything to overflow. */
   html.js [data-reveal].is-revealed {
     opacity: 1;
     transform: none;
-    clip-path: inset(0 0 0 0);
+    clip-path: none;
     will-change: auto;
   }
+  html.js [data-reveal="mask"].is-revealed { clip-path: inset(0 0 0 0); }
 }
 
 /* ── HOVER MICRO-INTERACTIONS ───────────────────────────────────────────────

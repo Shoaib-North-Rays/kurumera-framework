@@ -136,11 +136,45 @@ export const CATEGORIES: { key: string; label: string; match: RegExp }[] = [
 
 export const STYLES = ["minimal", "modern", "luxury", "bold", "corporate", "playful", "dark", "editorial", "creative"];
 
+/**
+ * A category is a CLASSIFICATION, not a full-text search.
+ *
+ * The haystack used to include `t.description`, so a loose keyword anywhere in
+ * a paragraph of prose filed the template under that category. Measured against
+ * the live registry, that put:
+ *
+ *   · Victoria Medical Care under Ecommerce ("medical-store" in its description)
+ *   · AUREVIA ESTATES under Ecommerce and Agency
+ *   · Woodora under Restaurant ("menu") and Blog ("an editorial serif")
+ *   · Amara under Blog ("an editorial fashion theme")
+ *
+ * Four of twelve categories were carrying templates that are not those things,
+ * and the counts printed on the home page and in the hero rested on it — the
+ * marketplace claimed 8 of 12 categories in use when the true figure is 6.
+ *
+ * Name and tags stay: both are short, chosen identifiers with a low false-
+ * positive rate. Only the free prose goes.
+ */
 export function matchesCategory(t: Template, key: string): boolean {
   const cat = CATEGORIES.find((c) => c.key === key);
   if (!cat) return false;
-  const hay = `${t.category} ${t.tags.join(" ")} ${t.name} ${t.description}`.toLowerCase();
+  const hay = `${t.category} ${t.tags.join(" ")} ${t.name}`.toLowerCase();
   return t.category === key || cat.match.test(hay);
+}
+
+/**
+ * A creator's display name.
+ *
+ * One live listing's author is the operator's own account email
+ * ("sajid@northrays.com"), which every card, detail page and creator link was
+ * printing verbatim — publishing a working address on eight public pages for
+ * anything crawling them. The local part is what the person chose as an
+ * identifier; the domain is the part that makes it a mailbox, so the domain
+ * goes. Anything that is not email-shaped is returned untouched.
+ */
+export function authorLabel(author: string): string {
+  const at = author.indexOf("@");
+  return at > 0 && author.includes(".", at) ? author.slice(0, at) : author;
 }
 export const categoryLabel = (key: string) => CATEGORIES.find((c) => c.key === key)?.label || key;
 

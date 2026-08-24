@@ -10,7 +10,7 @@ export default function CreatorPage() {
           <div>
             <span className="eyebrow">Creator dashboard</span>
             <h1>Manage your templates</h1>
-            <p>Edit pricing, descriptions and tags for the templates you&rsquo;ve published — changes go live on the marketplace instantly.</p>
+            <p>Edit pricing, descriptions and tags for the templates you&rsquo;ve published — changes go live on the marketplace within a minute.</p>
           </div>
         </div>
       </section>

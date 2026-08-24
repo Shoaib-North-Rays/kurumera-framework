@@ -72,7 +72,7 @@ export function Footer() {
               <span className="brand__mark">K</span> Kurumera
             </Link>
             <p className="ft__tag">
-              Professionally designed website templates you can customize without limits — then publish in a click.
+              Website templates you can preview live, customize without limits, and publish on your own domain.
             </p>
           </div>
           {COLS.map((c) => (

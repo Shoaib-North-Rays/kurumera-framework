@@ -131,9 +131,6 @@ export default async function HomePage() {
         totalCategories={CATEGORIES.length}
         lowestPaid={prices.length > 0 ? prices[0] : null}
         chips={chips.map((c) => ({ key: c.key, label: c.label }))}
-        /* Purpose-made hero artwork, in slot order: tall dark, wide light,
-           phone — the three shapes the composition is built around. */
-        heroArt={["/hero-nexora.png", "/hero-lumina.png", "/hero-lumensa.png"]}
       />
 
       {/* ── 1b · THE SHOWCASE ────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { authorLabel } from "@/lib/registry";
 import Link from "next/link";
 import type { Template } from "@/lib/registry";
 import { WallAutoScroll } from "./WallAutoScroll";
@@ -103,11 +104,14 @@ function Card({
 
         <span className="ew__feature-body">
           <span className="ew__feature-title">{t.name}</span>
-          <span className="ew__feature-by">by {t.author}</span>
+          <span className="ew__feature-by">by {authorLabel(t.author)}</span>
           <span className="ew__feature-desc">
-            {t.description
-              ? t.description.slice(0, 150)
-              : `A complete ${t.category || "storefront"} theme — built to launch fast and stay yours.`}
+            {/* NO FALLBACK. Three of the eight listings have description: "",
+                and this used to print "A complete <category> theme — built to
+                launch fast and stay yours." over them: marketing copy this
+                component invented, attributed to a creator who never wrote it.
+                An absent description renders as absent. */}
+            {t.description ? t.description.slice(0, 150) : null}
           </span>
           {/* The template's OWN tags, and nothing else. There used to be a
               hardcoded fallback here ("Ecommerce / Growth / Conversion") for

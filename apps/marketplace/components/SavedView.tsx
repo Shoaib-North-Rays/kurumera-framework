@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SaveButton } from "@/components/SaveButton";
-import { isFree, priceLabel, type Template } from "@/lib/registry";
+import { isFree, priceLabel, type Template, authorLabel } from "@/lib/registry";
 
 const KEY = "kurumera_saved";
 function readSaved(): string[] { try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; } }
@@ -35,7 +35,7 @@ export function SavedView() {
   if (!ready) return <div className="wrap"><p className="muted" style={{ padding: "40px 0" }}>Loading…</p></div>;
 
   return (
-    <div className="wrap" style={{ paddingTop: 24 }}>
+    <div className="wrap" style={{ paddingTop: 24, paddingBottom: "var(--sec-md)" }}>
       <h1 className="purchases__title">Saved templates</h1>
       <p className="muted">Templates you&rsquo;ve hearted — stored on this device.</p>
       {!items.length ? (
@@ -56,7 +56,7 @@ export function SavedView() {
               </div>
               <Link href={`/templates/${t.slug}`} className="tpl-card__body">
                 <h3 className="tpl-card__name">{t.name}</h3>
-                <span className="tpl-card__creator">by {t.author}</span>
+                <span className="tpl-card__creator">by {authorLabel(t.author)}</span>
                 <div className="tpl-card__foot">
                   <span className="tpl-card__meta">{t.installs.toLocaleString()} installs</span>
                   <span className={`tpl-card__price ${isFree(t) ? "free" : ""}`}>{priceLabel(t)}</span>

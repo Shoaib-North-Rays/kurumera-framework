@@ -257,9 +257,70 @@ html[data-scrolled] .site-header {
   color: var(--green-dark);
 }
 
-/* ── Header measure ─────────────────────────────────────────────────────────
-   Nothing to override any more: `.wrap` IS the standard measure, so the header
-   row, the hero and every band share one left edge by construction. This block
-   only restores the gutter the header wants — a touch wider than the content
-   gutter, so the logo and the CTA sit off the very edge of the bar. */
-.site-header__row { padding-inline: var(--gutter-lg); }
+/* ── Header: a floating bar, not a full-width strip ─────────────────────────
+   The comp detaches the header from the top of the page — a rounded white bar
+   with air around it, sitting ON the hero rather than capping it. That reads
+   as a product surface; a full-bleed strip with a hairline under it reads as a
+   document header, which is what the site had.
+
+   Still `position: sticky` and still the same height, so nothing about the
+   scroll behaviour changes: the compaction below is a SURFACE change only (see
+   the note at the top of this file — shrinking a sticky header shortens the
+   document and yanks the content mid-scroll). */
+/* The pill adds 20px of outer padding (12 top + 8 bottom) on top of the row's
+   --h-header, so the header now occupies 92px, not 72px. --sticky-top is
+   redeclared here rather than in globals.css because the padding that changed
+   it lives in this file — leaving them apart is how they drifted in the first
+   place. Every sticky consumer (the discovery filter rail, the FAQ contact
+   card, the detail buy panel) reads this. */
+:root {
+  --header-outer: calc(var(--s-3) + var(--s-2));
+  --sticky-top: calc(var(--h-header) + var(--header-outer) + var(--s-5));
+}
+
+.site-header {
+  background: transparent;
+  backdrop-filter: none;
+  border-bottom: 0;
+  padding-top: var(--s-3);
+  padding-bottom: var(--s-2);
+}
+.site-header__row {
+  max-width: var(--w-standard);
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 1.6vw, 1.75rem);
+  background: rgba(255, 255, 255, .82);
+  backdrop-filter: saturate(1.3) blur(14px);
+  border: 1px solid rgba(15, 40, 25, .07);
+  border-radius: 999px;
+  box-shadow: 0 6px 26px -8px rgba(15, 40, 25, .12);
+  transition:
+    background-color var(--d-normal) var(--e-out),
+    box-shadow var(--d-normal) var(--e-out),
+    border-color var(--d-normal) var(--e-out);
+}
+/* Past the top of the page the bar becomes opaque and lifts, so it stays
+   legible over whatever scrolls beneath it. */
+/* NOT transparent when scrolled. The pill floats in a 20px band, and with the
+   header itself see-through the page scrolled through that band un-frosted —
+   card artwork was sliced across the very top of the viewport on every
+   non-home route. The band gets its own blur; the pill stays more opaque than
+   it, so the floating read survives. */
+html[data-scrolled] .site-header {
+  background: rgba(248, 250, 252, .72);
+  backdrop-filter: saturate(1.2) blur(10px);
+  box-shadow: none;
+}
+html[data-scrolled] .site-header__row {
+  background: var(--surface);
+  border-color: rgba(15, 40, 25, .10);
+  box-shadow: 0 10px 34px -10px rgba(15, 40, 25, .22);
+}
+
+/* The nav sits in the bar now, so it wants a touch more air between items. */
+.site-header .nav { gap: clamp(var(--s-4), 1.9vw, var(--s-7)); }
+
+@media (max-width: 700px) {
+  .site-header { padding-top: var(--s-2); }
+  .site-header__row { border-radius: var(--r-md); }
+}

@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  getTemplate, fetchTemplates, priceLabel, isFree, isBuilder, featureLabels, categoryLabel,
-} from "@/lib/registry";
+  getTemplate, fetchTemplates, priceLabel, isFree, isBuilder, featureLabels, categoryLabel, authorLabel } from "@/lib/registry";
 import { DetailPreview } from "@/components/DetailPreview";
 import { BuilderPreview } from "@/components/BuilderPreview";
 import { GetTemplate } from "@/components/GetTemplate";
@@ -80,7 +79,7 @@ export default async function TemplateDetail({ params }: { params: Promise<{ slu
           )}
           <Reveal as="h1" variant="mask" className="dp-title">{t.name}</Reveal>
           <Reveal variant="fade" className="dp-meta">
-            <span>by <span className="dp-meta__by">{t.author}</span></span>
+            <span>by <span className="dp-meta__by">{authorLabel(t.author)}</span></span>
             <span className="dp-meta__sep" aria-hidden="true">/</span>
             <span>v{t.latest}</span>
             <span className="dp-meta__sep" aria-hidden="true">/</span>

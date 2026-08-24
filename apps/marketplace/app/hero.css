@@ -1,23 +1,64 @@
 /* ── HOME HERO ──────────────────────────────────────────────────────────────
-   Two columns: pitch left, a fanned stack of real covers right. Consumes the
-   Phase 1 tokens; defines no durations or easings of its own. */
+   Pitch left, three real template panels fanned right. Consumes the Phase 1
+   tokens; defines no durations or easings of its own.
+
+   THE GROUND IS WARM, NOT MINT. The band used to sit on --mint-2 with two
+   green radials, which tinted the whole first screen and fought every panel
+   placed on it — a light storefront screenshot on a green field reads as
+   mis-colour-managed. It is now a warm off-white with the green concentrated
+   BEHIND the artwork, where it does a job: it separates three overlapping
+   screens from the page without a border on any of them. */
 
 .hero {
+  /* --muted (#64748B) measures 4.37:1 on this ground — it passed on the old
+     mint (#F7FCF8) and stopped passing when the ground warmed. Darkened here
+     only, so the rest of the site keeps the shared token. #5C6879 is 5.19:1. */
+  --muted: #5C6879;
   position: relative;
+  isolation: isolate;
   background:
-    radial-gradient(60rem 40rem at 88% 18%, rgba(34, 197, 94, .10), transparent 60%),
-    radial-gradient(40rem 30rem at 96% 78%, rgba(34, 197, 94, .08), transparent 62%),
-    var(--mint-2, #F7FCF8);
+    /* the glow the panels sit in — tight, right of centre, low */
+    radial-gradient(46rem 34rem at 74% 62%, rgba(34, 197, 94, .16), transparent 68%),
+    radial-gradient(30rem 24rem at 92% 22%, rgba(34, 197, 94, .10), transparent 66%),
+    /* a hair of warmth top-left so the cream is not flat */
+    radial-gradient(60rem 40rem at 8% 0%, rgba(255, 255, 255, .9), transparent 60%),
+    var(--hero-ground, #F7F5F0);
   overflow: hidden;
-  padding-block: clamp(3rem, 5vw, 6rem) clamp(4rem, 7vw, 8rem);
+  padding-block: clamp(2.5rem, 4.5vw, 5rem) clamp(4rem, 7vw, 8rem);
 }
 
+/* ── atmosphere ──────────────────────────────────────────────────────────────
+   Orbit arcs and stars. Every rule here is decorative: aria-hidden in the
+   markup, pointer-events:none, and NOTHING animates. The brief's own line —
+   no glowing blobs, no floating objects, no ambient motion — is the whole
+   reason this is static geometry rather than a drifting canvas. */
+.hero__orbits,
+.hero__spark { position: absolute; z-index: 0; pointer-events: none; }
+
+.hero__orbits {
+  right: -2%;
+  top: 2%;
+  width: min(52%, 48rem);
+  height: auto;
+  aspect-ratio: 900 / 700;
+  fill: none;
+  stroke: rgba(22, 101, 52, .16);
+  stroke-width: 1;
+  rotate: -12deg;
+}
+.hero__orbit--dash { stroke-dasharray: 5 9; stroke: rgba(22, 101, 52, .22); }
+
+.hero__spark { fill: var(--green-bright, #22C55E); }
+.hero__spark--1 { width: 18px; left: 55.5%; top: 13%; opacity: .9; }
+.hero__spark--2 { width: 13px; left: 44%;   top: 45%; opacity: .75; }
+.hero__spark--3 { width: 11px; left: 45.5%; top: 68%; opacity: .6; }
+.hero__spark--4 { width: 15px; right: 8%;   top: 26%; opacity: .8; }
+
 .hero__inner {
-  /* The standard measure, not a bespoke one. An earlier pass gave the hero its
-     own 1720px width to escape the old 1280px box; that fixed the hero and left
-     it 40px out of step with the header above it and every band below — which
-     is its own kind of unfinished. The measure now lives in tokens.css and the
-     hero simply uses it. */
+  position: relative;
+  z-index: 1;
+  /* The standard measure, not a bespoke one — the header above and every band
+     below resolve their left edge here too. */
   max-width: var(--w-standard);
   margin-inline: auto;
   padding-inline: var(--gutter-lg);
@@ -28,6 +69,13 @@
 }
 
 /* ── left ─────────────────────────────────────────────────────────────────── */
+
+/* THE HEADLINE SIZES AGAINST ITS COLUMN, NOT THE VIEWPORT — see the note in
+   globals.css where the old `.hero h1` rule was removed. A vw clamp sat at its
+   ceiling from 1280 to 1920 while this column shrank by 200px, so the longest
+   line wrapped and its own reveal mask clipped the remainder. */
+.hero__pitch { container-type: inline-size; }
+
 .hero__eyebrow {
   display: inline-flex;
   align-items: center;
@@ -39,23 +87,7 @@
   color: var(--green-dark);
   margin-bottom: var(--s-5);
 }
-.hero__spark { color: var(--green-bright); }
-
-/* ── THE HEADLINE SIZES AGAINST ITS COLUMN, NOT THE VIEWPORT ────────────────
-   A vw-based clamp is wrong for any type inside a fractional column, and here
-   it was silently destroying content. Between 1280 and 1920 the clamp sat at
-   its 4.75rem ceiling — a constant 72px — while the left column shrank from
-   650px to 455px. "Build it your way." needs 539px at that size, so from about
-   1500px down it wrapped; and because each line sits in an `overflow: hidden`
-   mask for the reveal, the wrapped remainder was CLIPPED. The hero read "Build
-   it" with a hole under it on every 1280–1440 laptop, which is most of them.
-
-   Container query units fix the category of bug, not just this instance: 12.2%
-   of the column keeps the longest line at ~91% of the measure at every width,
-   so no future copy change or column tweak can silently truncate it again.
-   The vw clamp stays as the fallback for engines without container queries,
-   where `cqi` would otherwise resolve against the viewport and be enormous. */
-.hero__pitch { container-type: inline-size; }
+.hero__eyebrow-star { color: var(--green-bright); }
 
 .hero__title {
   font-family: var(--font-head);
@@ -71,30 +103,91 @@
 @supports (container-type: inline-size) {
   .hero__title { font-size: clamp(2.375rem, 12.2cqi, 4.5rem); }
 }
-/* The italic serif accent — the one typographic flourish, so it has to earn it:
-   it lands on the word the sentence is actually about. */
+
+/* The italic serif accent — the one typographic flourish, so it has to earn
+   it: it lands on the word the sentence is actually about. */
 .hero__accent {
+  position: relative;
+  display: inline-block;
   font-family: Georgia, "Times New Roman", serif;
   font-style: italic;
   font-weight: 700;
   color: var(--green-dark);
   letter-spacing: -.02em;
-  background-image: linear-gradient(var(--green-bright), var(--green-bright));
-  background-repeat: no-repeat;
-  background-size: 100% 3px;
-  background-position: 0 92%;
-  padding-bottom: 2px;
+}
+/* The swash. A drawn stroke rather than a border or a background-image bar:
+   the comp's underline tapers, overshoots the word at both ends and is not
+   level, none of which a rectangle can do. `preserveAspectRatio: none` lets one
+   path stretch to any word width; the stroke stays even because it is scaled
+   in the non-uniform axis only. */
+.hero__swash {
+  position: absolute;
+  left: -2%;
+  /* Clear of the descenders. At -.06em the stroke cut through the tail of the
+     "f" and the period read as sitting on the line. */
+  bottom: -.15em;
+  width: 104%;
+  height: .26em;
+  overflow: visible;
+  fill: none;
+  stroke: var(--green-bright, #22C55E);
+  stroke-width: 4;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
 .hero__lede {
   font-size: var(--t-body-lg);
   line-height: var(--lh-body);
   color: var(--muted);
-  max-width: 44ch;
+  max-width: 46ch;
   margin-bottom: var(--s-6);
 }
-.hero__search { max-width: 34rem; margin-bottom: var(--s-5); }
 
+/* ── search ─────────────────────────────────────────────────────────────────
+   One pill with a green disc on the trailing edge, as in the comp. The disc is
+   a real submit button, so the field works identically with a click, Enter, or
+   no JavaScript at all. */
+.hero__search { max-width: 36rem; margin-bottom: var(--s-5); }
+.hero__searchbox input {
+  height: 4rem;
+  padding-left: 3.4rem;
+  padding-right: 4.6rem;
+  border-radius: 999px;
+  font-size: var(--t-body);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 24px rgba(15, 40, 25, .06);
+}
+.hero__searchbox input:focus { border-color: var(--green); }
+.hero__searchbox > svg { left: 1.35rem; }
+.hero__go {
+  position: absolute;
+  right: .5rem;
+  top: 50%;
+  translate: 0 -50%;
+  width: 3rem;
+  height: 3rem;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--green);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color var(--d-fast) var(--e-out), scale var(--d-fast) var(--e-out);
+}
+.hero__go:hover { background: var(--green-hover); }
+.hero__go:active { scale: .94; }
+.hero__go svg { width: 20px; height: 20px; }
+
+/* ── chips ──────────────────────────────────────────────────────────────────
+   ONE ROW, AT EVERY WIDTH. It used to wrap to two, which pushed the proof line
+   down and broke the left column's alignment with the artwork. Anything past
+   the second category goes into "More" — still real links, still reachable with
+   no JavaScript (it is a <details>, not a menu). See CHIPS_INLINE in Hero.tsx
+   for why two and not more. */
 .hero__chips {
   display: flex;
   flex-wrap: wrap;
@@ -111,17 +204,55 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 8px 14px;
+  padding: 8px 13px;
+  white-space: nowrap;
   text-decoration: none;
   transition: border-color var(--d-fast) var(--e-out), color var(--d-fast) var(--e-out);
 }
 .hero__chip:hover { border-color: var(--green); color: var(--green-dark); }
+/* --green-hover (#15803D), not --green (#16A34A): white on the latter is
+   3.30:1, under the 4.5:1 this 14px label needs. The darker step measures
+   5.02:1 and is already in the palette, so the chip stays on-brand. */
 .hero__chip--all {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--green-hover);
+  border-color: var(--green-hover);
   color: #fff;
 }
 .hero__chip--all:hover { background: var(--green-hover); border-color: var(--green-hover); color: #fff; }
+
+.hero__more { position: relative; }
+.hero__chip--more { cursor: pointer; list-style: none; }
+.hero__chip--more::-webkit-details-marker { display: none; }
+.hero__chip--more svg { width: 14px; height: 14px; transition: rotate var(--d-fast) var(--e-out); }
+.hero__more[open] .hero__chip--more svg { rotate: 180deg; }
+.hero__more[open] .hero__chip--more { border-color: var(--green); color: var(--green-dark); }
+.hero__more-panel {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 12rem;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: 0 18px 44px rgba(15, 40, 25, .16);
+}
+.hero__more-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  font-size: var(--t-caption);
+  font-weight: var(--fw-medium);
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.hero__more-item:hover { background: var(--mint); color: var(--green-dark); }
 
 .hero__proof {
   font-size: var(--t-caption);
@@ -130,62 +261,91 @@
 }
 .hero__proof strong { color: var(--ink); font-weight: var(--fw-bold); }
 
-/* ── right: the stack ─────────────────────────────────────────────────────── */
-.hero__art { position: relative; min-height: clamp(26rem, 36vw, 40rem); }
-
-.hero__stack { position: relative; height: 100%; }
+/* ── right: the panels ────────────────────────────────────────────────────── */
+.hero__art { position: relative; }
+.hero__stack { position: relative; aspect-ratio: 1 / .82; }
 
 .hero__shot {
   position: absolute;
   display: block;
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: hidden;
   background: var(--surface);
-  box-shadow: 0 24px 70px rgba(15, 40, 25, .16), 0 2px 6px rgba(15, 40, 25, .06);
+  /* Two shadows: a wide soft one for depth against the glow, and a tight dark
+     one so the panel edge stays crisp where two overlap. */
+  box-shadow:
+    0 34px 80px -18px rgba(15, 40, 25, .30),
+    0 2px 8px rgba(15, 40, 25, .08);
   transition: translate var(--d-slow) var(--e-out), box-shadow var(--d-slow) var(--e-out);
 }
 .hero__shot img { display: block; width: 100%; height: auto; }
 
-/* Fanned, biggest in front — the mockup's arrangement, in real covers. */
-.hero__shot--1 { width: 66%; left: 14%; top: 6%;  z-index: 3; }
-.hero__shot--2 { width: 46%; left: 0;   top: 22%; z-index: 2; rotate: -2deg; }
-.hero__shot--3 { width: 40%; right: 0;  top: 30%; z-index: 1; rotate: 2deg; }
+/* The composition, front to back. Lumina leads at 52% because it is the only
+   panel showing a complete storefront; the other two are read as context, so
+   they are deliberately narrower and pushed under it on both sides. */
+.hero__shot--1 { width: 53%; left: 21%; top: 3%;  z-index: 3; }   /* lumina  */
+.hero__shot--2 { width: 30%; left: 0;   top: 13%; z-index: 1; rotate: -2.5deg; }  /* nexora  */
+/* The phone rides HIGH: the glance panel sits over the lower right, and at
+   top:14% the handset's bottom half disappeared behind it. */
+.hero__shot--3 { width: 23%; right: 3%; top: 6%;  z-index: 2; rotate: 2.5deg; }   /* lumensa */
 
 @media (hover: hover) and (pointer: fine) {
-  .hero__shot:hover { translate: 0 -6px; box-shadow: 0 32px 80px rgba(15, 40, 25, .22); }
+  .hero__shot:hover { translate: 0 -7px; box-shadow: 0 44px 96px -18px rgba(15, 40, 25, .36); }
 }
 
+/* ── the CURATED badge ──────────────────────────────────────────────────────
+   Set on a ring, as in the comp. The text is an SVG <textPath> around a circle
+   rather than letters positioned by hand, so it stays even at any size and
+   needs no font metrics to be right. */
+/* pointer-events:none — it is aria-hidden decoration sitting over the corner
+   of a real template link, and it was swallowing the click. */
 .hero__badge {
+  pointer-events: none;
   position: absolute;
-  top: -2%;
-  right: 4%;
+  /* Clear of the panels. Sitting on top of the phone card, the ring text ran
+     over a photograph and neither survived. */
+  top: -5%;
+  right: -1%;
   z-index: 4;
-  width: 5.5rem;
-  height: 5.5rem;
+  width: clamp(5rem, 7vw, 7.25rem);
+  aspect-ratio: 1;
   border-radius: 999px;
   background: var(--surface);
-  box-shadow: 0 10px 30px rgba(15, 40, 25, .14);
+  box-shadow: 0 12px 34px rgba(15, 40, 25, .16);
   display: grid;
-  place-content: center;
-  text-align: center;
+  place-items: center;
 }
-.hero__badge-n { font-size: 1.6rem; font-weight: var(--fw-black); color: var(--ink); line-height: 1; }
-.hero__badge-l {
-  font-size: 9px; letter-spacing: .16em; text-transform: uppercase;
-  color: var(--muted); margin-top: 3px;
+.hero__badge-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: var(--muted);
+  font-family: var(--font-body);
+  font-size: 6.4px;
+  font-weight: 700;
+  letter-spacing: .19em;
+  text-transform: uppercase;
+}
+.hero__badge-n {
+  font-family: var(--font-head);
+  font-size: clamp(1.5rem, 2.1vw, 2.15rem);
+  font-weight: var(--fw-black);
+  color: var(--ink);
+  line-height: 1;
 }
 
 /* ── the glance panel ─────────────────────────────────────────────────────── */
 .hero__glance {
   position: absolute;
-  right: 0;
-  bottom: 0;
+  right: -3%;
+  bottom: -2%;
   z-index: 4;
-  width: min(19rem, 82%);
+  width: min(18.25rem, 80%);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
-  box-shadow: 0 18px 50px rgba(15, 40, 25, .14);
+  box-shadow: 0 22px 56px rgba(15, 40, 25, .16);
   padding: var(--s-4) var(--s-4) var(--s-2);
 }
 .hero__glance-h {
@@ -211,8 +371,7 @@
 .hero__glance-c { color: var(--faint); transition: translate var(--d-fast) var(--e-out); }
 .hero__glance a:hover .hero__glance-c { translate: 3px 0; }
 
-/* Small colour-coded tiles, as in the reference — they make the rows scannable
-   rather than a plain list. */
+/* Small colour-coded tiles — they make the rows scannable rather than a list. */
 .hero__glance-i {
   width: 26px; height: 26px;
   border-radius: 7px;
@@ -231,31 +390,28 @@
   .hero__art { order: 2; }
   .hero__glance { position: static; width: 100%; margin-top: var(--s-6); }
   .hero__badge { top: 0; right: 0; }
+  .hero__orbits { right: -20%; top: 40%; width: 90%; }
+  .hero__spark--2, .hero__spark--3 { display: none; }
 
-  /* THE MIN-HEIGHT MOVES FROM .hero__art TO .hero__stack, and this matters.
-     Every shot is absolutely positioned, so the stack measures ZERO tall. On
-     desktop that is harmless — the glance panel is absolute too, and the art
-     box holds its own height. But once the panel goes back into flow it landed
-     at y=0 of a zero-height stack, i.e. UNDERNEATH the artwork, with the
-     screenshots printed over the top of it. Reserving the space on the element
-     the shots are actually positioned against fixes the stacking and the
-     scroll height together. */
-  /* A FIXED min-height cannot work here: the shots are sized in PERCENT of
-     the stack's width, so the height they need scales with the viewport while
-     a rem value does not. At 390px a 22rem stack held a 340px-tall shot; at
-     600px the same stack had to hold 520px, and the overflow printed the
-     artwork straight across the panel below it. An aspect-ratio ties the
-     reserved height to the width the shots are actually measured against.
-     1:1 clears the tallest arrangement (shot 1 at 66% of a 4:3 portrait, i.e.
-     0.88w, starting 6% down). */
-  .hero__stack { aspect-ratio: 1 / 1; }
+  /* The panels are absolutely positioned, so the stack measures ZERO tall and
+     the glance panel — once back in flow — landed underneath the artwork. The
+     ratio reserves the height the percent-sized panels actually need, and
+     tracks the column width at any viewport (a rem value cannot). */
+  .hero__stack { aspect-ratio: 1 / .9; }
 }
 @media (max-width: 620px) {
-  .hero__shot--1 { width: 78%; left: 6%; }
-  .hero__shot--2 { width: 52%; }
+  /* Lumina moves RIGHT rather than staying at 4%: at phone width the two panels
+     were 80% coincident, so Nexora showed as a purple sliver down the left edge
+     — which reads as a rendering fault, not as a second screen. Offsetting them
+     leaves a readable slice of each. */
+  .hero__shot--1 { width: 72%; left: 24%; top: 0; }
+  .hero__shot--2 { width: 46%; left: 0; top: 32%; }
   .hero__shot--3 { display: none; }   /* two reads as a stack; three is clutter */
-  /* Two shots, and shot 1 widens to 78% — so it needs proportionally more
-     height than the three-shot arrangement above: 0.78 x 1.333 = 1.04w, plus
-     the 6% top offset. */
-  .hero__stack { aspect-ratio: 1 / 1.15; }
+  /* 1.12, not .95: offsetting Nexora to top:32% pushed the taller of the two
+     panels 5px past the reserved box, back over the glance panel. The ratio has
+     to clear the LOWEST panel — 0.46w wide at 0.612 aspect starting 32% down
+     needs 1.11w of height. */
+  .hero__stack { aspect-ratio: 1 / 1.12; }
+  .hero__searchbox input { height: 3.5rem; padding-right: 4rem; }
+  .hero__go { width: 2.6rem; height: 2.6rem; }
 }

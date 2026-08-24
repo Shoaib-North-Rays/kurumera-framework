@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LivePreview } from "@/components/LivePreview";
 import { SaveButton } from "@/components/SaveButton";
 import { Arrow, Download } from "@/components/Icons";
-import { badges, featureLabels, priceLabel, isFree, isBuilder, categoryLabel, livePreviewUrl, builderPreviewUrl, type Template } from "@/lib/registry";
+import { badges, featureLabels, priceLabel, isFree, isBuilder, categoryLabel, livePreviewUrl, builderPreviewUrl, type Template, authorLabel } from "@/lib/registry";
 
 /** Column span on the discovery grid's 12 tracks. Absent = the card renders
  *  exactly as it always has (home page, related rail). */
@@ -51,14 +51,14 @@ export function TemplateCard({ t, span, reveal }: { t: Template; span?: CardSpan
         ) : (
           <h3 className="tpl-card__name">{t.name}</h3>
         )}
-        <span className="tpl-card__creator">by {t.author}</span>
+        <span className="tpl-card__creator">by {authorLabel(t.author)}</span>
         {blurb && <span className="tpl-card__desc">{blurb}</span>}
         {feats.length > 0 && <span className="tpl-card__creator">{feats.join(" · ")}</span>}
         <div className="tpl-card__foot">
           {/* Total installs across the whole marketplace is 3. "0 installs" is a
               worse signal than no signal, so the line appears only when real. */}
           {t.installs > 0 && (
-            <span className="tpl-card__meta"><Download /> {t.installs.toLocaleString()} installs</span>
+            <span className="tpl-card__meta"><Download /> {t.installs.toLocaleString()} {t.installs === 1 ? "install" : "installs"}</span>
           )}
           <span className={`tpl-card__price ${isFree(t) ? "free" : ""}`} style={{ marginLeft: "auto" }}>{priceLabel(t)}</span>
         </div>

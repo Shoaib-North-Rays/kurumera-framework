@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, X, Arrow } from "@/components/Icons";
-import { isFree, priceLabel, scoreMatch, type Template } from "@/lib/registry";
+import { isFree, priceLabel, scoreMatch, type Template, authorLabel } from "@/lib/registry";
 
 /**
  * The header search — a real one.
@@ -306,7 +306,7 @@ export function SearchOverlay() {
                     >
                       <span className="searchov__rowmain">
                         <span className="searchov__name">{t.name}</span>
-                        <span className="searchov__by">by {t.author}</span>
+                        <span className="searchov__by">by {authorLabel(t.author)}</span>
                       </span>
                       <span className={`searchov__price ${isFree(t) ? "free" : ""}`}>{priceLabel(t)}</span>
                     </Link>

@@ -719,7 +719,10 @@ button { font-family: inherit; }
    from the site's own left edge for no reason a reader could infer. A reading
    measure that is narrower than every other page is also the point: a policy
    should not be set to the same width as a catalogue. */
-.legal { padding: var(--sec-md) 0 var(--sec-lg); }
+/* padding-BLOCK, not the four-value shorthand: `padding: X 0 Y` also set
+   padding-inline to 0, cancelling `.wrap`'s gutter at equal specificity, so
+   below 672px the policy text ran flush to both screen edges. */
+.legal { padding-block: var(--sec-md) var(--sec-lg); }
 .legal h1 { font-family: var(--font-head); font-size: var(--t-page-title); font-weight: var(--fw-black); line-height: var(--lh-heading); letter-spacing: var(--ls-display); }
 .legal__meta { color: var(--faint); font-size: var(--t-caption); margin: var(--s-3) 0 var(--s-7); }
 .legal h2 { font-family: var(--font-head); font-size: var(--t-h3); font-weight: var(--fw-bold); line-height: var(--lh-heading); margin: var(--s-8) 0 var(--s-4); }
