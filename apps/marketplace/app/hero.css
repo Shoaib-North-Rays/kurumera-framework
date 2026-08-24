@@ -183,11 +183,19 @@
 .hero__go svg { width: 20px; height: 20px; }
 
 /* ── chips ──────────────────────────────────────────────────────────────────
-   ONE ROW, AT EVERY WIDTH. It used to wrap to two, which pushed the proof line
-   down and broke the left column's alignment with the artwork. Anything past
-   the second category goes into "More" — still real links, still reachable with
-   no JavaScript (it is a <details>, not a menu). See CHIPS_INLINE in Hero.tsx
-   for why two and not more. */
+   ONE ROW FROM 1360px UP, which is where the artwork sits beside it and the
+   alignment matters. It used to wrap at 1920 and 1440 both, which pushed the
+   proof line down and broke the left column's alignment with the panels.
+
+   Below ~1360 (a 455px column) it wraps to two — All + two categories, then
+   "More". That is a wrap, not a break: the rows stay aligned and nothing is
+   lost. Measured on the live build at 1280: 476px of chips in a 455px column.
+   Forcing one row there would mean either dropping a category out of reach or
+   duplicating every link into the overflow panel, and neither is worth it.
+
+   Anything past the second category goes into "More" — real links, reachable
+   with no JavaScript (it is a <details>, not a menu). See CHIPS_INLINE in
+   Hero.tsx for why two. */
 .hero__chips {
   display: flex;
   flex-wrap: wrap;
