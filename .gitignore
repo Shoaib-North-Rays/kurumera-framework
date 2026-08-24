@@ -7,3 +7,6 @@ packages/cli/template/
 .env.local
 .DS_Store
 *.log
+
+# Stray output from ad-hoc screenshot scripts when the out-dir env var is unset.
+undefined/
