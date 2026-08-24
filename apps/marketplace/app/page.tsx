@@ -87,45 +87,6 @@ const FAQ = [
   },
 ];
 
-/**
- * One index entry.
- *
- * The cover screenshot is the primary image now that every listing has one;
- * LivePreview stays as the fallback for the moment a newly published template
- * exists before its screenshot has been captured. That ordering also means the
- * page mounts zero cross-origin iframes in the common case, where the previous
- * home page mounted sixteen.
- */
-function IndexEntry({ t, n }: { t: Template; n: number }) {
-  const href = `/templates/${t.slug}`;
-  const kind = t.category ? categoryLabel(t.category) : isBuilder(t) ? "Builder design" : "";
-  const tags = cleanTags(t);
-
-  return (
-    <Reveal as="article" className="hm-idx__item">
-      <div className="hm-idx__label">
-        <span>{String(n).padStart(2, "0")}{kind && ` · ${kind}`}</span>
-        <span className={`hm-idx__price${isFree(t) ? " hm-idx__price--free" : ""}`}>{priceLabel(t)}</span>
-      </div>
-
-      {/* Not a tab stop and not announced: the heading link below is the one
-          real target, so the image would otherwise duplicate every entry for
-          keyboard and screen-reader users. */}
-      <Link href={href} className="hm-idx__shot mi-media" tabIndex={-1} aria-hidden="true">
-        {t.coverImage
-          ? <img className="hm-idx__img" src={t.coverImage} alt="" loading="lazy" decoding="async" />
-          : <LivePreview slug={t.slug} name={t.name} url={isBuilder(t) ? builderPreviewUrl(t.slug) : undefined} />}
-      </Link>
-
-      <h3 className="hm-idx__name"><Link className="mi-link" href={href}>{t.name}</Link></h3>
-      <p className="hm-idx__by">by {t.author}</p>
-      {/* No filler for the three listings whose creators left this blank. */}
-      {t.description && <p className="hm-idx__desc">{t.description}</p>}
-      {tags.length > 0 && <p className="hm-idx__tags">{tags.join(" · ")}</p>}
-    </Reveal>
-  );
-}
-
 export default async function HomePage() {
   const templates = await fetchTemplates();
   const counts = categoryCounts(templates);
@@ -218,32 +179,6 @@ export default async function HomePage() {
           listing had coverImage:"" and a visual showcase would have been eight
           live iframes. */}
       {withCovers.length >= 4 && <EditorialWall templates={withCovers} />}
-
-      {/* ── 2 · THE INDEX ────────────────────────────────────────────────── */}
-      {total > 0 && (
-        <section className="hm-band hm-band--page">
-          <div className="wrap hm-index">
-            <div className="hm-grid hm-index__head">
-              <RevealLines as="h2" className="hm-h2 hm-lines" lines={["Small enough to show", "you all of it."]} />
-              <Reveal as="p" variant="fade" className="hm-index__note">
-                Every template published on Kurumera, in one list — nothing held back for a second page.
-                {freeCount > 0 && ` ${numWord(freeCount)} ${plural(freeCount, "is", "are")} free.`}
-                {priceRange && ` ${priceRange}`}
-              </Reveal>
-            </div>
-
-            <RevealGroup className="hm-idx">
-              {templates.map((t, i) => <IndexEntry key={t.slug} t={t} n={i + 1} />)}
-            </RevealGroup>
-
-            <div className="hm-index__foot">
-              <Link className="hm-more mi-arrow" href="/templates">Filter and sort all {total} <Arrow /></Link>
-              {freeCount > 0 && <Link className="hm-more hm-more--quiet mi-link" href="/templates/free">Free ({freeCount})</Link>}
-              {paid.length > 0 && <Link className="hm-more hm-more--quiet mi-link" href="/templates/paid">Paid ({paid.length})</Link>}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* ── 3 · CATEGORIES ───────────────────────────────────────────────────
           Names and real counts only. A thumbnail here would be one member's
