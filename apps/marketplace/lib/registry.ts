@@ -31,6 +31,8 @@ export interface Template {
    *  template has rated it — which is the honest state for most of the
    *  catalogue and must render as ABSENT, never as a zero-star row. */
   rating: Rating;
+  /** Listing views, deduped per client per 6h by the push-service. */
+  views: number;
 }
 
 export interface Rating {
@@ -49,6 +51,7 @@ interface RawTheme {
   price?: number; currency?: string; tags?: string[]; category?: string; demoStore?: string; coverImage?: string;
   type?: string; coverColor?: string;
   rating?: { count?: number; average?: number; distribution?: number[] };
+  views?: number;
 }
 
 function normalize(t: RawTheme): Template {
@@ -66,6 +69,7 @@ function normalize(t: RawTheme): Template {
     category: (t.category || "").toLowerCase(),
     demoStore: t.demoStore || "",
     coverImage: t.coverImage || "",
+    views: Number(t.views) || 0,
     rating: {
       count: Number(t.rating?.count) || 0,
       average: Number(t.rating?.average) || 0,

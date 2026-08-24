@@ -101,6 +101,12 @@ export default async function HomePage() {
   // tile among screenshots reads as a gap rather than a design choice.
   const withCovers = templates.filter((t) => !!t.coverImage);
   const creatorCount = new Set(templates.map((t) => t.author)).size;
+  // Real, summed from the registry the page already fetched — no extra request.
+  const totalViews = templates.reduce((n, t) => n + (t.views || 0), 0);
+  const ratingCount = templates.reduce((n, t) => n + (t.rating?.count || 0), 0);
+  const ratingAverage = ratingCount
+    ? Math.round((templates.reduce((n, t) => n + (t.rating?.average || 0) * (t.rating?.count || 0), 0) / ratingCount) * 10) / 10
+    : 0;
 
   const filledCats = CATEGORIES.filter((c) => (counts[c.key] || 0) > 0);
   const emptyCats = CATEGORIES.filter((c) => !(counts[c.key] || 0));
@@ -130,6 +136,9 @@ export default async function HomePage() {
         filledCategories={filledCats.length}
         totalCategories={CATEGORIES.length}
         lowestPaid={prices.length > 0 ? prices[0] : null}
+        totalViews={totalViews}
+        ratingCount={ratingCount}
+        ratingAverage={ratingAverage}
         chips={chips.map((c) => ({ key: c.key, label: c.label }))}
       />
 

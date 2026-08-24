@@ -367,6 +367,47 @@ const REVIEW_MAX_BODY = 1200;
 // read by other surfaces and the value outlives whatever renders it today.
 const cleanText = (v, max) => String(v == null ? "" : v).replace(/[ -]/g, " ").replace(/[<>]/g, "").trim().slice(0, max);
 
+// ── Views ────────────────────────────────────────────────────────────────────
+// A count of people who opened a listing. Unlike ratings this needs no
+// entitlement — looking is not owning — so it is the one social signal that
+// accumulates from day one, which is exactly why it is worth having.
+//
+// DEDUPED, or it is not a view count, it is a refresh count. One view per
+// (theme, client) per VIEW_WINDOW; the client is a salted hash of IP + UA, so
+// nothing identifying is stored and the same visitor reloading ten times
+// registers once. { [theme]: { total, seen: { [hash]: lastMs } } }
+const VIEWS_STATE = join(ROOT, "views.json");
+const VIEW_WINDOW = 6 * 60 * 60 * 1000;   // 6h
+let _viewsCache = null;
+function getViews() {
+  try { _viewsCache = JSON.parse(readFileSync(VIEWS_STATE, "utf8")); return _viewsCache; }
+  catch (e) {
+    if (existsSync(VIEWS_STATE) && _viewsCache) { console.error(`views.json unreadable, using cache: ${e?.message}`); return _viewsCache; }
+    return {};
+  }
+}
+function setViews(x) { _viewsCache = x; writeJson(VIEWS_STATE, x); }
+const viewsFor = (t) => Number(getViews()[slug(t)]?.total) || 0;
+
+/** Records a view if this client has not been counted for this theme recently.
+ *  Returns the new total either way. */
+function recordView(themeSlug, req) {
+  const t = slug(themeSlug);
+  const all = getViews();
+  const entry = all[t] || (all[t] = { total: 0, seen: {} });
+  const who = createHmac("sha256", REVIEW_SECRET)
+    .update(`${clientIp(req)}|${req.headers["user-agent"] || ""}`)
+    .digest("hex").slice(0, 16);
+  const now = Date.now();
+  if (entry.seen[who] && now - entry.seen[who] < VIEW_WINDOW) return entry.total;
+  entry.seen[who] = now;
+  // Prune anything outside the window so `seen` cannot grow without bound.
+  for (const [k, ts] of Object.entries(entry.seen)) if (now - ts > VIEW_WINDOW) delete entry.seen[k];
+  entry.total = (entry.total || 0) + 1;
+  setViews(all);
+  return entry.total;
+}
+
 // ── Creator payouts (manual: bank / crypto, admin-settled) ───────────────────
 // Stripe Connect isn't available in every region and can't do crypto, so creators
 // register a bank or crypto payout method and the platform settles out-of-band and
@@ -1392,6 +1433,7 @@ function marketListing() {
     // Folded in, not a second request: cards and the hero need it, and one
     // extra fetch per surface to render a star row is not worth it.
     rating: ratingFor(themeSlug),
+    views: viewsFor(themeSlug),
   }));
 }
 
@@ -1642,6 +1684,7 @@ const server = http.createServer((req, res) => {
       price: Number(e.price) > 0 ? Number(e.price) : 0, currency: e.currency || "USD",
       tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "", coverImage: coverUrl(t), type: e.type || "code", coverColor: e.coverColor || "",
       rating: ratingFor(t),
+      views: viewsFor(t),
     });
   }
   // ── Reviews ────────────────────────────────────────────────────────────────
@@ -1669,9 +1712,22 @@ const server = http.createServer((req, res) => {
     return json(200, { theme: t, ...ratingFor(t), reviews });
   }
 
+  // Record a listing view. POST so a crawler prefetching links cannot inflate it.
+  if (p.endsWith("/_push/market/view") && req.method === "POST") {
+    const t = slug(u.searchParams.get("theme") || "");
+    if (!t || !getMarket().themes[t]) return json(404, { error: "unknown theme" });
+    if (rateLimited(`view:${clientIp(req)}`, 60, 60_000)) return json(200, { views: viewsFor(t) });
+    return json(200, { views: recordView(t, req) });
+  }
+
   // Marketplace-wide totals — real counts, for the home page.
   if (p.endsWith("/_push/market/ratings") && req.method === "GET") {
-    return json(200, ratingTotals());
+    const views = Object.values(getViews()).reduce((n, e) => n + (Number(e?.total) || 0), 0);
+    const m = getMarket();
+    const creators = new Set(Object.values(m.themes)
+      .filter((e) => !e.status || e.status === "approved")
+      .map((e) => String(e.author || "").toLowerCase()).filter(Boolean)).size;
+    return json(200, { ...ratingTotals(), views, creators, templates: marketListing().length });
   }
 
   // Write. VERIFIED ONLY: a valid license for this theme, or a store that has

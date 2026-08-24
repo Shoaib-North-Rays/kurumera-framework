@@ -100,6 +100,7 @@ function normalize(raw: Record<string, unknown>): Template {
     coverImage: str(raw.coverImage),
     type: raw.type === "builder" ? "builder" : "code",
     coverColor: "",
+    views: Number(raw.views) || 0,
     rating: {
       count: Number((raw.rating as Record<string, unknown> | undefined)?.count) || 0,
       average: Number((raw.rating as Record<string, unknown> | undefined)?.average) || 0,

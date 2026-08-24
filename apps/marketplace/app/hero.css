@@ -440,3 +440,26 @@
   .hero__searchbox input { height: 3.5rem; padding-right: 4rem; }
   .hero__go { width: 2.6rem; height: 2.6rem; }
 }
+
+/* ── Trust row ──────────────────────────────────────────────────────────────
+   The comp's shape — a horizontal band of proof under the chips — with each
+   block rendering only when the registry can back it. No avatar cluster: there
+   are no creator photographs, and stock faces standing in for real people is
+   the same lie as an invented review count, just harder to spot. */
+.hero__trust { display: flex; align-items: center; gap: clamp(1.25rem, 2.4vw, 2.5rem); flex-wrap: wrap; }
+.hero__trust-block { display: flex; flex-direction: column; gap: 2px; }
+.hero__trust-block > strong {
+  font-family: var(--font-head);
+  font-size: var(--t-h4);
+  font-weight: var(--fw-black);
+  letter-spacing: var(--ls-heading);
+  color: var(--ink);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.hero__trust-block > span { font-size: var(--t-caption); color: var(--muted); line-height: var(--lh-title); }
+.hero__trust-block--rating { gap: 4px; }
+.hero__trust-stars { position: relative; display: inline-block; font-size: 15px; letter-spacing: .08em; line-height: 1; }
+.hero__trust-base { color: var(--border-strong); }
+.hero__trust-fill { position: absolute; inset: 0; overflow: hidden; white-space: nowrap; color: #E8A33D; }
+@media (max-width: 620px) { .hero__trust { gap: var(--s-5); } }

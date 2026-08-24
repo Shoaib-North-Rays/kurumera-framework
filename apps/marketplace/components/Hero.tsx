@@ -96,6 +96,9 @@ export function Hero({
   filledCategories,
   totalCategories,
   lowestPaid,
+  totalViews,
+  ratingCount,
+  ratingAverage,
   chips,
   heroArt,
 }: {
@@ -106,6 +109,10 @@ export function Hero({
   filledCategories: number;
   totalCategories: number;
   lowestPaid: number | null;
+  /** Real marketplace totals. Each renders only when it has a value. */
+  totalViews: number;
+  ratingCount: number;
+  ratingAverage: number;
   /** Categories that actually contain templates — a chip must lead somewhere. */
   chips: { key: string; label: string }[];
   /** Escape hatch for a page that wants different art. Normally unset — the
@@ -235,12 +242,46 @@ export function Hero({
             </div>
           )}
 
-          {/* Real counts, standing in for the comp's invented review score. */}
-          <p className="hero__proof" data-reveal="fade">
-            <strong>{total}</strong> templates from <strong>{creatorCount}</strong> creators
-            {freeCount > 0 && <> · <strong>{freeCount}</strong> free to keep</>}
-            <> · every one free to preview</>
-          </p>
+          {/* THE TRUST ROW, in the comp's shape, with figures the registry can
+              back. The comp carried "Trusted by 2,000+ creators" over stock
+              avatars and "4.9/5 from 1,200+ reviews" under five stars. There
+              are eight creators and the reviews system launched today, so both
+              of those would be invented — and inventing them is the one thing
+              that would make every true number here worthless too.
+
+              What IS true: how many creators have published, how many times
+              the catalogue has been opened, and — as soon as an owner rates
+              something — the real average. Each part renders only when it has
+              data, so this row grows into the comp's layout rather than
+              pretending to already be there. */}
+          <div className="hero__trust" data-reveal="fade">
+            <span className="hero__trust-block">
+              <strong>{creatorCount}</strong>
+              <span>{creatorCount === 1 ? "creator" : "creators"} publishing</span>
+            </span>
+            {totalViews > 0 && (
+              <span className="hero__trust-block">
+                <strong>{totalViews.toLocaleString()}</strong>
+                <span>template {totalViews === 1 ? "view" : "views"}</span>
+              </span>
+            )}
+            {ratingCount > 0 && ratingAverage > 0 ? (
+              <span className="hero__trust-block hero__trust-block--rating">
+                <span className="hero__trust-stars" aria-hidden>
+                  <span className="hero__trust-base">★★★★★</span>
+                  <span className="hero__trust-fill" style={{ width: `${(ratingAverage / 5) * 100}%` }}>★★★★★</span>
+                </span>
+                <span>
+                  {ratingAverage.toFixed(1)}/5 from {ratingCount} verified {ratingCount === 1 ? "owner" : "owners"}
+                </span>
+              </span>
+            ) : (
+              <span className="hero__trust-block">
+                <strong>{freeCount}</strong>
+                <span>free to keep · every one free to preview</span>
+              </span>
+            )}
+          </div>
         </div>
 
         {/* ── right: the panels ── */}
