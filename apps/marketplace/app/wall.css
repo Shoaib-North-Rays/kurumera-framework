@@ -36,7 +36,7 @@
   -ms-overflow-style: none;
 }
 .ew__rail::-webkit-scrollbar { display: none; }
-.ew__rail:focus-visible { outline: 2px solid #b9a7ff; outline-offset: -4px; }
+.ew__rail:focus-visible { outline: 2px solid var(--green-bright, #22C55E); outline-offset: -4px; }
 
 .ew__row {
   display: flex;
@@ -122,7 +122,9 @@
   width: clamp(56px, 5vw, 84px);
   height: clamp(56px, 5vw, 84px);
   border-radius: 999px;
-  background: #cbb2f7;
+  /* Brand green, not the reference lavender — this is Kurumera's
+     accent, and the tag outlines already sit in the same family. */
+  background: var(--green-bright, #22C55E);
   display: grid;
   place-items: center;
   opacity: 0;
@@ -144,6 +146,12 @@
   padding: 0 28px 26px;
   opacity: 0;
   display: flex;
+  /* The stack is bottom-aligned inside an absolutely-positioned box, so a long
+     description pushed the last line straight through the card's bottom edge —
+     the clamp limits the line COUNT, not the height the block ends up needing.
+     Clipping here keeps every card's text inside its own frame whatever the
+     copy length. */
+  overflow: hidden;
   flex-direction: column;
   justify-content: flex-end;
   color: #fff;
