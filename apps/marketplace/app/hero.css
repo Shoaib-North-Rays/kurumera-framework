@@ -77,6 +77,9 @@
   margin-bottom: var(--s-5);
 }
 .hero__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-size: var(--t-caption);
   font-weight: var(--fw-semibold);
   color: var(--ink);
@@ -170,7 +173,7 @@
 .hero__glance li + li { border-top: 1px solid var(--border); }
 .hero__glance a {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: var(--s-3);
   padding: 9px 0;
@@ -180,7 +183,22 @@
 }
 .hero__glance a:hover { color: var(--ink); }
 .hero__glance-v { font-weight: var(--fw-bold); color: var(--ink); font-variant-numeric: tabular-nums; }
-.hero__glance-c { color: var(--faint); }
+.hero__glance-c { color: var(--faint); transition: translate var(--d-fast) var(--e-out); }
+.hero__glance a:hover .hero__glance-c { translate: 3px 0; }
+
+/* Small colour-coded tiles, as in the reference — they make the rows scannable
+   rather than a plain list. */
+.hero__glance-i {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  display: grid; place-items: center;
+}
+.hero__glance-i svg { width: 15px; height: 15px; }
+.hero__glance-i--g { background: #E7F7EE; color: #16A34A; }
+.hero__glance-i--p { background: #EFEAFB; color: #6D45C7; }
+.hero__glance-i--a { background: #FEF3E2; color: #C2790B; }
+.hero__glance-i--b { background: #E7F0FE; color: #2563EB; }
+.hero__glance-i--n { background: #EEF1F5; color: #475467; }
 
 /* ── responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
