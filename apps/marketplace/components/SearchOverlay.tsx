@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, X, Arrow, Grid } from "@/components/Icons";
+import { Stars } from "@/components/Stars";
 import Image from "next/image";
 import { isFree, priceLabel, scoreMatch, type Template, authorLabel, CATEGORIES, categoryLabel } from "@/lib/registry";
 
@@ -99,6 +100,11 @@ function normalize(raw: Record<string, unknown>): Template {
     coverImage: str(raw.coverImage),
     type: raw.type === "builder" ? "builder" : "code",
     coverColor: "",
+    rating: {
+      count: Number((raw.rating as Record<string, unknown> | undefined)?.count) || 0,
+      average: Number((raw.rating as Record<string, unknown> | undefined)?.average) || 0,
+      distribution: [0, 0, 0, 0, 0],
+    },
   };
 }
 
@@ -405,6 +411,7 @@ export function SearchOverlay() {
                           by {authorLabel(t.author)}
                           {t.category && <> · {categoryLabel(t.category)}</>}
                         </span>
+                        <Stars rating={t.rating} size={12} className="searchov__stars" />
                       </span>
                       <span className={`searchov__price ${isFree(t) ? "free" : ""}`}>{priceLabel(t)}</span>
                     </Link>

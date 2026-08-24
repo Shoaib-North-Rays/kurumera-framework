@@ -34,7 +34,9 @@ import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 
 const PORT = Number(process.env.PORT || 9200);
-const ROOT = "/home/ubuntu/theme-pushes";
+// Overridable so the service can be run against a scratch directory for
+// testing. Production passes nothing and gets the real path.
+const ROOT = process.env.KURUMERA_PUSH_ROOT || "/home/ubuntu/theme-pushes";
 const STATE = join(ROOT, "state.json");
 
 // Control plane: mirror every state change into the Django backend (source of
@@ -271,6 +273,99 @@ function getInstalled() {
   }
 }
 function setInstalled(x) { _installedCache = x; writeJson(INSTALLED_STATE, x); }
+
+// ── Ratings & reviews ────────────────────────────────────────────────────────
+// VERIFIED ONLY. A review requires proof the reviewer actually got the theme:
+// a valid, unrevoked license key for it (paid), or a store that has it recorded
+// in installs.json (free or paid). Nothing else can post.
+//
+// That constraint is the entire value of the feature. An open review box on a
+// marketplace collects competitor noise and seller self-promotion, and everyone
+// reading it knows that — which is why "verified purchase" is the only badge
+// shoppers actually weigh. It also means the counts here will be small and
+// slow: there are 8 listings and 4 installs in total today. Small and true
+// beats large and invented; the numbers grow as the marketplace does.
+//
+// { [themeSlug]: { [reviewerId]: { rating, title, body, at, verified } } }
+// One review per reviewer per theme — re-posting EDITS rather than stacking, so
+// nobody can inflate a listing by submitting repeatedly.
+const REVIEWS_STATE = join(ROOT, "reviews.json");
+let _reviewsCache = null;
+function getReviews() {
+  try { _reviewsCache = JSON.parse(readFileSync(REVIEWS_STATE, "utf8")); return _reviewsCache; }
+  catch (e) {
+    // Fail SAFE, exactly like licenses/installs: a corrupt file must not read as
+    // "no reviews" and silently erase every rating on the marketplace.
+    if (existsSync(REVIEWS_STATE) && _reviewsCache) { console.error(`reviews.json unreadable, using cache: ${e?.message}`); return _reviewsCache; }
+    return {};
+  }
+}
+function setReviews(x) { _reviewsCache = x; writeJson(REVIEWS_STATE, x); }
+
+// A license key must never be stored outside licenses.json — it is the thing
+// that unlocks a paid theme. The reviewer id is an HMAC of it, so one key maps
+// to one stable review slot and the key itself is not recoverable from here.
+// Persisted on first use next to the other state, like .stripe-secret. Not an
+// env var: a redeploy that forgot to set it would silently re-key every existing
+// reviewer and let one license post a second review.
+const REVIEW_SECRET = (() => {
+  const f = join(ROOT, ".review-secret");
+  try { const v = readFileSync(f, "utf8").trim(); if (v) return v; } catch { /* first run */ }
+  const v = randomBytes(32).toString("hex");
+  try { writeFileSync(f, v, { mode: 0o600 }); } catch (e) { console.error(`review secret not persisted: ${e?.message}`); }
+  return v;
+})();
+
+function reviewerIdFromLicense(key) {
+  return "lic:" + createHmac("sha256", REVIEW_SECRET).update(String(key).trim()).digest("hex").slice(0, 24);
+}
+const reviewerIdFromStore = (store) => "store:" + slug(store);
+
+/** Aggregate for one theme: count, mean to 1dp, and the 1–5 histogram. */
+function ratingFor(themeSlug) {
+  const byId = getReviews()[slug(themeSlug)] || {};
+  const list = Object.values(byId).filter((r) => Number(r.rating) >= 1 && Number(r.rating) <= 5);
+  if (!list.length) return { count: 0, average: 0, distribution: [0, 0, 0, 0, 0] };
+  const distribution = [0, 0, 0, 0, 0];
+  let sum = 0;
+  for (const r of list) { const n = Math.round(Number(r.rating)); distribution[n - 1]++; sum += n; }
+  return { count: list.length, average: Math.round((sum / list.length) * 10) / 10, distribution };
+}
+
+/** Marketplace-wide totals. Used by the home page; both are counts of real rows. */
+function ratingTotals() {
+  const all = getReviews();
+  let count = 0, sum = 0;
+  for (const byId of Object.values(all)) {
+    for (const r of Object.values(byId)) {
+      const n = Math.round(Number(r.rating));
+      if (n >= 1 && n <= 5) { count++; sum += n; }
+    }
+  }
+  return { count, average: count ? Math.round((sum / count) * 10) / 10 : 0 };
+}
+
+/**
+ * May this caller review this theme, and as whom?
+ * Returns a reviewer id, or null. Order matters: a license is the stronger
+ * claim (it cost money), so it wins when both are present.
+ */
+function reviewerFor(themeSlug, license, store) {
+  const t = slug(themeSlug);
+  if (license && licenseValid(license, t)) return reviewerIdFromLicense(license);
+  if (store) {
+    const installed = getInstalled()[slug(store)] || {};
+    if (installed[t]) return reviewerIdFromStore(store);
+  }
+  return null;
+}
+
+const REVIEW_MAX_TITLE = 80;
+const REVIEW_MAX_BODY = 1200;
+// Strip anything that could execute or embed if a body is ever rendered as HTML
+// somewhere downstream. The marketplace renders it as text, but this file is
+// read by other surfaces and the value outlives whatever renders it today.
+const cleanText = (v, max) => String(v == null ? "" : v).replace(/[ -]/g, " ").replace(/[<>]/g, "").trim().slice(0, max);
 
 // ── Creator payouts (manual: bank / crypto, admin-settled) ───────────────────
 // Stripe Connect isn't available in every region and can't do crypto, so creators
@@ -1294,6 +1389,9 @@ function marketListing() {
     currency: e.currency || "USD",
     tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "",
     coverImage: coverUrl(themeSlug), type: e.type || "code", coverColor: e.coverColor || "",
+    // Folded in, not a second request: cards and the hero need it, and one
+    // extra fetch per surface to render a star row is not worth it.
+    rating: ratingFor(themeSlug),
   }));
 }
 
@@ -1543,8 +1641,91 @@ const server = http.createServer((req, res) => {
       installs: (e.versions || []).reduce((n, v) => n + (v.installs || 0), 0),
       price: Number(e.price) > 0 ? Number(e.price) : 0, currency: e.currency || "USD",
       tags: e.tags || [], category: e.category || "", demoStore: e.demoStore || "", coverImage: coverUrl(t), type: e.type || "code", coverColor: e.coverColor || "",
+      rating: ratingFor(t),
     });
   }
+  // ── Reviews ────────────────────────────────────────────────────────────────
+  // Public read. Newest first, capped — a listing page does not need 400 rows,
+  // and the aggregate (which is complete) is what the UI leads with.
+  if (p.endsWith("/_push/market/reviews") && req.method === "GET") {
+    const t = slug(u.searchParams.get("theme") || "");
+    if (!t) return json(400, { error: "theme required" });
+    if (!getMarket().themes[t]) return json(404, { error: `no marketplace theme "${t}"` });
+    const byId = getReviews()[t] || {};
+    const reviews = Object.entries(byId)
+      .map(([id, r]) => ({
+        // The reviewer id is an HMAC or a store slug; neither is published.
+        // "Verified" is the only claim about identity that this data supports.
+        id: id.slice(0, 4) + "…",
+        rating: Number(r.rating) || 0,
+        title: r.title || "",
+        body: r.body || "",
+        at: r.at || 0,
+        verified: !!r.verified,
+        by: r.by || "",
+      }))
+      .sort((a, b) => b.at - a.at)
+      .slice(0, 50);
+    return json(200, { theme: t, ...ratingFor(t), reviews });
+  }
+
+  // Marketplace-wide totals — real counts, for the home page.
+  if (p.endsWith("/_push/market/ratings") && req.method === "GET") {
+    return json(200, ratingTotals());
+  }
+
+  // Write. VERIFIED ONLY: a valid license for this theme, or a store that has
+  // it installed (ownership of that store proved against the control plane).
+  if (p.endsWith("/_push/market/review") && req.method === "POST") {
+    if (rateLimited(`review:${clientIp(req)}`, 10, 60_000)) return json(429, { error: "too many requests" });
+    readBody().then(async (buf) => {
+      let b = {};
+      try { b = JSON.parse(buf.toString("utf8") || "{}"); } catch { return json(400, { error: "invalid JSON" }); }
+      const t = slug(b.theme || "");
+      if (!t || !getMarket().themes[t]) return json(404, { error: `no marketplace theme "${t}"` });
+
+      const rating = Math.round(Number(b.rating));
+      if (!(rating >= 1 && rating <= 5)) return json(400, { error: "rating must be 1-5" });
+
+      const license = String(b.license || "").trim();
+      const store = slug(b.store || "");
+
+      // A store claim has to be PROVED, or anyone could review as anyone.
+      let storeOk = "";
+      if (store) {
+        const own = await verifyOwnership(req.headers.authorization, store, "", false);
+        if (own.ok) storeOk = store;
+        else if (!license) return json(own.status || 403, { error: own.error || "not authorized for this store" });
+      }
+
+      const reviewer = reviewerFor(t, license, storeOk);
+      if (!reviewer) {
+        return json(403, {
+          error: "only people who own this template can review it",
+          detail: "Provide the license key issued with your purchase, or sign in with a store that has it installed.",
+        });
+      }
+
+      const all = getReviews();
+      const forTheme = all[t] || (all[t] = {});
+      const prior = forTheme[reviewer];
+      forTheme[reviewer] = {
+        rating,
+        title: cleanText(b.title, REVIEW_MAX_TITLE),
+        body: cleanText(b.body, REVIEW_MAX_BODY),
+        // Keep the FIRST posting time on an edit: "reviewed on" should not
+        // silently move a two-year-old review to today because a typo was fixed.
+        at: prior?.at || Date.now(),
+        edited: prior ? Date.now() : 0,
+        verified: true,
+        by: storeOk || "",
+      };
+      setReviews(all);
+      return json(200, { ok: true, edited: !!prior, ...ratingFor(t) });
+    });
+    return;
+  }
+
   // Serve a theme's static screenshot thumbnail (populated by the capture script).
   if (p.endsWith("/_push/market/shot")) {
     const t = slug(u.searchParams.get("theme") || "");

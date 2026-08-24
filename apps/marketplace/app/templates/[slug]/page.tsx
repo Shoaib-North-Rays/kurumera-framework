@@ -7,6 +7,7 @@ import { BuilderPreview } from "@/components/BuilderPreview";
 import { GetTemplate } from "@/components/GetTemplate";
 import { GetBuilderTemplate } from "@/components/GetBuilderTemplate";
 import { DetailTabs } from "@/components/DetailTabs";
+import { Reviews } from "@/components/Reviews";
 import { SaveButton } from "@/components/SaveButton";
 import { TemplateCard } from "@/components/TemplateCard";
 import { Reveal, RevealGroup } from "@/components/motion/Reveal";
@@ -143,6 +144,7 @@ export default async function TemplateDetail({ params }: { params: Promise<{ slu
       <section className="dp-info">
         <div className="wrap">
           <DetailTabs t={t} />
+          <Reviews slug={t.slug} initial={t.rating} />
         </div>
       </section>
 

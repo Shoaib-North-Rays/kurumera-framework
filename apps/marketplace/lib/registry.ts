@@ -26,13 +26,29 @@ export interface Template {
   type: "code" | "builder";
   /** Design primary colour (builder listings) for a branded cover placeholder. */
   coverColor: string;
+  /** Verified-owner ratings, folded into the listing by the push-service so a
+   *  star row costs no extra request. `count: 0` means nobody who owns this
+   *  template has rated it — which is the honest state for most of the
+   *  catalogue and must render as ABSENT, never as a zero-star row. */
+  rating: Rating;
 }
+
+export interface Rating {
+  count: number;
+  /** Mean to 1dp. Meaningless when count is 0 — check count, not average. */
+  average: number;
+  /** How many 1..5 star ratings, index 0 = one star. */
+  distribution: number[];
+}
+
+export const EMPTY_RATING: Rating = { count: 0, average: 0, distribution: [0, 0, 0, 0, 0] };
 
 interface RawTheme {
   slug: string; name?: string; description?: string; author?: string;
   latest?: string; versions?: string[]; installs?: number;
   price?: number; currency?: string; tags?: string[]; category?: string; demoStore?: string; coverImage?: string;
   type?: string; coverColor?: string;
+  rating?: { count?: number; average?: number; distribution?: number[] };
 }
 
 function normalize(t: RawTheme): Template {
@@ -50,6 +66,13 @@ function normalize(t: RawTheme): Template {
     category: (t.category || "").toLowerCase(),
     demoStore: t.demoStore || "",
     coverImage: t.coverImage || "",
+    rating: {
+      count: Number(t.rating?.count) || 0,
+      average: Number(t.rating?.average) || 0,
+      distribution: Array.isArray(t.rating?.distribution) && t.rating.distribution.length === 5
+        ? t.rating.distribution.map((n) => Number(n) || 0)
+        : [0, 0, 0, 0, 0],
+    },
     type: t.type === "builder" ? "builder" : "code",
     coverColor: t.coverColor || "",
   };

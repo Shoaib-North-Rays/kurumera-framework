@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LivePreview } from "@/components/LivePreview";
 import { SaveButton } from "@/components/SaveButton";
+import { Stars } from "@/components/Stars";
 import { Arrow, Download } from "@/components/Icons";
 import { badges, featureLabels, priceLabel, isFree, isBuilder, categoryLabel, livePreviewUrl, builderPreviewUrl, type Template, authorLabel } from "@/lib/registry";
 
@@ -52,6 +53,9 @@ export function TemplateCard({ t, span, reveal }: { t: Template; span?: CardSpan
           <h3 className="tpl-card__name">{t.name}</h3>
         )}
         <span className="tpl-card__creator">by {authorLabel(t.author)}</span>
+        {/* Renders nothing at all when nobody who owns this template has rated
+            it — see Stars. Most listings are in that state. */}
+        <Stars rating={t.rating} />
         {blurb && <span className="tpl-card__desc">{blurb}</span>}
         {feats.length > 0 && <span className="tpl-card__creator">{feats.join(" · ")}</span>}
         <div className="tpl-card__foot">
