@@ -40,7 +40,18 @@ export function Purchases() {
   }, []);
 
   useEffect(() => {
-    if (session?.token && session.tenant) load(session.token, session.tenant);
+    /* A TOKEN IS ENOUGH TO ASK. This used to require `session.tenant` too and
+       silently fall through to setLoading(false) when it was missing — so a
+       signed-in buyer with no store attached to their session was shown "No
+       purchases yet under this account" without a single request being made.
+       The page stated a fact about their account that it had never checked.
+
+       Purchases are matched by ACCOUNT EMAIL, not by store (the store is only
+       used to authorize the call), so a buyer who has not created a store yet
+       still owns their licences and must be able to see them. If the server
+       cannot authorize a storeless caller it now says so, out loud, instead of
+       this page inventing an answer. */
+    if (session?.token) load(session.token, session.tenant || "");
     else setLoading(false);
   }, [session, load]);
 
@@ -64,6 +75,12 @@ export function Purchases() {
       {error && <p className="err">{error}</p>}
       {!loading && !items.length && !error && (
         <p className="muted" style={{ padding: "24px 0" }}>No purchases yet under this account. <Link href="/templates/paid">Browse premium templates →</Link></p>
+      )}
+      {/* The store the call was authorized against, when there is one. Without
+          it a buyer who sees an empty list has no way to tell "you bought
+          nothing" from "we asked about the wrong account". */}
+      {!loading && !error && session.tenant && (
+        <p className="muted" style={{ fontSize: "var(--t-meta)" }}>Checked against store <b>{session.tenant}</b>.</p>
       )}
       <div className="purchases__list">
         {items.map((it) => (
