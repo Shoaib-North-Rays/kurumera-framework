@@ -113,7 +113,26 @@ button { font-family: inherit; }
 ::selection { background: var(--mint); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
 
-.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 var(--gutter); }
+/* ── The measure ────────────────────────────────────────────────────────────
+   `.wrap` is the standard band and the alignment edge the whole site shares —
+   header, hero, sections and footer all resolve their left edge here, which is
+   what makes independently-built pages read as one site.
+
+   It used to be --maxw (1280px), and EVERY wrapper on the site used it with no
+   modifier, so all ~20 of them stacked on one central axis inside 320px of dead
+   margin at 1920. The modifiers below exist so a section can choose a measure
+   that suits its content; use them. A page where every `.wrap` is bare is the
+   failure mode this replaced. */
+.wrap { max-width: var(--w-standard); margin: 0 auto; padding: 0 var(--gutter); }
+/* Narrower than standard ON PURPOSE — a text-led band reads as a pause only if
+   it is visibly a different width from the image-led band above it. */
+.wrap--editorial { max-width: var(--w-editorial); }
+/* Long-form prose. Capped near 68ch regardless of viewport. */
+.wrap--read { max-width: var(--w-read); }
+/* Image-led. The extra width is for pictures, not for text. */
+.wrap--wide { max-width: var(--w-wide); }
+/* Escapes the measure entirely, from inside any centred ancestor. */
+.wrap--bleed { max-width: none; width: 100vw; margin-inline: calc(50% - 50vw); padding: 0; }
 .muted { color: var(--muted); }
 .eyebrow { font-family: var(--font-body); font-size: var(--t-meta); font-weight: var(--fw-bold); letter-spacing: var(--ls-label); line-height: var(--lh-title); text-transform: uppercase; color: var(--green-dark); }
 
@@ -210,22 +229,29 @@ button { font-family: inherit; }
 .signin:hover { color: var(--green-dark); }
 @media (max-width: 960px) { .nav { display: none; } }
 
-/* ── Hero ────────────────────────────────────────────────────── */
-.hero { border-bottom: 1px solid var(--border); background: linear-gradient(180deg, var(--mint-2), var(--surface) 70%); }
-/* Text column widened from 1.05fr: --t-hero needs the measure, and the collage
-   is decorative — it can give up the space. */
-.hero__grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: var(--s-8); align-items: center; padding-block: var(--sec-lg); }
-.hero__eyebrow { display: inline-flex; align-items: center; gap: var(--s-2); margin-bottom: var(--s-5); }
-.hero__eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green-bright); }
-.hero h1 { font-size: var(--t-hero); line-height: var(--lh-heading); letter-spacing: var(--ls-display); }
-.hero h1 .accent { color: var(--green-dark); }
-.hero__lede { font-size: var(--t-body-lg); line-height: var(--lh-body); color: var(--muted); margin-top: var(--s-5); max-width: 48ch; text-wrap: pretty; }
-.hero__cta { display: flex; gap: var(--s-3); flex-wrap: wrap; margin-top: var(--s-6); }
-.hero__search { margin-top: var(--s-6); max-width: 560px; }
+/* ── Hero ──────────────────────────────────────────────────────────────────
+   THE HERO LIVES IN app/hero.css NOW. Every rule that used to be here belonged
+   to the previous hero (a 1.15fr/.85fr grid with a decorative collage) and was
+   left behind when that component was replaced.
+
+   Deleting them is not tidying — one was an active bug. `.hero h1` has
+   specificity (0,1,1) and therefore BEAT `.hero__title` (0,1,0) in hero.css, so
+   the headline was sized by --t-hero (capped at 4.5rem) no matter what hero.css
+   asked for. That is why it stayed at 72px while its column shrank from 650px
+   to 455px between 1920 and 1280 — it wrapped, and the overflow was clipped by
+   its own reveal mask. The hero read "Build it" with a hole under it on every
+   common laptop width.
+
+   `.hero__eyebrow`, `.hero__lede`, `.hero__search` and `.hero__chips` were
+   duplicated here at EQUAL specificity and only lost by import order, which is
+   a coin-flip waiting to be re-flipped. `.hero__grid`, `.hero__cta` and the
+   `.dot` were referenced by nothing at all.
+
+   Left in place: `.searchbox`, `.chip` and `.collage` — shared primitives used
+   outside the hero. */
 .searchbox { position: relative; }
 .searchbox > svg { position: absolute; left: var(--s-4); top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: var(--muted); pointer-events: none; }
 .searchbox input { height: var(--h-control-lg); padding: 0 var(--s-5) 0 var(--s-7); font-size: var(--t-body); border-radius: var(--r-input); box-shadow: var(--shadow-sm); }
-.hero__chips { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-top: var(--s-4); }
 .chip { font-size: var(--t-caption); font-weight: var(--fw-medium); color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: var(--s-2) var(--s-4); }
 .chip:hover { border-color: var(--green); color: var(--green-dark); background: var(--mint); }
 
@@ -687,7 +713,13 @@ button { font-family: inherit; }
 .footer__legal a:hover { color: var(--ink); }
 /* Legal is the one place on the site that is pure long-form reading: narrow
    measure, --t-body-lg, generous leading. */
-.legal { max-width: var(--w-narrow); padding: var(--sec-md) 0 var(--sec-lg); }
+/* The measure now comes from `.wrap--read` on the page itself, so the column is
+   CENTRED in the viewport rather than pinned to the left of a 1680px band —
+   which, once the standard measure widened, left a legal document indented 440px
+   from the site's own left edge for no reason a reader could infer. A reading
+   measure that is narrower than every other page is also the point: a policy
+   should not be set to the same width as a catalogue. */
+.legal { padding: var(--sec-md) 0 var(--sec-lg); }
 .legal h1 { font-family: var(--font-head); font-size: var(--t-page-title); font-weight: var(--fw-black); line-height: var(--lh-heading); letter-spacing: var(--ls-display); }
 .legal__meta { color: var(--faint); font-size: var(--t-caption); margin: var(--s-3) 0 var(--s-7); }
 .legal h2 { font-family: var(--font-head); font-size: var(--t-h3); font-weight: var(--fw-bold); line-height: var(--lh-heading); margin: var(--s-8) 0 var(--s-4); }
@@ -736,3 +768,82 @@ button { font-family: inherit; }
 .builder-note b { color: #312E81; }
 .builder-thumb { position: absolute; inset: 0; display: grid; place-items: center; padding: var(--s-6); }
 .builder-thumb span { color: #fff; font-family: var(--font-head); font-weight: var(--fw-black); font-size: var(--t-h4); line-height: var(--lh-title); text-align: center; letter-spacing: var(--ls-heading); text-shadow: 0 1px 14px rgba(0, 0, 0, .45); }
+
+/* ── CREATOR SIGN-IN GATE ────────────────────────────────────────────────────
+   Two columns, not a centred card. The pitch holds the left seven columns and
+   the single control sits in a panel on the right — the one place on this page
+   where containment is doing real work, because it holds an action. */
+.cgate {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: var(--s-9);
+  align-items: start;
+  padding-block: var(--sec-md);
+}
+.cgate__h {
+  font-size: var(--t-h2);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--ls-display);
+  font-weight: var(--fw-black);
+  color: var(--ink);
+}
+.cgate__list {
+  list-style: none;
+  margin: var(--s-7) 0 0;
+  padding: 0;
+  max-width: 54ch;
+}
+.cgate__list li {
+  position: relative;
+  padding: var(--s-4) 0 var(--s-4) var(--s-6);
+  border-top: 1px solid var(--border);
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+  color: var(--muted);
+}
+.cgate__list li:last-child { border-bottom: 1px solid var(--border); }
+/* A rule, not a tick: four green checkmarks in a column is the stock
+   feature-list device, and none of these lines is a claim being verified. */
+.cgate__list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: calc(var(--s-4) + .62em);
+  width: 14px;
+  height: 1px;
+  background: var(--green);
+}
+
+.cgate__panel {
+  position: sticky;
+  top: var(--sticky-top);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s-7);
+}
+.cgate__panel h3 {
+  font-size: var(--t-h4);
+  line-height: var(--lh-title);
+  letter-spacing: var(--ls-heading);
+  color: var(--ink);
+}
+.cgate__panel p {
+  margin-top: var(--s-3);
+  font-size: var(--t-caption);
+  line-height: var(--lh-body);
+  color: var(--muted);
+}
+.cgate__panel .btn { margin-top: var(--s-6); }
+.cgate__foot {
+  margin-top: var(--s-5);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--border);
+  font-size: var(--t-meta);
+  color: var(--faint);
+}
+
+@media (max-width: 900px) {
+  .cgate { grid-template-columns: 1fr; gap: var(--s-7); }
+  .cgate__panel { position: static; }
+}

@@ -5,7 +5,7 @@ export const metadata = {
 
 export default function TermsPage() {
   return (
-    <div className="wrap legal">
+    <div className="wrap wrap--read legal">
       <h1>Terms of Service</h1>
       <p className="legal__meta">Last updated: {new Date().getFullYear()}</p>
 

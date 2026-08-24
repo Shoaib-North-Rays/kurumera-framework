@@ -39,11 +39,28 @@ export function CreatorDashboard() {
   if (!ready) return null; // avoid a hydration flash of the signed-out state
 
   if (!session) {
+    /* A lone centred card in 500px of empty grey was the most template-like
+       screen on the site. It is now a composed two-column gate: what the
+       dashboard is for on the left, the one control on the right. Every line
+       on the left states something the platform actually does — nothing here
+       claims an audience, a payout figure or a creator count. */
     return (
-      <div className="connect" style={{ textAlign: "center" }}>
-        <h2>Sign in to manage your templates</h2>
-        <p>Sign in with your Kurumera account to edit pricing, descriptions and tags for the templates you&rsquo;ve published.</p>
-        <button className="btn btn--primary btn--lg btn--block" onClick={() => startSignIn("/creator")}><Bolt /> Sign in with Kurumera</button>
+      <div className="cgate">
+        <div className="cgate__pitch">
+          <h2 className="cgate__h">Your templates,<br />your terms.</h2>
+          <ul className="cgate__list">
+            <li>Set your own price — free, or paid from any amount.</li>
+            <li>Edit pricing, descriptions and tags whenever you like; changes go live immediately.</li>
+            <li>Keep ownership of your work. Kurumera lists it under the platform&rsquo;s terms.</li>
+            <li>Publish from the visual builder or as a Next.js code theme.</li>
+          </ul>
+        </div>
+        <div className="cgate__panel">
+          <h3>Sign in to manage your templates</h3>
+          <p>Use your Kurumera account — the same one you build with.</p>
+          <button className="btn btn--primary btn--lg btn--block" onClick={() => startSignIn("/creator")}><Bolt /> Sign in with Kurumera</button>
+          <p className="cgate__foot">No account yet? Publishing starts in the builder.</p>
+        </div>
       </div>
     );
   }

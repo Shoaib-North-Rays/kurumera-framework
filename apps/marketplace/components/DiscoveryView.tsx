@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { fetchTemplates, applyFilters, categoryCounts, categoryLabel, type Filters } from "@/lib/registry";
+import { fetchTemplates, applyFilters, categoryCounts, categoryLabel, type Filters, type Template } from "@/lib/registry";
 import { FilterSidebar, type FilterHref } from "@/components/FilterSidebar";
 import { SortSelect } from "@/components/SortSelect";
 import { TemplateCard, type CardSpan } from "@/components/TemplateCard";
@@ -126,6 +126,61 @@ function rhythm(n: number): CardSpan[] {
   return out.concat(TAIL[n - out.length]);
 }
 
+/**
+ * The line under the H1, chosen by surface and computed from the live registry.
+ *
+ * It used to be one sentence — "Kickstart your next project with professionally
+ * designed templates. Customizable, responsive, and ready to publish." —
+ * printed identically on /templates, /free, /paid and all twelve category
+ * routes. Generic copy repeated across a dozen surfaces is one of the clearest
+ * tells that a page was generated rather than written, and it also wasted the
+ * one line on each page that could have said something the visitor could act
+ * on.
+ *
+ * Every branch below states a FACT drawn from the registry that was just
+ * fetched. Nothing is claimed that the data cannot back, and each surface says
+ * something the others do not.
+ */
+function subtitleFor(
+  f: Filters,
+  results: Template[],
+  all: Template[],
+  counts: Record<string, number>,
+): string {
+  const n = results.length;
+  const plural = (k: number, one: string, many: string) => (k === 1 ? one : many);
+
+  if (f.q) {
+    return n === 0
+      ? `Nothing matched "${f.q}". Clear the search to see all ${all.length}, or try a broader term.`
+      : `${n} ${plural(n, "template matches", "templates match")} "${f.q}". Every one opens in a live preview.`;
+  }
+
+  if (f.price === "free") {
+    return n === 0
+      ? "Nothing is free to keep right now — but every template on the marketplace is free to preview."
+      : `${n} ${plural(n, "template", "templates")} you can install and keep at no cost. Full source, yours to customize and publish.`;
+  }
+
+  if (f.price === "paid") {
+    const prices = results.map((t) => t.price).filter((p) => p > 0).sort((a, b) => a - b);
+    return prices.length === 0
+      ? "No paid templates are listed yet."
+      : `${n} ${plural(n, "template", "templates")} from $${prices[0]} to $${prices[prices.length - 1]}. One payment, a license key you keep, and the source in your builder.`;
+  }
+
+  if (f.category) {
+    const label = categoryLabel(f.category);
+    const others = Object.entries(counts).filter(([k, c]) => k !== f.category && c > 0).length;
+    return n === 0
+      ? `Nothing has been published under ${label.toLowerCase()} yet. ${others} other ${plural(others, "category has", "categories have")} templates.`
+      : `${n} ${plural(n, "template", "templates")} built for ${label.toLowerCase()}. Open any of them live before you decide.`;
+  }
+
+  const free = all.filter((t) => t.price === 0).length;
+  return `Every published template, ${free} of them free to keep — and all of them free to open live before you choose.`;
+}
+
 /** Shared discovery experience. `forced` presets a filter for the dedicated
  *  routes (/templates/free, /templates/category/[category]); `base` is that
  *  route's own path, and every link on the page is built from it. */
@@ -196,7 +251,7 @@ export async function DiscoveryView({
           <div className="disc-head__row">
             <div>
               <h1>{titleFor(f)}</h1>
-              <p>Kickstart your next project with professionally designed templates. Customizable, responsive, and ready to publish.</p>
+              <p>{subtitleFor(f, results, templates, counts)}</p>
             </div>
             {/* Router-driven (was a native GET, i.e. a full document reload on
                 every search). Keyed on the active query so that arriving here

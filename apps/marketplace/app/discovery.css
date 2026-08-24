@@ -275,3 +275,68 @@
    as broken. This is the only reason SortSelect is a client component. */
 .sortsel[data-pending="1"] { opacity: .6; }
 .sortsel[data-pending="1"] select { cursor: progress; }
+
+/* ── THE CATALOGUE, AS PLATES RATHER THAN CARDS ─────────────────────────────
+   Scoped to .disc-grid, so the same <TemplateCard> keeps its boxed treatment
+   everywhere else it is used (the related rail, /saved, the creator dashboard).
+
+   TWO PROBLEMS THIS FIXES, one of them a visible bug:
+
+   1. STRETCH. The grid stretched every card to the tallest in its row, so a
+      quarter-width card beside a half-width promoted one grew a slab of empty
+      white below its price — 200px of nothing, inside a bordered box, which
+      reads as a broken card rather than as space. `align-items: start` lets
+      each plate take its own height; the leftover becomes page, not card.
+
+   2. CHROME. Sixteen white rounded bordered boxes on a near-white page is the
+      most template-like composition on the site, and the containment was doing
+      no work: every card is already separated by its own image. The border,
+      the fill and the radius come off the OUTER box and stay on the media,
+      where they frame the screenshot. The result reads as a plate with a
+      caption — which is also how the home index is set, so the two surfaces
+      finally look like one site.
+   ───────────────────────────────────────────────────────────────────────── */
+.disc-grid { align-items: start; }
+
+.disc-grid .tpl-card {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+/* The lift was the card's hover feedback. With no box to lift, the media takes
+   over: the frame's border darkens and the image itself scales inside it. */
+.disc-grid .tpl-card:hover {
+  border: 0;
+  box-shadow: none;
+  transform: none;
+}
+.disc-grid .tpl-card__media {
+  border: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  transition: border-color var(--d-fast) var(--e-out);
+}
+.disc-grid .tpl-card:hover .tpl-card__media { border-color: var(--border-strong); }
+.disc-grid .tpl-card__body {
+  padding: var(--s-4) 0 0;
+  gap: var(--s-1);
+}
+.disc-grid > [data-span="6"] .tpl-card__body,
+.disc-grid > [data-span="12"] .tpl-card__body { padding: var(--s-5) 0 0; }
+.disc-grid .tpl-card__foot {
+  padding-top: var(--s-3);
+  margin-top: var(--s-3);
+  border-top: 1px solid var(--border);
+}
+
+/* The banner variant keeps its horizontal split but loses the dividing border,
+   which only existed to separate two halves of a filled box. */
+.disc-grid > [data-span="12"] { gap: var(--s-7); align-items: center; }
+.disc-grid > [data-span="12"] .tpl-card__media { border-right: 1px solid var(--border); }
+.disc-grid > [data-span="12"] .tpl-card__body { padding: 0; }
+
+/* The save control sat on the card's white fill; on a bare plate it needs its
+   own ground to stay legible over a screenshot. */
+.disc-grid .tpl-card__save { background: rgba(255, 255, 255, .94); }

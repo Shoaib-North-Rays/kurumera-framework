@@ -256,3 +256,10 @@ html[data-scrolled] .site-header {
   background: var(--mint);
   color: var(--green-dark);
 }
+
+/* ── Header measure ─────────────────────────────────────────────────────────
+   Nothing to override any more: `.wrap` IS the standard measure, so the header
+   row, the hero and every band share one left edge by construction. This block
+   only restores the gutter the header wants — a touch wider than the content
+   gutter, so the logo and the CTA sit off the very edge of the bar. */
+.site-header__row { padding-inline: var(--gutter-lg); }

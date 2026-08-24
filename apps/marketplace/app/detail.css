@@ -241,9 +241,38 @@
 }
 
 /* ── PANES ─────────────────────────────────────────────────────────────────── */
+/* The pane was capped at --w-narrow (736px) inside a 1680px band, so two
+   thirds of the page under the tabs was empty — the single largest void on the
+   site once the measure widened. It is now a two-column field: prose keeps a
+   reading measure on the left, and the "what you can do with it" list sits
+   beside it instead of below it, which also stops the page from being one long
+   left-hand column from the breadcrumb to the footer.
+
+   Only the overview pane has two blocks; the spec and version panes have one,
+   and a lone child simply takes the first column. */
 .dt-pane {
-  max-width: var(--w-narrow);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-7) var(--s-9);
+  align-items: start;
 }
+@media (min-width: 1000px) {
+  .dt-pane { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+  /* Prose stacks in column 1; the sub-head and its list move to column 2 and
+     start at the top, level with the lede. */
+  .dt-pane > p { grid-column: 1; }
+  .dt-pane > .dt-sub { grid-column: 2; grid-row: 1; margin-top: 0; }
+  /* NOT `span 99`: the rows here are implicit, so a 99-row span materialises
+     99 empty tracks and the pane grew from 700px to 5000px tall. Row 2 is
+     enough — an auto row grows to fit whatever the list needs, and the
+     paragraph sharing that row sits at its top because the pane is start-
+     aligned. */
+  .dt-pane > .dt-points { grid-column: 2; grid-row: 2; align-self: start; }
+  /* The spec table and the version list are the whole pane on their own tabs —
+     let them run the full field rather than inheriting the 7/5 split. */
+  .dt-pane > .dt-spec, .dt-pane > .dt-versions { grid-column: 1 / -1; }
+}
+.dt-pane > p { max-width: 62ch; }
 .dt-pane p {
   font-size: var(--t-body-lg);
   line-height: var(--lh-body);

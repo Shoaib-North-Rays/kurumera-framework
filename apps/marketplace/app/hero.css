@@ -13,11 +13,16 @@
 }
 
 .hero__inner {
-  max-width: var(--maxw);
+  /* The standard measure, not a bespoke one. An earlier pass gave the hero its
+     own 1720px width to escape the old 1280px box; that fixed the hero and left
+     it 40px out of step with the header above it and every band below — which
+     is its own kind of unfinished. The measure now lives in tokens.css and the
+     hero simply uses it. */
+  max-width: var(--w-standard);
   margin-inline: auto;
-  padding-inline: var(--gutter);
+  padding-inline: var(--gutter-lg);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
   gap: clamp(2rem, 4vw, 4.5rem);
   align-items: center;
 }
@@ -36,9 +41,25 @@
 }
 .hero__spark { color: var(--green-bright); }
 
+/* ── THE HEADLINE SIZES AGAINST ITS COLUMN, NOT THE VIEWPORT ────────────────
+   A vw-based clamp is wrong for any type inside a fractional column, and here
+   it was silently destroying content. Between 1280 and 1920 the clamp sat at
+   its 4.75rem ceiling — a constant 72px — while the left column shrank from
+   650px to 455px. "Build it your way." needs 539px at that size, so from about
+   1500px down it wrapped; and because each line sits in an `overflow: hidden`
+   mask for the reveal, the wrapped remainder was CLIPPED. The hero read "Build
+   it" with a hole under it on every 1280–1440 laptop, which is most of them.
+
+   Container query units fix the category of bug, not just this instance: 12.2%
+   of the column keeps the longest line at ~91% of the measure at every width,
+   so no future copy change or column tweak can silently truncate it again.
+   The vw clamp stays as the fallback for engines without container queries,
+   where `cqi` would otherwise resolve against the viewport and be enormous. */
+.hero__pitch { container-type: inline-size; }
+
 .hero__title {
   font-family: var(--font-head);
-  font-size: clamp(2.75rem, 4.4vw, 4.75rem);
+  font-size: clamp(2.375rem, 3.6vw, 4.5rem);
   line-height: 1.04;
   letter-spacing: -.035em;
   font-weight: var(--fw-black);
@@ -46,6 +67,10 @@
   margin-bottom: var(--s-6);
 }
 .hero__line { display: block; overflow: hidden; }
+
+@supports (container-type: inline-size) {
+  .hero__title { font-size: clamp(2.375rem, 12.2cqi, 4.5rem); }
+}
 /* The italic serif accent — the one typographic flourish, so it has to earn it:
    it lands on the word the sentence is actually about. */
 .hero__accent {
@@ -106,7 +131,7 @@
 .hero__proof strong { color: var(--ink); font-weight: var(--fw-bold); }
 
 /* ── right: the stack ─────────────────────────────────────────────────────── */
-.hero__art { position: relative; min-height: clamp(24rem, 34vw, 34rem); }
+.hero__art { position: relative; min-height: clamp(26rem, 36vw, 40rem); }
 
 .hero__stack { position: relative; height: 100%; }
 
@@ -203,13 +228,34 @@
 /* ── responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
   .hero__inner { grid-template-columns: 1fr; gap: var(--s-8); }
-  .hero__art { min-height: 22rem; order: 2; }
+  .hero__art { order: 2; }
   .hero__glance { position: static; width: 100%; margin-top: var(--s-6); }
   .hero__badge { top: 0; right: 0; }
+
+  /* THE MIN-HEIGHT MOVES FROM .hero__art TO .hero__stack, and this matters.
+     Every shot is absolutely positioned, so the stack measures ZERO tall. On
+     desktop that is harmless — the glance panel is absolute too, and the art
+     box holds its own height. But once the panel goes back into flow it landed
+     at y=0 of a zero-height stack, i.e. UNDERNEATH the artwork, with the
+     screenshots printed over the top of it. Reserving the space on the element
+     the shots are actually positioned against fixes the stacking and the
+     scroll height together. */
+  /* A FIXED min-height cannot work here: the shots are sized in PERCENT of
+     the stack's width, so the height they need scales with the viewport while
+     a rem value does not. At 390px a 22rem stack held a 340px-tall shot; at
+     600px the same stack had to hold 520px, and the overflow printed the
+     artwork straight across the panel below it. An aspect-ratio ties the
+     reserved height to the width the shots are actually measured against.
+     1:1 clears the tallest arrangement (shot 1 at 66% of a 4:3 portrait, i.e.
+     0.88w, starting 6% down). */
+  .hero__stack { aspect-ratio: 1 / 1; }
 }
 @media (max-width: 620px) {
   .hero__shot--1 { width: 78%; left: 6%; }
   .hero__shot--2 { width: 52%; }
   .hero__shot--3 { display: none; }   /* two reads as a stack; three is clutter */
-  .hero__art { min-height: 17rem; }
+  /* Two shots, and shot 1 widens to 78% — so it needs proportionally more
+     height than the three-shot arrangement above: 0.78 x 1.333 = 1.04w, plus
+     the 6% top offset. */
+  .hero__stack { aspect-ratio: 1 / 1.15; }
 }

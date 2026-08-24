@@ -1,0 +1,157 @@
+/* ============================================================================
+   FOOTER — the page's closing composition.
+
+   Namespaced `ft-` so nothing here collides with the `.footer__*` rules still
+   in globals.css (those served the old four-column grid and are now unused by
+   this component; they are left in place because other surfaces may still
+   reference the class names).
+
+   THE BAND RULE applies here as everywhere: `.site-footer` spans the viewport
+   and owns the dark ground; `.wrap` carries the measure. The wordmark is the
+   one element that deliberately escapes the measure.
+   ========================================================================== */
+
+.site-footer {
+  background: var(--ink);
+  color: #fff;
+  border-top: 0;
+  margin-top: 0;   /* was --sec-sm: a gap of page colour above a dark footer
+                      reads as a mistake, not as breathing room. */
+  overflow: hidden;
+}
+
+.ft { padding-block: var(--sec-lg) var(--s-7); }
+
+/* ── The close ──────────────────────────────────────────────────────────────
+   Heading and actions on one baseline, not stacked-and-centred. The actions
+   are bottom-aligned so they sit on the last line of the heading rather than
+   floating beside its middle. */
+.ft__cta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-8);
+  align-items: end;
+  padding-bottom: var(--sec-sm);
+  border-bottom: 1px solid rgba(255, 255, 255, .14);
+}
+.ft__h {
+  font-size: min(var(--t-h1), 5.5rem);
+  line-height: var(--lh-display);
+  letter-spacing: var(--ls-display);
+  font-weight: var(--fw-black);
+  color: #fff;
+}
+/* RevealLines clips each line, so descenders need room back — same fix as
+   .hm-lines. Without it the "y" in "Your" is sliced by the mask. */
+.ft-lines > span > span { padding-bottom: .14em; margin-bottom: -.14em; }
+
+.ft__acts { display: flex; flex-wrap: wrap; gap: var(--s-3); }
+.ft__acts .btn--primary { background: #fff; color: var(--ink); }
+.ft__acts .btn--primary:hover { background: var(--mint); }
+.ft__acts .btn--ghost {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .32);
+}
+.ft__acts .btn--ghost:hover { border-color: #fff; background: rgba(255, 255, 255, .06); }
+
+/* ── Navigation field ───────────────────────────────────────────────────────
+   1.6fr for the brand then three equal columns pushed right: the asymmetry is
+   what stops this reading as the standard four-box footer. */
+.ft__nav {
+  display: grid;
+  grid-template-columns: 1.6fr repeat(3, minmax(0, .8fr));
+  gap: var(--s-8);
+  padding-block: var(--sec-sm);
+}
+.ft__logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  font-family: var(--font-head);
+  font-size: var(--t-h4);
+  font-weight: var(--fw-black);
+  letter-spacing: var(--ls-heading);
+  color: #fff;
+}
+.ft__tag {
+  margin-top: var(--s-4);
+  max-width: 34ch;
+  font-size: var(--t-caption);
+  line-height: var(--lh-body);
+  color: rgba(255, 255, 255, .58);
+  text-wrap: pretty;
+}
+.ft__col h3 {
+  font-family: var(--font-body);
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .5);
+  margin-bottom: var(--s-5);
+}
+.ft__col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-3); }
+.ft__col a {
+  font-size: var(--t-caption);
+  color: rgba(255, 255, 255, .78);
+  transition: color var(--d-fast) var(--e-out);
+}
+.ft__col a:hover { color: #fff; }
+
+.ft__legal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+  padding-top: var(--s-6);
+  border-top: 1px solid rgba(255, 255, 255, .14);
+  font-size: var(--t-meta);
+  color: rgba(255, 255, 255, .5);
+}
+.ft__legal-links { display: flex; gap: var(--s-5); }
+.ft__legal a { color: rgba(255, 255, 255, .5); }
+.ft__legal a:hover { color: #fff; }
+
+/* ── The wordmark ───────────────────────────────────────────────────────────
+   Sized in vw so it fills the viewport at any width, and clipped at both ends
+   by .site-footer's overflow — the letters running off the edge is the point.
+
+   It is set in the same weight as the headline above it, NOT in a display face
+   borrowed for the occasion: this is the brand at scale, so a second typeface
+   here would read as decoration. The colour is a hair off the ground rather
+   than a bright tint, so it registers as a surface, not as a banner. */
+.ft__markwrap {
+  margin-top: var(--s-6);
+  padding-inline: var(--s-4);
+  /* The mask that reveals the mark clips to the LINE BOX, and at a line-height
+     below 1 that box is shorter than the glyphs inside it — which sheared the
+     bottom off every letter. The padding gives the descender space back, and
+     the equal negative margin keeps the mark tight to the footer's bottom edge
+     so nothing is gained back as dead space. */
+  padding-bottom: .1em;
+  margin-bottom: -.06em;
+}
+.ft__mark {
+  display: block;
+  font-family: var(--font-head);
+  font-size: 15.4vw;
+  line-height: .86;
+  letter-spacing: -.055em;
+  font-weight: var(--fw-black);
+  text-align: center;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, .07);
+  user-select: none;
+}
+
+@media (max-width: 1000px) {
+  .ft__cta { grid-template-columns: 1fr; align-items: start; }
+  .ft__nav { grid-template-columns: 1fr 1fr; gap: var(--s-7); }
+  .ft__brand { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .ft__nav { grid-template-columns: 1fr; }
+  .ft__legal { flex-direction: column; align-items: flex-start; gap: var(--s-3); }
+}

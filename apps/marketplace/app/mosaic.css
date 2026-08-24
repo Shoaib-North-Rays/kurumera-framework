@@ -12,7 +12,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: var(--s-5);
-  max-width: var(--maxw);
+  max-width: var(--w-standard);
   margin-inline: auto;
   padding-inline: var(--gutter);
   margin-bottom: var(--s-7);
@@ -56,8 +56,8 @@
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
-  scroll-padding-inline: max(var(--gutter), calc((100vw - var(--maxw)) / 2 + var(--gutter)));
-  padding-inline: max(var(--gutter), calc((100vw - var(--maxw)) / 2 + var(--gutter)));
+  scroll-padding-inline: max(var(--gutter), calc((100vw - var(--w-standard)) / 2 + var(--gutter)));
+  padding-inline: max(var(--gutter), calc((100vw - var(--w-standard)) / 2 + var(--gutter)));
   padding-block: var(--s-2);
   /* No scrollbar. A grey track under an editorial band reads as a browser
      artefact rather than part of the design, and the affordance is carried

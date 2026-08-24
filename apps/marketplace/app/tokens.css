@@ -79,12 +79,39 @@
   --sec-lg:    clamp(5rem, 3rem + 7vw, 9rem);       /* 80 → 144px */
   --sec-xl:    clamp(6rem, 3.5rem + 9vw, 11rem);    /* 96 → 176px */
 
-  /* ── LAYOUT ───────────────────────────────────────────────────────────────
-     --maxw (1280) and --gutter (28) stay as globals.css defines them; these are
-     the additional measures an editorial layout needs. */
+  /* ── LAYOUT — the measure scale ───────────────────────────────────────────
+     THE SINGLE BIGGEST CAUSE of the "generated template" look on this site was
+     not colour or type: it was that ~20 section wrappers all resolved to the
+     SAME 1280px box. On a 1920 screen that is 320px of dead margin either side
+     and every band lining up on one central axis — the page reads as a narrow
+     document floating in white rather than as a designed surface.
+
+     So there is now a SCALE, and a section picks from it by purpose. The rule
+     is: the measure follows the content, and no two adjacent bands should sit
+     at the same width unless they are deliberately a pair.
+
+       read       long-form prose — legal, article body. Caps at ~68ch.
+       copy       an editorial copy column set beside something else.
+       editorial  text-led band: FAQ, statements. Narrower than standard ON
+                  PURPOSE, so it reads as a pause between wide bands.
+       standard   the default band, and the alignment edge the header, hero and
+                  footer all share. Everything else is measured against it.
+       wide       image-led bands, which need the extra width to breathe.
+       (bleed)    100vw — the wall, the footer wordmark. Not a token; a section
+                  that goes full-bleed says so in its own file.
+
+     Percentages, not just pixels: the vw half of each min() is what keeps the
+     gutters proportional between 1280 and 2560 instead of ballooning. */
+  --w-read: 42rem;                    /*  672px                              */
+  --w-copy: 56rem;                    /*  896px                              */
+  --w-editorial: min(1180px, 90vw);
+  --w-standard: min(1680px, 94vw);
+  --w-wide: min(1840px, 96vw);
+
+  /* Kept: --w-narrow is referenced by the search overlay and the legal pages,
+     which want a reading measure, not a section measure. */
   --w-narrow: 46rem;    /* 736px — reading measure for editorial copy   */
   --w-content: 68rem;   /* 1088px — text-led sections                   */
-  --w-wide: 90rem;      /* 1440px — image-led sections                  */
   --gutter-lg: clamp(1.25rem, .5rem + 3vw, 3rem);
 
   /* ── RADII ────────────────────────────────────────────────────────────────

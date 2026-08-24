@@ -30,6 +30,14 @@
    let a headline sit at column 1 and its metadata at column 9 without either
    being a magic percentage. */
 .hm-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--s-6); }
+/* TWELVE TRACKS DO NOT FIT A PHONE. Eleven 32px gaps is 352px of gutter on its
+   own — wider than the whole content box at 390px — so every `.hm-grid` was
+   overflowing the viewport horizontally regardless of what its children did.
+   Below the breakpoint every section already spans `1 / -1`, so one track is
+   exactly equivalent, and `1 / -1` resolves to it unchanged. */
+@media (max-width: 900px) {
+  .hm-grid { grid-template-columns: minmax(0, 1fr); }
+}
 
 /* ── Shared editorial pieces ────────────────────────────────────────────── */
 .hm-eyebrow {
@@ -251,85 +259,202 @@
   .hm-idx { gap: var(--s-8); }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   3 · CATEGORIES — typographic, no thumbnails.
+/* ── Small utility label — for bands that carry no display heading ───────────
+   Sections 3 and 6 are deliberately headed by a LABEL, not an <h2> at display
+   size. Every band having its own 60px headline is what turns a page into a
+   stack of announcements; a dense band and a strip both read better introduced
+   quietly. The element is still an <h2>, so the document outline is unchanged. */
+.hm-label {
+  font-family: var(--font-body);
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  line-height: var(--lh-title);
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.hm-label--q { color: var(--faint); font-weight: var(--fw-medium); }
 
-   A category card showing one member's screenshot implies a collection behind
-   it. Four of the twelve categories are empty and five hold exactly one
-   template, so the thumbnail would be the template, not the category. The
-   honest form is a list of names with real counts.
+/* A heading one step below --t-h2, for bands that must not shout. */
+.hm-h3 {
+  font-size: var(--t-h3);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--ls-heading);
+  font-weight: var(--fw-black);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   3 · CATEGORIES — the dense band.
+
+   Full ruled rows at the wide measure: name left, count right, hairline
+   between. No display heading, no cards, no chips. Its job in the rhythm is to
+   be the tight, information-dense beat between the photographic wall above and
+   the oversized statement below — so it is also one of the SHORTEST bands on
+   the page (--sec-sm), which is the other half of what makes density read.
+
+   Names and real counts only. A thumbnail here would be one member's
+   screenshot standing in for a category that holds one template.
    ───────────────────────────────────────────────────────────────────────── */
-.hm-cats { padding-block: var(--sec-md); }
-.hm-cats__head { grid-column: 1 / span 4; }
-.hm-cats__list { grid-column: 6 / span 7; display: flex; flex-wrap: wrap; gap: var(--s-3) var(--s-6); align-content: flex-start; }
-.hm-cat {
-  display: inline-flex;
+.hm-cats { padding-block: var(--sec-sm); }
+.hm-cats__bar {
+  display: flex;
   align-items: baseline;
-  gap: var(--s-2);
+  justify-content: space-between;
+  gap: var(--s-5);
+  padding-bottom: var(--s-4);
+}
+
+/* TWO columns of rows above 1000px. At the wide measure a single column put
+   ~1400px of nothing between "Business" and "1 template", which is the exact
+   opposite of the density this band exists to provide. Splitting it halves the
+   run AND halves the height, so the band stays the tight beat it is meant to
+   be. Reading order is left-to-right per row, which is what a list of peers
+   wants (a single alphabetical column would demand top-to-bottom). */
+.hm-cats__rows {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: var(--s-10);
+  border-bottom: 1px solid var(--border);
+}
+@media (min-width: 1000px) { .hm-cats__rows { grid-template-columns: 1fr 1fr; } }
+
+.hm-catrow {
+  display: grid;
+  /* name | count | arrow — the count column is fixed so every figure lands on
+     one vertical line down each column. `1fr auto` would ragged-right them. */
+  grid-template-columns: 1fr 7.5rem auto;
+  align-items: baseline;
+  gap: var(--s-5);
+  padding: var(--s-4) 0;
+  border-top: 1px solid var(--border);
+  color: var(--ink);
+  transition: color var(--d-fast) var(--e-out), padding-left var(--d-normal) var(--e-out);
+}
+
+.hm-catrow__name {
   font-family: var(--font-head);
   font-size: var(--t-h4);
   font-weight: var(--fw-bold);
   letter-spacing: var(--ls-heading);
   line-height: var(--lh-title);
-  color: var(--ink);
-  transition: color var(--d-fast) var(--e-out);
 }
-.hm-cat:hover { color: var(--green-dark); }
-.hm-cat b { font-family: var(--font-body); font-size: var(--t-meta); font-weight: var(--fw-semibold); color: var(--faint); }
+.hm-catrow__c {
+  font-size: var(--t-caption);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.hm-catrow__a {
+  display: grid;
+  place-items: center;
+  color: var(--faint);
+  opacity: 0;
+  translate: -8px 0;
+  transition: opacity var(--d-fast) var(--e-out), translate var(--d-normal) var(--e-out), color var(--d-fast) var(--e-out);
+}
+.hm-catrow__a svg { width: 18px; height: 18px; display: block; }
 
-@media (max-width: 900px) {
-  .hm-cats__head, .hm-cats__list { grid-column: 1 / -1; }
-  .hm-cats__list { margin-top: var(--s-6); }
+@media (hover: hover) and (pointer: fine) {
+  /* The row indents on hover — the feedback IS the movement, so no colour
+     wash, no background fill, no border change. */
+  .hm-catrow:hover { color: var(--green-dark); padding-left: var(--s-4); }
+  .hm-catrow:hover .hm-catrow__a { opacity: 1; translate: 0 0; color: var(--green-dark); }
+}
+.hm-catrow:focus-visible .hm-catrow__a { opacity: 1; translate: 0 0; }
+
+@media (max-width: 700px) {
+  .hm-catrow { grid-template-columns: 1fr auto; }
+  .hm-catrow__a { display: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   4 · STATEMENT — the mid-page dark band, and the only place the page makes
-   a claim about itself. It replaces a six-icon "Blazing fast / SEO ready"
-   grid whose claims nothing on this page could substantiate.
+   4 · STATEMENT — the one loud moment, and the only place the page makes a
+   claim about itself. It replaces a six-icon "Blazing fast / SEO ready" grid
+   whose claims nothing on this page could substantiate.
+
+   STACKED, not split. The previous version put a --t-h2 heading in columns
+   1–5 and the copy in 7–12, which is the identical skeleton to the three other
+   bands. Here the headline runs at display size across the full measure and
+   the supporting material sits underneath it, divided by a rule — a different
+   orientation, not a different colour.
    ───────────────────────────────────────────────────────────────────────── */
-.hm-stmt { padding-block: var(--sec-lg); }
-.hm-stmt__head { grid-column: 1 / span 5; }
-.hm-stmt__body { grid-column: 7 / span 6; padding-top: var(--s-6); }
-.hm-stmt__body .hm-lede { max-width: 52ch; }
-.hm-stmt .hm-actions { margin-top: var(--s-7); }
+.hm-stmt { padding-block: var(--sec-xl); }
+.hm-stmt__h {
+  font-size: min(var(--t-display), 7.5rem);
+  line-height: var(--lh-display);
+  letter-spacing: var(--ls-display);
+  font-weight: var(--fw-black);
+  color: #fff;
+  text-wrap: pretty;
+}
+.hm-stmt__foot {
+  margin-top: var(--s-9);
+  padding-top: var(--s-6);
+  border-top: 1px solid rgba(255, 255, 255, .16);
+  align-items: start;
+}
+.hm-stmt__copy { grid-column: 1 / span 6; max-width: 58ch; }
+/* Actions at the far end of the rule, not tucked under the copy — the width of
+   the band is the composition, so something has to hold its right edge. */
+.hm-stmt__act { grid-column: 9 / span 4; justify-content: flex-start; }
 .hm-stmt .btn--primary { background: #fff; color: var(--ink); }
 .hm-stmt .btn--primary:hover { background: var(--mint); }
-.hm-stmt .btn--secondary { background: transparent; color: #fff; border-color: rgba(255,255,255,.32); }
-.hm-stmt .btn--secondary:hover { border-color: #fff; background: rgba(255,255,255,.06); box-shadow: none; }
+.hm-stmt .btn--secondary { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .32); }
+.hm-stmt .btn--secondary:hover { border-color: #fff; background: rgba(255, 255, 255, .06); box-shadow: none; }
 
-@media (max-width: 900px) {
-  .hm-stmt__head, .hm-stmt__body { grid-column: 1 / -1; }
-  .hm-stmt__body { padding-top: 0; }
+@media (max-width: 1000px) {
+  .hm-stmt__copy, .hm-stmt__act { grid-column: 1 / -1; }
+  .hm-stmt__act { margin-top: var(--s-6); }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   5 · FAQ — real copy, so it keeps its space. Heading rail left, questions
-   right; the rail is sticky because the answers are long.
+   5 · FAQ — the quiet band.
+
+   Narrower measure (--w-editorial) and a REVERSED axis: answers at column 1,
+   the heading rail at column 9. Both are deliberate contrast against the
+   statement above — a band that is visibly narrower and visibly flipped reads
+   as a pause; one that merely changes background reads as more page. The rail
+   is sticky because the answers are long.
    ───────────────────────────────────────────────────────────────────────── */
-.hm-faq { padding-block: var(--sec-lg); }
-.hm-faq__rail { grid-column: 1 / span 4; position: sticky; top: var(--sticky-top); }
-.hm-faq__rail .hm-lede { margin-top: var(--s-4); max-width: 32ch; font-size: var(--t-body); }
+.hm-faq { padding-block: var(--sec-md); }
+.hm-faq__list { grid-column: 1 / span 7; }
+.hm-faq__rail {
+  grid-column: 9 / span 4;
+  position: sticky;
+  top: var(--sticky-top);
+  align-self: start;
+}
+.hm-faq__note { margin-top: var(--s-4); font-size: var(--t-caption); line-height: var(--lh-body); color: var(--muted); max-width: 30ch; }
 .hm-faq__rail .hm-more { margin-top: var(--s-5); }
-.hm-faq__list { grid-column: 6 / span 7; }
 
 @media (max-width: 900px) {
   .hm-faq__rail, .hm-faq__list { grid-column: 1 / -1; }
-  .hm-faq__rail { position: static; }
-  .hm-faq__list { margin-top: var(--s-6); }
+  /* Rail FIRST on a phone: a column of bare questions with its heading below
+     them is not a section, it is a list that lost its label. */
+  .hm-faq__rail { position: static; order: -1; margin-bottom: var(--s-6); }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   6 · CREATOR — closes the page on the one thing the data genuinely argues
-   for: empty categories are an opening, not an embarrassment.
-   ───────────────────────────────────────────────────────────────────────── */
-.hm-creator { padding-block: var(--sec-xl); }
-.hm-creator__head { grid-column: 1 / span 6; }
-.hm-creator__body { grid-column: 8 / span 5; padding-top: var(--s-6); }
-.hm-creator__body .hm-lede { max-width: 40ch; color: var(--muted); }
-.hm-creator .hm-actions { margin-top: var(--s-6); }
-.hm-creator__terms { margin-top: var(--s-5); font-size: var(--t-meta); color: var(--faint); line-height: var(--lh-body); }
+   6 · CREATOR — the strip.
 
-@media (max-width: 900px) {
-  .hm-creator__head, .hm-creator__body { grid-column: 1 / -1; }
-  .hm-creator__body { padding-top: 0; }
+   One horizontal row at --sec-sm. After the tall statement and the FAQ the
+   page needs something thin before the footer opens up again; three equal
+   blocks stacked at the bottom is what made the old page trail off.
+
+   It closes on the empty categories by name, because that is the one thing the
+   data genuinely argues for — an opening, not an embarrassment.
+   ───────────────────────────────────────────────────────────────────────── */
+.hm-creator { padding-block: var(--sec-sm); }
+.hm-creator__row {
+  display: grid;
+  grid-template-columns: minmax(0, 16rem) minmax(0, 1fr) auto;
+  gap: var(--s-6) var(--s-8);
+  align-items: center;
+}
+.hm-creator__head .hm-eyebrow { margin-bottom: var(--s-3); }
+.hm-creator__lede { font-size: var(--t-body); line-height: var(--lh-body); color: var(--muted); max-width: 60ch; text-wrap: pretty; }
+.hm-creator__act { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-3); }
+.hm-creator__terms { font-size: var(--t-meta); color: var(--faint); line-height: var(--lh-body); max-width: 32ch; }
+
+@media (max-width: 1080px) {
+  .hm-creator__row { grid-template-columns: 1fr; }
 }

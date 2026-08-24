@@ -143,64 +143,72 @@ export default async function HomePage() {
           live iframes. */}
       {withCovers.length >= 4 && <EditorialWall templates={withCovers} />}
 
-      {/* ── 3 · CATEGORIES ───────────────────────────────────────────────────
-          Names and real counts only. A thumbnail here would be one member's
-          screenshot standing in for a category that holds one template. */}
+      {/* ── 3 · CATEGORIES · dense, wide, right-aligned metadata ─────────────
+          Was: eyebrow + two-line h2 on the left, a wrapped list on the right —
+          the same shape as the three sections that followed it. Four bands in a
+          row with one composition is the single loudest "generated" signal a
+          page can carry, louder than any margin.
+
+          So this one is now the DENSE band: full ruled rows running the wide
+          measure, name left, count right, no display heading at all. Names and
+          real counts only — a thumbnail here would be one member's screenshot
+          standing in for a category that holds one template. */}
       {filledCats.length > 0 && (
         <section className="hm-band hm-band--surface hm-band--ruled">
-          <div className="wrap hm-cats">
-            <div className="hm-grid">
-              <div className="hm-cats__head">
-                <Reveal as="span" variant="fade" className="hm-eyebrow">Browse</Reveal>
-                <RevealLines as="h2" className="hm-h2 hm-lines" lines={["By industry."]} />
-              </div>
-              <RevealGroup className="hm-cats__list">
-                {filledCats.map((c) => (
-                  <Reveal as={Link} variant="fade" key={c.key} className="hm-cat" href={`/templates/category/${c.key}`}>
-                    {c.label} <b>{counts[c.key]}</b>
-                  </Reveal>
-                ))}
-              </RevealGroup>
+          <div className="wrap wrap--wide hm-cats">
+            <div className="hm-cats__bar">
+              <Reveal as="h2" variant="fade" className="hm-label">Browse by industry</Reveal>
+              <Reveal as="span" variant="fade" className="hm-label hm-label--q">
+                {filledCats.length} of {CATEGORIES.length} categories in use
+              </Reveal>
             </div>
+            <RevealGroup className="hm-cats__rows">
+              {filledCats.map((c) => (
+                <Reveal as={Link} variant="fade" key={c.key} className="hm-catrow" href={`/templates/category/${c.key}`}>
+                  <span className="hm-catrow__name">{c.label}</span>
+                  <span className="hm-catrow__c">
+                    {counts[c.key]} {plural(counts[c.key], "template", "templates")}
+                  </span>
+                  <span className="hm-catrow__a" aria-hidden><Arrow /></span>
+                </Reveal>
+              ))}
+            </RevealGroup>
           </div>
         </section>
       )}
 
-      {/* ── 4 · STATEMENT ────────────────────────────────────────────────── */}
+      {/* ── 4 · STATEMENT · the page's one loud moment ────────────────────────
+          Stacked, not side-by-side: the claim runs at display size across the
+          whole measure, then a rule, then the substantiation and the actions
+          beneath it at opposite ends of the grid. Changing the ORIENTATION is
+          what makes this read as a different section rather than the dark
+          repaint of the one above. */}
       <section className="hm-band hm-band--ink">
         <div className="wrap hm-stmt">
-          <div className="hm-grid">
-            <div className="hm-stmt__head">
-              <Reveal as="span" variant="fade" className="hm-eyebrow">What you are buying</Reveal>
-              <RevealLines as="h2" className="hm-h2 hm-lines" lines={["No mockups.", "No lock-in."]} />
-            </div>
-            <div className="hm-stmt__body">
-              <Reveal as="p" variant="fade" className="hm-lede">
-                Every listing is a site that already runs — a Next.js theme or a visual-builder design, not a picture of one.
-                Open its live preview before you decide. Free templates install straight away; paid ones unlock with a license
-                key you keep. Either way you customize it in the builder and publish it on your own domain.
-              </Reveal>
-              <Reveal variant="fade" className="hm-actions">
-                <Link className="btn btn--primary btn--lg mi-arrow" href="/templates">Browse templates <Arrow /></Link>
-                <a className="btn btn--secondary btn--lg" href={BUILDER_ORIGIN}>Start from scratch</a>
-              </Reveal>
-            </div>
+          <Reveal as="span" variant="fade" className="hm-eyebrow">What you are buying</Reveal>
+          <RevealLines as="h2" className="hm-stmt__h hm-lines" lines={["No mockups.", "No lock-in."]} />
+          <div className="hm-stmt__foot hm-grid">
+            <Reveal as="p" variant="fade" className="hm-lede hm-stmt__copy">
+              Every listing is a site that already runs — a Next.js theme or a visual-builder design, not a picture of one.
+              Open its live preview before you decide. Free templates install straight away; paid ones unlock with a license
+              key you keep. Either way you customize it in the builder and publish it on your own domain.
+            </Reveal>
+            <Reveal variant="fade" className="hm-actions hm-stmt__act">
+              <Link className="btn btn--primary btn--lg mi-arrow" href="/templates">Browse templates <Arrow /></Link>
+              <a className="btn btn--secondary btn--lg" href={BUILDER_ORIGIN}>Start from scratch</a>
+            </Reveal>
           </div>
         </div>
       </section>
 
-      {/* ── 5 · FAQ ──────────────────────────────────────────────────────── */}
+      {/* ── 5 · FAQ · the quiet one ───────────────────────────────────────────
+          Narrower than everything around it, and the axis is reversed — answers
+          at column 1, the heading rail at column 9. After the full-width
+          statement above, a band that is visibly narrower reads as a pause;
+          a band at the same width would just read as more page. */}
       <section className="hm-band hm-band--page">
-        <div className="wrap hm-faq">
+        <div className="wrap wrap--editorial hm-faq">
           <div className="hm-grid">
-            <div className="hm-faq__rail">
-              <Reveal as="span" variant="fade" className="hm-eyebrow">FAQ</Reveal>
-              <RevealLines as="h2" className="hm-h2 hm-lines" lines={["Questions,", "answered."]} />
-              <Reveal as="p" variant="fade" className="hm-lede">Anything not covered here reaches a real person.</Reveal>
-              <Reveal variant="fade">
-                <a className="hm-more mi-link" href="mailto:support@kurumera.com">support@kurumera.com</a>
-              </Reveal>
-            </div>
             <RevealGroup className="hm-faq__list faq">
               {FAQ.map((f) => (
                 <Reveal as="details" variant="fade" key={f.q} className="fgroup">
@@ -209,36 +217,45 @@ export default async function HomePage() {
                 </Reveal>
               ))}
             </RevealGroup>
+            <div className="hm-faq__rail">
+              <Reveal as="span" variant="fade" className="hm-eyebrow">FAQ</Reveal>
+              <RevealLines as="h2" className="hm-h3 hm-lines" lines={["Questions,", "answered."]} />
+              <Reveal as="p" variant="fade" className="hm-faq__note">Anything not covered here reaches a real person.</Reveal>
+              <Reveal variant="fade">
+                <a className="hm-more mi-link" href="mailto:support@kurumera.com">support@kurumera.com</a>
+              </Reveal>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── 6 · CREATOR ──────────────────────────────────────────────────────
+      {/* ── 6 · CREATOR · a compact strip, not another full band ──────────────
           The empty categories are the honest argument for publishing, so the
-          page closes on them by name instead of on a creator headcount. */}
+          page closes on them by name instead of on a creator headcount. Set as
+          one horizontal strip: after two tall bands the rhythm needs something
+          thin before the footer, or the bottom of the page is three equal
+          blocks in a row. */}
       <section className="hm-band hm-band--mint hm-band--ruled">
         <div className="wrap hm-creator">
-          <div className="hm-grid">
+          <div className="hm-creator__row">
             <div className="hm-creator__head">
               <Reveal as="span" variant="fade" className="hm-eyebrow">Become a creator</Reveal>
-              <RevealLines as="h2" className="hm-h2 hm-lines" lines={creatorHead} />
+              <RevealLines as="h2" className="hm-h3 hm-lines" lines={creatorHead} />
             </div>
-            <div className="hm-creator__body">
-              <Reveal as="p" variant="fade" className="hm-lede">
-                {emptyCats.length
-                  // Phrased with the categories AFTER the noun: several labels
-                  // are already plural ("Landing Pages"), so "a landing pages
-                  // template" would be ungrammatical for some of the set.
-                  ? `Nothing has been published under ${listWords(emptyCats.map((c) => c.label.toLowerCase()))} yet. The first template in a category gets it to itself.`
-                  : "Publish through the creator dashboard and your template is listed for the whole marketplace to find."}
-              </Reveal>
-              <Reveal variant="fade" className="hm-actions">
-                <Link className="btn btn--primary btn--lg mi-arrow" href="/creator">Open the creator dashboard <Arrow /></Link>
-              </Reveal>
-              <Reveal as="p" variant="fade" className="hm-creator__terms">
-                You set the price and keep ownership of your work; Kurumera lists it under the platform&rsquo;s terms.
-              </Reveal>
-            </div>
+            <Reveal as="p" variant="fade" className="hm-creator__lede">
+              {emptyCats.length
+                // Phrased with the categories AFTER the noun: several labels
+                // are already plural ("Landing Pages"), so "a landing pages
+                // template" would be ungrammatical for some of the set.
+                ? `Nothing has been published under ${listWords(emptyCats.map((c) => c.label.toLowerCase()))} yet. The first template in a category gets it to itself.`
+                : "Publish through the creator dashboard and your template is listed for the whole marketplace to find."}
+            </Reveal>
+            <Reveal variant="fade" className="hm-creator__act">
+              <Link className="btn btn--primary mi-arrow" href="/creator">Open the creator dashboard <Arrow /></Link>
+              <span className="hm-creator__terms">
+                You set the price and keep ownership of your work.
+              </span>
+            </Reveal>
           </div>
         </div>
       </section>
