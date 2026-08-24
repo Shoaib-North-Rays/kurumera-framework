@@ -247,24 +247,16 @@ button { font-family: inherit; }
    a coin-flip waiting to be re-flipped. `.hero__grid`, `.hero__cta` and the
    `.dot` were referenced by nothing at all.
 
-   Left in place: `.searchbox`, `.chip` and `.collage` — shared primitives used
-   outside the hero. */
+   Left in place: `.searchbox` and `.chip`, which ARE used elsewhere. An earlier
+   version of this comment also claimed `.collage` was a shared primitive; it
+   was not — nothing referenced it, and it has been deleted along with this
+   claim. Verify before asserting a rule is shared. */
 .searchbox { position: relative; }
 .searchbox > svg { position: absolute; left: var(--s-4); top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: var(--muted); pointer-events: none; }
 .searchbox input { height: var(--h-control-lg); padding: 0 var(--s-5) 0 var(--s-7); font-size: var(--t-body); border-radius: var(--r-input); box-shadow: var(--shadow-sm); }
 .chip { font-size: var(--t-caption); font-weight: var(--fw-medium); color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: var(--s-2) var(--s-4); }
 .chip:hover { border-color: var(--green); color: var(--green-dark); background: var(--mint); }
 
-/* hero preview collage */
-.collage { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; gap: var(--s-4); position: relative; }
-.collage__item { border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow); aspect-ratio: 4/3; position: relative; }
-.collage__item:first-child { grid-row: span 2; aspect-ratio: 3/4.4; }
-.collage__badge {
-  position: absolute; top: var(--s-3); left: var(--s-3); z-index: 3; display: inline-flex; align-items: center; gap: var(--s-2);
-  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
-  padding: var(--s-2) var(--s-3) var(--s-2) var(--s-2); font-size: var(--t-meta); font-weight: var(--fw-semibold); color: var(--ink); box-shadow: var(--shadow);
-}
-.collage__badge span { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--mint); color: var(--green-dark); }
 @media (max-width: 940px) {
   .hero__grid { grid-template-columns: 1fr; gap: var(--s-7); padding-block: var(--sec-md); }
   .collage { grid-template-columns: 1fr 1fr; }
@@ -273,21 +265,6 @@ button { font-family: inherit; }
 }
 
 /* hero collage — 3-up staggered composition */
-.collage3 { position: relative; display: flex; align-items: center; justify-content: center; min-height: 520px; padding: var(--s-6) 0; }
-.collage3__item { position: relative; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow-lift); }
-.collage3__item--left { width: 40%; aspect-ratio: 3/3.8; transform: translate(12%, 6px) rotate(-3deg); z-index: 1; }
-.collage3__item--center { width: 50%; aspect-ratio: 3/3.4; z-index: 2; }
-.collage3__item--right { width: 38%; aspect-ratio: 3/4; transform: translate(-12%, 24px) rotate(3deg); z-index: 1; }
-.collage3__badge {
-  position: absolute; z-index: 3; display: inline-flex; align-items: center; gap: var(--s-2);
-  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
-  padding: var(--s-2) var(--s-3) var(--s-2) var(--s-2); font-size: var(--t-meta); font-weight: var(--fw-semibold); color: var(--ink); box-shadow: var(--shadow);
-}
-.collage3__badge span { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--mint); color: var(--green-dark); }
-.collage3__badge svg { width: 13px; height: 13px; }
-.collage3__badge--tr { top: 2px; right: 4%; left: auto; bottom: auto; }
-.collage3__badge--bl { bottom: var(--s-2); left: 0; top: auto; right: auto; }
-.collage3__badge--br { bottom: -4px; right: 6%; top: auto; left: auto; }
 @media (max-width: 940px) {
   .collage3 { display: none; }
 }

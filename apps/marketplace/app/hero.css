@@ -96,9 +96,26 @@
   letter-spacing: -.035em;
   font-weight: var(--fw-black);
   color: var(--ink);
-  margin-bottom: var(--s-6);
+  /* + .15em: the last line's negative margin (which cancels the padding that
+     stops the swash being clipped) also pulls the lede up by that much, and
+     the swash now hangs .15em below the title's box. Measured, the gap had
+     tightened from 32px to 18px. This puts it back. */
+  margin-bottom: calc(var(--s-6) + .15em);
 }
-.hero__line { display: block; overflow: hidden; }
+/* `overflow: hidden` is what makes the mask reveal work — but it also clipped
+   everything that hangs BELOW the line box, and two things do: the swash
+   (drawn at bottom:-.15em under "confidence.") and the descender on the "y" of
+   "your way.". Measured on the live build, 10.8px of an 18.7px swash was cut at
+   1920 — 58% of it — which is why it read as a thin rule rather than the drawn
+   stroke it is. The padding gives that space back inside the clip box and the
+   equal negative margin takes it back out of the layout, so line spacing is
+   unchanged. Same trick as .hm-lines and .ft-lines. */
+.hero__line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: .2em;
+  margin-bottom: -.2em;
+}
 
 @supports (container-type: inline-size) {
   .hero__title { font-size: clamp(2.375rem, 12.2cqi, 4.5rem); }
@@ -310,10 +327,10 @@
 .hero__badge {
   pointer-events: none;
   position: absolute;
-  /* Clear of the panels. Sitting on top of the phone card, the ring text ran
-     over a photograph and neither survived. */
-  top: -5%;
-  right: -1%;
+  /* Clear of the panels — it still overlapped the phone's top-left corner at
+     -5%/-1%, so the ring text sat over a photograph. Lifted and pushed out. */
+  top: -9%;
+  right: -4%;
   z-index: 4;
   width: clamp(5rem, 7vw, 7.25rem);
   aspect-ratio: 1;
