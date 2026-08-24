@@ -92,7 +92,11 @@ export function MobileNav({ items }: { items: { label: string; href: string }[] 
                 {n.label}
               </Link>
             ))}
-            <Link href="/templates" className="btn btn--primary btn--block" onClick={() => setOpen(false)}>Start Building</Link>
+            {/* Was "Start Building", which linked to /templates — the catalogue, not
+                the builder. Same false label the header CTA carried; removed
+                there, so it goes here too. The destination was always right,
+                only the words were wrong. */}
+            <Link href="/templates" className="btn btn--primary btn--block" onClick={() => setOpen(false)}>Browse all templates</Link>
           </nav>
         </div>
       )}

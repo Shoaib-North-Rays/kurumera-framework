@@ -324,3 +324,150 @@ html[data-scrolled] .site-header__row {
   .site-header { padding-top: var(--s-2); }
   .site-header__row { border-radius: var(--r-md); }
 }
+
+/* ── ACCOUNT CONTROL ────────────────────────────────────────────────────────
+   One icon where "Sign in" and "Start Building" used to sit. */
+.acct { position: relative; }
+/* Holds the row's width for the one frame before the session is read, so the
+   nav does not jump sideways on every page load. */
+.acct__placeholder { display: inline-block; width: 40px; height: 40px; }
+
+.acct__trigger--in {
+  width: auto;
+  padding-inline: 6px 2px;
+  gap: 2px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink);
+}
+.acct__trigger--in > svg:last-child { width: 14px; height: 14px; color: var(--faint); }
+.acct__trigger[aria-expanded="true"] { background: var(--sunken); color: var(--ink); }
+
+/* The signed-in tell. Sits on the icon's shoulder rather than replacing it, so
+   the control is recognisably the same button in both states. */
+.acct__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--green);
+  box-shadow: 0 0 0 2px var(--surface);
+  margin-left: -8px;
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+.acct__menu {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 13.5rem;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: 0 18px 44px rgba(15, 40, 25, .18);
+}
+.acct__store {
+  display: block;
+  padding: 8px 10px 10px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--t-meta);
+  color: var(--muted);
+  line-height: var(--lh-title);
+}
+.acct__store b { display: block; margin-top: 3px; color: var(--ink); font-size: var(--t-caption); overflow-wrap: anywhere; }
+.acct__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--t-caption);
+  font-weight: var(--fw-medium);
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+}
+.acct__item:hover { background: var(--mint); color: var(--green-dark); }
+.acct__item--quiet { color: var(--muted); }
+.acct__item--quiet:hover { background: var(--sunken); color: var(--ink); }
+
+/* ── SEARCH: SCOPE PILLS ────────────────────────────────────────────────────
+   Three, because the axis has three values. A select would hide two of them
+   behind a click for no gain. */
+.searchov__scopes {
+  display: flex;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-5);
+  border-bottom: 1px solid var(--border);
+}
+.searchov__scope {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 5px 13px;
+  font-family: inherit;
+  font-size: var(--t-meta);
+  font-weight: var(--fw-semibold);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color var(--d-fast) var(--e-out), color var(--d-fast) var(--e-out), background-color var(--d-fast) var(--e-out);
+}
+.searchov__scope:hover { border-color: var(--green); color: var(--green-dark); }
+/* --green-hover, not --green: white on #16A34A is 3.30:1, under the 4.5:1 this
+   12px label needs. */
+.searchov__scope.is-on {
+  background: var(--green-hover);
+  border-color: var(--green-hover);
+  color: #fff;
+}
+
+/* ── SEARCH: RESULT ROWS ────────────────────────────────────────────────────
+   A template row is a picture with a caption, which is what the rest of the
+   site already does — the text-only list read as a console, not a catalogue. */
+.searchov__row--tpl { align-items: center; gap: var(--s-4); }
+.searchov__thumb {
+  flex: none;
+  width: 56px;
+  height: 40px;
+  object-fit: cover;
+  object-position: top center;   /* a site screenshot reads from the top */
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--sunken);
+}
+.searchov__thumb--none { display: block; }
+
+/* Category suggestions get a tile in the thumbnail's slot so the two kinds of
+   row share one left edge. */
+.searchov__cat {
+  flex: none;
+  width: 56px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-sm);
+  background: var(--mint);
+  color: var(--green-dark);
+}
+.searchov__cat svg { width: 18px; height: 18px; }
+
+/* Why this row matched. A tint, not a highlighter — the run has to be findable
+   without the row turning into a warning. */
+.searchov__mark {
+  background: transparent;
+  color: var(--green-dark);
+  font-weight: var(--fw-bold);
+}
+
+@media (max-width: 560px) {
+  .searchov__thumb, .searchov__cat { width: 46px; height: 34px; }
+  .searchov__scopes { padding-inline: var(--s-4); }
+}

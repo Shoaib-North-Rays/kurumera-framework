@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { Bolt } from "@/components/Icons";
-import { SignInButton } from "@/components/SignInButton";
+import { AccountMenu } from "@/components/AccountMenu";
 import { MobileNav } from "@/components/MobileNav";
 import { SearchOverlay } from "@/components/SearchOverlay";
 import { HeaderScrollState } from "@/components/HeaderScrollState";
@@ -15,10 +14,10 @@ export const NAV = [
 ];
 
 /**
- * Stays a SERVER component. The brand, the primary nav and the CTA are the
- * links every crawler and every no-JS visitor needs, and they cost nothing to
- * render here; only the three genuinely interactive controls (sign-in, search,
- * drawer) plus the scroll-state probe are client leaves.
+ * Stays a SERVER component. The brand and the primary nav are the links every
+ * crawler and every no-JS visitor needs, and they cost nothing to render here;
+ * only the three genuinely interactive controls (search, account, drawer) plus
+ * the scroll-state probe are client leaves.
  */
 export function Header() {
   return (
@@ -34,10 +33,14 @@ export function Header() {
             <Link key={n.label} href={n.href}>{n.label}</Link>
           ))}
         </nav>
+        {/* Two controls, both icons. The "Sign in" text button and the
+            "Start Building" CTA are gone: the CTA linked to /templates, not the
+            builder, and the hero already carries the real entry points. Account
+            state now lives behind one icon that uses the Kurumera token flow
+            that was already implemented. */}
         <div className="header-actions">
           <SearchOverlay />
-          <SignInButton />
-          <Link href="/templates" className="btn btn--primary header-cta"><Bolt /> Start Building</Link>
+          <AccountMenu />
           <MobileNav items={NAV} />
         </div>
       </div>

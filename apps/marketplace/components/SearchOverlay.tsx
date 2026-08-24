@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, X, Arrow } from "@/components/Icons";
-import { isFree, priceLabel, scoreMatch, type Template, authorLabel } from "@/lib/registry";
+import { Search, X, Arrow, Grid } from "@/components/Icons";
+import Image from "next/image";
+import { isFree, priceLabel, scoreMatch, type Template, authorLabel, CATEGORIES, categoryLabel } from "@/lib/registry";
 
 /**
  * The header search — a real one.
@@ -32,6 +33,32 @@ import { isFree, priceLabel, scoreMatch, type Template, authorLabel } from "@/li
 const RECENTS_KEY = "kurumera_recent_searches";
 const MAX_RECENTS = 5;
 const MAX_RESULTS = 6;
+const MAX_CATS = 3;
+
+/** Price scope. Maps 1:1 onto the dedicated routes, so "See all results" hands
+ *  off to the page that already applies the same filter — the overlay can never
+ *  show a set /templates would disagree with. */
+const SCOPES = [
+  { key: "all",  label: "All",  route: "/templates" },
+  { key: "free", label: "Free", route: "/templates/free" },
+  { key: "paid", label: "Paid", route: "/templates/paid" },
+] as const;
+type ScopeKey = (typeof SCOPES)[number]["key"];
+
+/** Splits a label on the query so the matched run can be marked. Case-
+ *  insensitive, first occurrence only — enough to answer "why is this here?"
+ *  without turning the row into a highlight reel. */
+function markMatch(text: string, query: string) {
+  const i = text.toLowerCase().indexOf(query.toLowerCase());
+  if (!query || i < 0) return text;
+  return (
+    <>
+      {text.slice(0, i)}
+      <mark className="searchov__mark">{text.slice(i, i + query.length)}</mark>
+      {text.slice(i + query.length)}
+    </>
+  );
+}
 
 function readRecents(): string[] {
   try {
@@ -66,7 +93,10 @@ function normalize(raw: Record<string, unknown>): Template {
     tags: Array.isArray(raw.tags) ? raw.tags.map((t) => String(t).toLowerCase()) : [],
     category: str(raw.category).toLowerCase(),
     demoStore: "",
-    coverImage: "",
+    /* WAS `""`. The relay returns a real cover URL for every template
+       (https://themekit.kurumera.com/_push/market/shot?theme=<slug>) and this
+       line discarded it, which is why results were a wall of text. */
+    coverImage: str(raw.coverImage),
     type: raw.type === "builder" ? "builder" : "code",
     coverColor: "",
   };
@@ -83,6 +113,7 @@ export function SearchOverlay() {
   const [q, setQ] = useState("");
   const [all, setAll] = useState<Template[] | null>(null);
   const [recents, setRecents] = useState<string[]>([]);
+  const [scope, setScope] = useState<ScopeKey>("all");
 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -105,6 +136,7 @@ export function SearchOverlay() {
     let seed = "";
     try { seed = new URLSearchParams(window.location.search).get("q") || ""; } catch { /* noop */ }
     setQ(seed);
+    setScope("all");
     setRecents(readRecents());
     setOpen(true);
   }, []);
@@ -197,29 +229,52 @@ export function SearchOverlay() {
 
   const query = q.trim();
 
+  const inScope = useCallback(
+    (t: Template) => (scope === "free" ? isFree(t) : scope === "paid" ? !isFree(t) : true),
+    [scope],
+  );
+
   const results = useMemo(() => {
     if (!all || !query) return [];
     return all
+      .filter(inScope)
       .map((t) => ({ t, s: scoreMatch(t, query) }))
       .filter((x) => x.s > 0)
       .sort((a, b) => b.s - a.s || b.t.installs - a.t.installs)
       .slice(0, MAX_RESULTS)
       .map((x) => x.t);
-  }, [all, query]);
+  }, [all, query, inScope]);
+
+  /* Category suggestions. Typing "eco" should offer the Ecommerce INDEX, not
+     just the templates whose text happens to contain those letters — a
+     category is a destination, and it is the one the visitor usually meant.
+     Only categories that actually hold something in the current scope are
+     offered: a suggestion leading to an empty page is worse than none. */
+  const catHits = useMemo(() => {
+    if (!all || !query) return [];
+    const ql = query.toLowerCase();
+    return CATEGORIES
+      .filter((c) => c.label.toLowerCase().includes(ql) || c.key.includes(ql))
+      .map((c) => ({ ...c, n: all.filter((t) => inScope(t) && (t.category === c.key || c.match.test(`${t.category} ${t.tags.join(" ")} ${t.name}`.toLowerCase()))).length }))
+      .filter((c) => c.n > 0)
+      .slice(0, MAX_CATS);
+  }, [all, query, inScope]);
 
   const submit = useCallback((value: string) => {
     const v = value.trim();
     if (v) setRecents(writeRecent(v));
     close();
-    router.push(v ? `/templates?q=${encodeURIComponent(v)}` : "/templates");
-  }, [close, router]);
+    // The scope's own route, so the hand-off keeps the filter the user set here.
+    const base = SCOPES.find((x) => x.key === scope)?.route || "/templates";
+    router.push(v ? `${base}?q=${encodeURIComponent(v)}` : base);
+  }, [close, router, scope]);
 
   const showRecents = !query && recents.length > 0;
   const status = !query
     ? ""
     : all === null
       ? "Searching…"
-      : `${results.length} matching template${results.length === 1 ? "" : "s"}`;
+      : `${results.length} matching template${results.length === 1 ? "" : "s"}${scope === "all" ? "" : ` in ${scope}`}`;
 
   return (
     <>
@@ -272,6 +327,24 @@ export function SearchOverlay() {
               </button>
             </form>
 
+            {/* Scope. Three buttons, not a select: the whole set is three items
+                and they are the primary axis people filter on. Each maps to a
+                real route, so Enter lands on a page with the same filter. */}
+            <div className="searchov__scopes" role="group" aria-label="Filter by price">
+              {SCOPES.map((sc) => (
+                <button
+                  key={sc.key}
+                  type="button"
+                  className={`searchov__scope${scope === sc.key ? " is-on" : ""}`}
+                  aria-pressed={scope === sc.key}
+                  data-ov-item
+                  onClick={() => setScope(sc.key)}
+                >
+                  {sc.label}
+                </button>
+              ))}
+            </div>
+
             <div className="searchov__body">
               <p className="sr-only" role="status" aria-live="polite">{status}</p>
 
@@ -300,15 +373,61 @@ export function SearchOverlay() {
                     <Link
                       key={t.slug}
                       href={`/templates/${t.slug}`}
+                      className="searchov__row searchov__row--tpl"
+                      data-ov-item
+                      onClick={close}
+                    >
+                      {/* The real cover, not a placeholder tile. Every template
+                          has one; a row with a grey square where the others
+                          have a screenshot reads as a broken image. */}
+                      {t.coverImage ? (
+                        <Image
+                          className="searchov__thumb"
+                          src={t.coverImage}
+                          alt=""
+                          width={112}
+                          height={80}
+                          sizes="56px"
+                          /* eager, not the default lazy: these are 56px tiles
+                             inside a modal the user just opened and is reading
+                             right now. Lazy meant the list painted as a column
+                             of empty grey boxes and filled in afterwards. They
+                             are only ever requested once a query is typed, so
+                             this costs a closed overlay nothing. */
+                          loading="eager"
+                        />
+                      ) : (
+                        <span className="searchov__thumb searchov__thumb--none" aria-hidden />
+                      )}
+                      <span className="searchov__rowmain">
+                        <span className="searchov__name">{markMatch(t.name, query)}</span>
+                        <span className="searchov__by">
+                          by {authorLabel(t.author)}
+                          {t.category && <> · {categoryLabel(t.category)}</>}
+                        </span>
+                      </span>
+                      <span className={`searchov__price ${isFree(t) ? "free" : ""}`}>{priceLabel(t)}</span>
+                    </Link>
+                  ))}
+                </>
+              )}
+
+              {query && catHits.length > 0 && (
+                <>
+                  <span className="searchov__label">Categories</span>
+                  {catHits.map((c) => (
+                    <Link
+                      key={c.key}
+                      href={`/templates/category/${c.key}`}
                       className="searchov__row"
                       data-ov-item
                       onClick={close}
                     >
+                      <span className="searchov__cat" aria-hidden><Grid /></span>
                       <span className="searchov__rowmain">
-                        <span className="searchov__name">{t.name}</span>
-                        <span className="searchov__by">by {authorLabel(t.author)}</span>
+                        <span className="searchov__name">{markMatch(c.label, query)}</span>
+                        <span className="searchov__by">{c.n} template{c.n === 1 ? "" : "s"}</span>
                       </span>
-                      <span className={`searchov__price ${isFree(t) ? "free" : ""}`}>{priceLabel(t)}</span>
                     </Link>
                   ))}
                 </>
