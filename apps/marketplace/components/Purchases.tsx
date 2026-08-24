@@ -26,6 +26,28 @@ export function Purchases() {
   const [items, setItems] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  /* The purchases endpoint returns { theme, name, key, created } — enough to
+     issue a licence, not enough to RECOGNISE what you bought. The cover, price
+     and creator come from the public registry, joined on slug. Fetched once,
+     alongside the licences; a card renders without it and gains the picture
+     when it lands. */
+  const [meta, setMeta] = useState<Record<string, { coverImage: string; author: string; price: number; currency: string }>>({});
+
+  useEffect(() => {
+    fetch("/api/market/list")
+      .then((r) => r.json())
+      .then((d) => {
+        const out: Record<string, { coverImage: string; author: string; price: number; currency: string }> = {};
+        for (const t of (Array.isArray(d?.themes) ? d.themes : [])) {
+          out[String(t.slug)] = {
+            coverImage: String(t.coverImage || ""), author: String(t.author || ""),
+            price: Number(t.price) || 0, currency: String(t.currency || "USD"),
+          };
+        }
+        setMeta(out);
+      })
+      .catch(() => { /* cards still render, just without the artwork */ });
+  }, []);
 
   useEffect(() => { setSession(getSession()); setReady(true); }, []);
 
@@ -83,17 +105,44 @@ export function Purchases() {
         <p className="muted" style={{ fontSize: "var(--t-meta)" }}>Checked against store <b>{session.tenant}</b>.</p>
       )}
       <div className="purchases__list">
-        {items.map((it) => (
-          <div className="pcard" key={it.key}>
-            <div className="pcard__top">
-              <b>{it.name}</b>
-              <Link href={`/templates/${it.theme}`} className="pcard__link">View template →</Link>
+        {items.map((it) => {
+          const m = meta[it.theme];
+          return (
+            <div className="pcard" key={it.key}>
+              {/* The thing you bought, shown as the thing you bought. This card
+                  used to open with three terminal commands — correct, and
+                  useless for recognising a purchase or getting back to it. */}
+              <div className="pcard__head">
+                <Link href={`/templates/${it.theme}`} className="pcard__shot" aria-hidden={!m?.coverImage} tabIndex={-1}>
+                  {m?.coverImage
+                    ? <img src={m.coverImage} alt="" loading="lazy" />
+                    : <span className="pcard__shot--none" />}
+                </Link>
+                <div className="pcard__meta">
+                  <Link href={`/templates/${it.theme}`} className="pcard__name">{it.name}</Link>
+                  {m?.author && <span className="pcard__by">by {m.author}</span>}
+                  <span className="pcard__facts">
+                    {it.created > 0 && <>Purchased {new Date(it.created).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</>}
+                    {m && m.price > 0 && <> · {m.currency === "USD" ? "$" : ""}{m.price}</>}
+                  </span>
+                  <span className="pcard__acts">
+                    <Link href={`/templates/${it.theme}`} className="pcard__link">View template →</Link>
+                    <Link href={`/templates/${it.theme}#rv-h`} className="pcard__link">Rate it →</Link>
+                  </span>
+                </div>
+              </div>
+
+              <CopyBox label="license key" value={it.key} />
+
+              {/* Secondary. Needed, but not what this page is for. */}
+              <details className="pcard__cli">
+                <summary>Install from the command line</summary>
+                <CopyBox label="install into a store" value={`kurumera marketplace install ${it.theme} --store <your-store> --license ${it.key}`} />
+                <CopyBox label="clone to customize" value={`kurumera marketplace clone ${it.theme} --license ${it.key}`} />
+              </details>
             </div>
-            <CopyBox label="license key" value={it.key} />
-            <CopyBox label="install into a store" value={`kurumera marketplace install ${it.theme} --store <your-store> --license ${it.key}`} />
-            <CopyBox label="clone to customize" value={`kurumera marketplace clone ${it.theme} --license ${it.key}`} />
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

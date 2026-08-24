@@ -93,6 +93,9 @@ export function Reviews({ slug, initial }: { slug: string; initial?: Rating }) {
     }
   }, [slug, stars, title, body, license, session, load]);
 
+  /* Either path MIGHT work, and only the server can say which. Enabling on
+     "signed in OR key present" and letting the 403 explain itself beats
+     disabling a button for a reason the client is guessing at. */
   const canTry = !!session || license.trim().length > 0;
 
   return (
@@ -164,22 +167,25 @@ export function Reviews({ slug, initial }: { slug: string; initial?: Rating }) {
             />
           </label>
 
-          {/* Signed in with a store that installed it? Nothing to paste. This
-              is for someone who bought a paid template and has the key from
-              their receipt. */}
-          {!session && (
-            <label className="rv__label">
-              License key
-              <input
-                className="rv__input" value={license} disabled={busy}
-                onChange={(e) => setLicense(e.target.value)} placeholder="KUR-…"
-                autoComplete="off" spellCheck={false}
-              />
-              <span className="rv__hint">
-                From your purchase receipt. Or sign in with the store you installed it into.
-              </span>
-            </label>
-          )}
+          {/* ALWAYS SHOWN. This used to be hidden whenever a session existed,
+              on the assumption that a signed-in user must have installed the
+              template into their store. Buying and installing are different
+              things: the store path checks installs.json, so someone who had
+              PURCHASED a template but not yet installed it was refused — with
+              the only control that could have proved ownership hidden from
+              them. A signed-in buyer had no way through at all. */}
+          <label className="rv__label">
+            License key {session && <span>if you bought it but have not installed it yet</span>}
+            <input
+              className="rv__input" value={license} disabled={busy}
+              onChange={(e) => setLicense(e.target.value)} placeholder="KUR-…"
+              autoComplete="off" spellCheck={false}
+            />
+            <span className="rv__hint">
+              It is on your <a href="/purchases">purchases</a> page. Leave this blank if the
+              template is already installed into the store you are signed in to.
+            </span>
+          </label>
 
           <div className="rv__actions">
             <button className="btn btn--primary" type="submit" disabled={busy || !canTry}>

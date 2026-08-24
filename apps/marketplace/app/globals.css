@@ -827,3 +827,22 @@ button { font-family: inherit; }
   .cgate { grid-template-columns: 1fr; gap: var(--s-7); }
   .cgate__panel { position: static; }
 }
+
+/* ── Purchase card ──────────────────────────────────────────────────────────
+   Opens with the template, not with a terminal command. The licence key stays
+   prominent (it is the reason to come here); the CLI drops into a <details>. */
+.pcard__head { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: var(--s-5); align-items: start; margin-bottom: var(--s-5); }
+.pcard__shot { display: block; aspect-ratio: 16 / 11; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--border); background: var(--sunken); }
+.pcard__shot img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+.pcard__shot--none { display: block; width: 100%; height: 100%; background: linear-gradient(135deg, var(--mint), var(--surface)); }
+.pcard__meta { display: grid; gap: var(--s-2); align-content: start; min-width: 0; }
+.pcard__name { font-family: var(--font-head); font-size: var(--t-h4); font-weight: var(--fw-bold); letter-spacing: var(--ls-heading); color: var(--ink); }
+.pcard__name:hover { color: var(--green-dark); }
+.pcard__by { font-size: var(--t-caption); color: var(--muted); }
+.pcard__facts { font-size: var(--t-meta); color: var(--faint); }
+.pcard__acts { display: flex; gap: var(--s-5); flex-wrap: wrap; margin-top: var(--s-2); }
+.pcard__cli { margin-top: var(--s-4); }
+.pcard__cli > summary { cursor: pointer; font-size: var(--t-caption); font-weight: var(--fw-semibold); color: var(--muted); padding: var(--s-2) 0; }
+.pcard__cli > summary:hover { color: var(--ink); }
+.pcard__cli[open] > summary { margin-bottom: var(--s-3); }
+@media (max-width: 620px) { .pcard__head { grid-template-columns: 1fr; } .pcard__shot { max-width: 220px; } }
