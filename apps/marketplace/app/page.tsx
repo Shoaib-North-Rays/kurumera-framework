@@ -1,6 +1,8 @@
 import Link from "next/link";
 import "./home.css";
 import "./wall.css";
+import "./hero.css";
+import { Hero } from "@/components/Hero";
 import { EditorialWall } from "@/components/EditorialWall";
 import {
   fetchTemplates, categoryCounts, CATEGORIES, isFree, isBuilder, priceLabel,
@@ -120,58 +122,16 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* ── 1 · HERO ─────────────────────────────────────────────────────────
-          Typographic. The headline owns the full measure instead of sharing the
-          row with a screenshot collage, and the asymmetry is in the footer:
-          what you can DO at column 1, what is IN the catalogue at column 9. */}
-      <section className="hm-band hm-band--surface hm-band--ruled-below">
-        <div className="wrap hm-hero">
-          <Reveal as="span" variant="fade" className="hm-eyebrow">Kurumera Template Marketplace</Reveal>
-          <RevealLines as="h1" className="hm-display hm-lines hm-hero__h1" lines={headline} />
-
-          <div className="hm-grid hm-hero__foot">
-            <div className="hm-hero__lead">
-              <Reveal as="p" variant="fade" className="hm-lede hm-hero__lede">
-                Free and premium website templates you can preview live, customize in the visual builder, and publish on your own domain.
-              </Reveal>
-              <Reveal variant="fade">
-                {/* Router-driven. A native GET here reloaded the document, and
-                    this page mounts every template as a live cross-origin
-                    preview iframe — all of them destroyed and refetched from
-                    their origin to change one query param. */}
-                <SearchForm
-                  className="hm-hero__search searchbox"
-                  placeholder="Search templates, industries, styles…"
-                />
-              </Reveal>
-              {chips.length > 0 && (
-                <RevealGroup className="hm-hero__chips">
-                  {chips.map((c) => (
-                    <Reveal as={Link} variant="fade" key={c.key} className="hm-chip" href={`/templates/category/${c.key}`}>
-                      {c.label}
-                    </Reveal>
-                  ))}
-                </RevealGroup>
-              )}
-            </div>
-
-            {/* Catalogue facts as a colophon: same size as their own labels, no
-                install count, no "trusted by". Numbers this small are only
-                honest when they are presented as an index rather than a boast. */}
-            {total > 0 && (
-              <Reveal variant="fade" className="hm-colophon">
-                <dl>
-                  <dt>Templates</dt><dd>{total}</dd>
-                  <dt>Creators</dt><dd>{creatorCount}</dd>
-                  <dt>Free</dt><dd>{freeCount}</dd>
-                  {prices.length > 0 && (<><dt>Paid</dt><dd>{paid.length}, from ${prices[0]}</dd></>)}
-                  <dt>Categories</dt><dd>{filledCats.length} of {CATEGORIES.length}</dd>
-                </dl>
-              </Reveal>
-            )}
-          </div>
-        </div>
-      </section>
+      <Hero
+        templates={templates}
+        freeCount={freeCount}
+        paidCount={paid.length}
+        creatorCount={creatorCount}
+        filledCategories={filledCats.length}
+        totalCategories={CATEGORIES.length}
+        lowestPaid={prices.length > 0 ? prices[0] : null}
+        chips={chips.map((c) => ({ key: c.key, label: c.label }))}
+      />
 
       {/* ── 1b · THE SHOWCASE ────────────────────────────────────────────────
           Imagery leads, then the index gives the full list in text. This band
