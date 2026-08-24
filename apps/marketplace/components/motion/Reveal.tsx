@@ -14,23 +14,50 @@
  */
 
 import { useEffect, type ElementType, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { observeReveals } from "@/lib/motion";
 
 export type RevealVariant = "up" | "mask" | "scale" | "fade";
 
 /**
- * Mount ONCE, in the root layout. Re-runs on pathname change so a client
- * navigation picks up the new page's targets.
+ * Mount ONCE, in the root layout. Re-runs on every client navigation so the
+ * incoming page's targets are picked up.
+ *
+ * THE PATHNAME IS READ HERE, NOT PASSED IN. It used to be an optional
+ * `pathKey` prop, and the layout mounted `<MotionRoot />` without it — so the
+ * dependency was `undefined` on every render and the effect ran exactly once,
+ * at first mount, for the life of the tab.
+ *
+ * That is a content-destroying bug, not a missing animation. `html.js` arms the
+ * hidden state in motion.css, so every `[data-reveal]` element the router
+ * inserts starts at opacity 0 / clipped and stays there. Clicking the logo gave
+ * you a hero with artwork and NO headline, lede, search or chips; opening a
+ * template gave you a blank detail page. A hard refresh fixed it only because
+ * EAGER_SCRIPT runs inline at parse time — which a soft navigation never does.
+ *
+ * Nothing else rescued it either: the failsafe that strips `html.js` is armed
+ * once by EAGER_SCRIPT and cancelled by the first successful pass, and the
+ * scroll sweep detaches itself as soon as the first page's targets are all
+ * revealed. After that the engine was inert.
+ *
+ * `usePathname` is safe in the root layout — unlike `useSearchParams` it does
+ * not opt routes out of static rendering.
  */
 export function MotionRoot({ pathKey }: { pathKey?: string }) {
+  const pathname = usePathname();
+  const key = pathKey ?? pathname;
   useEffect(() => {
     observeReveals();
     // A second pass on the next frame catches anything that mounted during
     // hydration — Suspense boundaries and client lists commonly land a tick
     // after the first effect runs, and a missed target would stay hidden.
-    const id = requestAnimationFrame(() => observeReveals());
-    return () => cancelAnimationFrame(id);
-  }, [pathKey]);
+    const raf = requestAnimationFrame(() => observeReveals());
+    // ...and a third, later, for content that arrives with the route transition
+    // itself. The router can commit the new tree AFTER the layout's effects
+    // have run, which is precisely the case this component exists to handle.
+    const t = window.setTimeout(() => observeReveals(), 180);
+    return () => { cancelAnimationFrame(raf); window.clearTimeout(t); };
+  }, [key]);
   return null;
 }
 
