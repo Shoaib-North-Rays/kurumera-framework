@@ -7,7 +7,7 @@ import { Hero } from "@/components/Hero";
 import { EditorialWall } from "@/components/EditorialWall";
 import { BuilderStage } from "@/components/BuilderStage";
 import {
-  fetchTemplates, categoryCounts, CATEGORIES, isFree, isBuilder, priceLabel,
+  fetchTemplatesOrEmpty, categoryCounts, CATEGORIES, isFree, isBuilder, priceLabel,
   featureLabels, categoryLabel, builderPreviewUrl, BUILDER_ORIGIN, type Template,
 } from "@/lib/registry";
 import { LivePreview } from "@/components/LivePreview";
@@ -92,7 +92,8 @@ const FAQ = [
 ];
 
 export default async function HomePage() {
-  const templates = await fetchTemplates();
+  // Degrades to empty on an outage rather than taking the front page down.
+  const templates = await fetchTemplatesOrEmpty();
   const counts = categoryCounts(templates);
 
   const total = templates.length;

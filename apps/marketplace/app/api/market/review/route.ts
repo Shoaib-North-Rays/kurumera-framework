@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { MARKET_ORIGIN } from "@/lib/registry";
+import { relay } from "@/lib/relay";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +12,12 @@ export const dynamic = "force-dynamic";
  * Nothing here grants anything; it only removes the CORS hop.
  */
 export async function POST(req: NextRequest) {
-  const auth = req.headers.get("authorization") || "";
-  const r = await fetch(`${MARKET_ORIGIN}/_push/market/review`, {
+  const payload = await req.text();
+  return relay({
+    url: `${MARKET_ORIGIN}/_push/market/review`,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(auth ? { Authorization: auth } : {}) },
-    body: await req.text(),
-    cache: "no-store",
+    headers: { "Content-Type": "application/json", ...(req.headers.get("authorization") ? { Authorization: req.headers.get("authorization") as string } : {}) },
+    body: payload,
+    label: "review",
   });
-  return new NextResponse(await r.text(), { status: r.status, headers: { "Content-Type": "application/json" } });
 }

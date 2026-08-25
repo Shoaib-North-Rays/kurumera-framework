@@ -36,7 +36,9 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const t = await getTemplate(slug);
+  // Metadata must not take the page down, so an outage here falls back to a
+  // generic title; the page body below is where the distinction is enforced.
+  const t = await getTemplate(slug).catch(() => null);
   if (!t) return { title: "Template — Kurumera" };
   // Only the creator's own first paragraph — never a generated summary.
   const desc = t.description.split(/\n{2,}/)[0]?.trim();
@@ -48,6 +50,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function TemplateDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+
+  /* NOT FOUND vs NOT REACHABLE — the single most damaging conflation in the app.
+     `getTemplate` returned null for both, so every real template 404'd during a
+     registry outage. A 404 tells a crawler the page is permanently gone; an
+     outage that lasted through one recrawl could deindex the entire catalogue,
+     and a customer following a link they paid for would be told it does not
+     exist. Letting the error propagate reaches error.tsx, which says the true
+     thing and returns a 500 that Google retries rather than acts on. */
   const t = await getTemplate(slug);
   if (!t) notFound();
 

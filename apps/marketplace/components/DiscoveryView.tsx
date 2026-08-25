@@ -190,6 +190,9 @@ export async function DiscoveryView({
   forced?: Record<string, string>;
   base?: string;
 }) {
+  /* Not caught. An outage here used to render "0 templates" over a filter
+     empty-state — a message about the user's filters for a failure that had
+     nothing to do with them. error.tsx says the true thing instead. */
   const templates = await fetchTemplates();
   const counts = categoryCounts(templates);
   const effective: SP = { ...params, ...forced };

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { previewUrl } from "@/lib/registry";
+import { getSession, startSignIn } from "@/lib/session";
 import { Cart, Bolt, Shield } from "@/components/Icons";
 
 function Cmd({ label, cmd }: { label: string; cmd: string }) {
@@ -28,6 +30,11 @@ export function GetTemplate({ slug, free, priceLabel }: { slug: string; free: bo
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  /** null = not asked yet (signed out, or still loading). Only ever true on a
+   *  positive answer from the server, so a failed lookup can never hide the Buy
+   *  button from someone who has not bought. */
+  const [owned, setOwned] = useState<boolean | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -59,6 +66,35 @@ export function GetTemplate({ slug, free, priceLabel }: { slug: string; free: bo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modal]);
 
+  /**
+   * ALREADY BOUGHT? Nothing stopped a buyer paying twice for the same template
+   * — `createCheckout` never consults the licence store and the button always
+   * read "Buy Template". At $300 that is a real, refundable mistake we were
+   * inviting. Purchases are matched by account email server-side, so this asks
+   * the same endpoint /purchases does rather than trusting anything local.
+   *
+   * Fails OPEN. A network error leaves `owned` null and the Buy button stands:
+   * blocking a genuine sale because a lookup timed out is the worse failure.
+   */
+  useEffect(() => {
+    if (free) return;
+    const session = getSession();
+    setSignedIn(!!session?.token);
+    if (!session?.token) return;
+    let live = true;
+    fetch(`/api/market/purchases?store=${encodeURIComponent(session.tenant || "")}`, {
+      headers: { Authorization: `Bearer ${session.token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!live || !d) return;
+        const mine = Array.isArray(d.purchases) ? d.purchases : [];
+        setOwned(mine.some((x: { theme?: string }) => String(x?.theme || "") === slug));
+      })
+      .catch(() => { /* leave null — see above */ });
+    return () => { live = false; };
+  }, [slug, free]);
+
   function openModal() { setErr(""); setEmail(""); setModal(true); }
   function closeModal() { if (busy) return; setModal(false); }
 
@@ -87,6 +123,8 @@ export function GetTemplate({ slug, free, priceLabel }: { slug: string; free: bo
     <div className="pdp__actions">
       {free ? (
         <button className="btn btn--primary btn--lg btn--block" onClick={() => setOpen((v) => !v)}><Bolt /> Use This Template</button>
+      ) : owned ? (
+        <Link className="btn btn--primary btn--lg btn--block" href="/purchases"><Bolt /> You own this — view licence</Link>
       ) : (
         <button className="btn btn--primary btn--lg btn--block" onClick={openModal}><Cart /> Buy Template — {priceLabel}</button>
       )}
@@ -113,7 +151,29 @@ export function GetTemplate({ slug, free, priceLabel }: { slug: string; free: bo
           >
             <button className="modal__x" onClick={closeModal} aria-label="Close" type="button">×</button>
             <h3 id="buy-title" className="modal__title">Complete your purchase</h3>
-            <p className="modal__sub">Enter your email for the receipt. Your license key appears right after payment and is saved to <b>Your purchases</b>.</p>
+            {/* WHICH EMAIL, SAID OUT LOUD. The licence binds to whatever is typed
+                here, but "Your purchases" is matched on the VERIFIED account
+                email — so a typo, or a work address when the account is a
+                personal one, made the purchase permanently invisible with no
+                way to reconcile it. Saying so is not a fix for the mismatch,
+                but it is the difference between a buyer making an informed
+                choice and one silently losing $300. */}
+            <p className="modal__sub">
+              Your licence binds to this email, and <b>Your purchases</b> is matched on it —
+              so use the address on your Kurumera account.
+            </p>
+            {!signedIn && (
+              <p className="modal__sub" style={{ marginTop: -6 }}>
+                <button
+                  type="button"
+                  onClick={() => startSignIn(`/templates/${slug}`)}
+                  style={{ background: "none", border: 0, padding: 0, font: "inherit", color: "var(--green-dark)", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
+                >
+                  Sign in first
+                </button>{" "}
+                and we can match it for you.
+              </p>
+            )}
             <form onSubmit={submitBuy} noValidate>
               <input
                 ref={inputRef}

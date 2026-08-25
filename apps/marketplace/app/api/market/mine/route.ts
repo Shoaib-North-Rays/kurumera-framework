@@ -1,15 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { MARKET_ORIGIN } from "@/lib/registry";
+import { relay } from "@/lib/relay";
 
 export const dynamic = "force-dynamic";
 
 /** Proxy → push-service (server-side, so the browser stays same-origin: no CORS). */
 export async function GET(req: NextRequest) {
-  const store = req.nextUrl.searchParams.get("store") || "";
-  const auth = req.headers.get("authorization") || "";
-  const r = await fetch(`${MARKET_ORIGIN}/_push/market/mine?store=${encodeURIComponent(store)}`, {
-    headers: auth ? { Authorization: auth } : {},
-    cache: "no-store",
+  return relay({
+    url: `${MARKET_ORIGIN}/_push/market/mine?store=${encodeURIComponent(req.nextUrl.searchParams.get("store") || "")}`,
+    headers: { ...(req.headers.get("authorization") ? { Authorization: req.headers.get("authorization") as string } : {}) },
+    label: "mine",
   });
-  return new NextResponse(await r.text(), { status: r.status, headers: { "Content-Type": "application/json" } });
 }

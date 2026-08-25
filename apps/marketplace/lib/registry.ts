@@ -82,13 +82,60 @@ function normalize(t: RawTheme): Template {
   };
 }
 
-/** All published templates (newest/most-installed first). Cached ~60s. */
+/**
+ * REGISTRY UNREACHABLE. Thrown when the upstream cannot be read at all, as
+ * distinct from reading it successfully and finding nothing published.
+ *
+ * Both used to return `[]`, and the difference matters more than anything else
+ * in this file. During an outage the site said "The marketplace is warming up.
+ * Nothing published yet." on the homepage, returned 404 for every real
+ * template — telling Googlebot the whole catalogue had been deleted — and
+ * served a valid sitemap with zero URLs in it. Every one of those was a
+ * confident, wrong statement made on no information.
+ */
+export class RegistryUnavailableError extends Error {
+  constructor(cause: string) {
+    super(`registry unavailable: ${cause}`);
+    this.name = "RegistryUnavailableError";
+  }
+}
+
+/**
+ * All published templates (newest/most-installed first). Cached ~60s.
+ *
+ * THROWS when the registry is unreachable. Callers that can degrade gracefully
+ * should use `fetchTemplatesOrEmpty()`; callers that would otherwise state
+ * something false — the detail route, the sitemap — must let it throw.
+ */
 export async function fetchTemplates(): Promise<Template[]> {
+  let res: Response;
   try {
-    const res = await fetch(`${MARKET_ORIGIN}/_push/market`, { next: { revalidate: 60 } });
-    if (!res.ok) return [];
+    res = await fetch(`${MARKET_ORIGIN}/_push/market`, { next: { revalidate: 60 } });
+  } catch (e) {
+    console.error("[registry] unreachable", e instanceof Error ? e.message : e);
+    throw new RegistryUnavailableError("network");
+  }
+  if (!res.ok) {
+    console.error(`[registry] upstream ${res.status}`);
+    throw new RegistryUnavailableError(`http ${res.status}`);
+  }
+  try {
     const d = (await res.json()) as { themes?: RawTheme[] };
     return (d.themes || []).map(normalize).sort((a, b) => b.installs - a.installs);
+  } catch (e) {
+    console.error("[registry] unparseable body", e instanceof Error ? e.message : e);
+    throw new RegistryUnavailableError("bad payload");
+  }
+}
+
+/**
+ * For surfaces where an empty catalogue is survivable and a thrown error would
+ * take down more than it saves — the home page's supporting bands, a related
+ * rail. It still logs, so an outage is never silent.
+ */
+export async function fetchTemplatesOrEmpty(): Promise<Template[]> {
+  try {
+    return await fetchTemplates();
   } catch {
     return [];
   }

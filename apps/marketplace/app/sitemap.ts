@@ -4,7 +4,11 @@ import { fetchTemplates, CATEGORIES } from "@/lib/registry";
 const BASE = "https://marketplace.kurumera.com";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const templates = await fetchTemplates().catch(() => []);
+  /* THROWS on an outage, on purpose. `.catch(() => [])` published a valid 200
+     sitemap containing zero template URLs whenever the registry was
+     unreachable — which Google reads as "these pages are gone", not as "try
+     again later". Failing the request outright makes the crawler retry. */
+  const templates = await fetchTemplates();
   const stat = ["", "/templates", "/templates/free", "/templates/paid", "/creator", "/privacy", "/terms"].map((p) => ({
     url: `${BASE}${p}`, changeFrequency: "weekly" as const, priority: p === "" ? 1 : 0.7,
   }));

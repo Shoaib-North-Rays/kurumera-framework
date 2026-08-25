@@ -581,8 +581,19 @@ async function createCheckout(theme, email) {
     "line_items[0][price_data][unit_amount]": stripeAmount(p.price, p.currency || "USD"),
     "line_items[0][price_data][product_data][name]": `${e.name || theme} theme`,
     "metadata[theme]": slug(theme),
+    // The licence key is derived from this, so put it where a dispute can find
+    // it: Stripe's own record, not just ours.
+    "payment_intent_data[metadata][theme]": slug(theme),
     ...destinationParams(theme, p),
     ...(email ? { customer_email: email } : {}),
+    // RECEIPTS. Nothing in this service sends email — no SMTP, no provider, not
+    // a single mail dependency — while the buy modal said "enter your email for
+    // the receipt" and the privacy policy said receipts were emailed. Both were
+    // untrue. Stripe will send its own receipt for a completed payment if it is
+    // told where, so this makes the existing promise true rather than adding a
+    // mail stack days before launch. Only set when we actually have an address:
+    // on the builder path Stripe collects it itself and fills this in.
+    ...(email ? { "payment_intent_data[receipt_email]": email } : {}),
   });
   return { ok: true, url: session.url, id: session.id };
 }
