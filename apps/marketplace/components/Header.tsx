@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { KurumeraLogo } from "./KurumeraLogo";
 import { AccountMenu } from "@/components/AccountMenu";
 import { MobileNav } from "@/components/MobileNav";
 import { SearchOverlay } from "@/components/SearchOverlay";
@@ -24,9 +25,11 @@ export function Header() {
     <header className="site-header">
       <HeaderScrollState />
       <div className="wrap site-header__row">
+        {/* The real lockup. This was a letter K in a tinted box beside the name
+            in title case — neither the brand's mark nor its wordmark, which is
+            lowercase. */}
         <Link href="/" className="brand" aria-label="Kurumera Templates home">
-          <span className="brand__mark">K</span>
-          Kurumera
+          <KurumeraLogo height={28} />
         </Link>
         <nav className="nav" aria-label="Primary">
           {NAV.map((n) => (

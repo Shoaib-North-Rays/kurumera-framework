@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { KurumeraLogo } from "./KurumeraLogo";
 import { Arrow, Bolt } from "@/components/Icons";
 import { Reveal, RevealGroup, RevealLines } from "@/components/motion/Reveal";
 import { BUILDER_ORIGIN } from "@/lib/registry";
@@ -68,8 +69,8 @@ export function Footer() {
             masthead rather than four equal boxes. ── */}
         <div className="ft__nav">
           <div className="ft__brand">
-            <Link href="/" className="ft__logo">
-              <span className="brand__mark">K</span> Kurumera
+            <Link href="/" className="ft__logo" aria-label="Kurumera — home">
+              <KurumeraLogo height={30} />
             </Link>
             <p className="ft__tag">
               Website templates you can preview live, customize without limits, and publish on your own domain.
