@@ -505,6 +505,31 @@ function licenseForSession(theme, email, session, pi) {
 /** Free themes are always owned; paid themes need a valid license. */
 function ownsTheme(theme, license) { return !themePrice(theme) || licenseValid(license, theme); }
 
+/**
+ * Does this email already hold a live licence for this theme?
+ *
+ * THE GUARD THAT WAS NOT THERE. createCheckout never consulted licenses.json,
+ * so nothing stopped the same person buying the same template twice — and five
+ * duplicate charges are on record because of it: apotheca three times and twice
+ * for two different buyers, eventco three times.
+ *
+ * The marketplace now hides the Buy button for a template you own, but that is
+ * a courtesy in a browser: the checkout endpoint is reachable directly, and the
+ * client cannot check at all when the buyer is signed out. This is the check
+ * that actually holds.
+ *
+ * Revoked licences do NOT count. A refunded buyer must be able to buy again —
+ * blocking them would turn a refund into a permanent ban from the product.
+ */
+function emailOwnsTheme(theme, email) {
+  const e = String(email || "").trim().toLowerCase();
+  if (!e) return null;                       // no email ⇒ nothing to match on
+  const t = slug(theme);
+  const hit = Object.entries(getLicenses().keys)
+    .find(([, r]) => r.theme === t && !r.revoked && String(r.email || "").trim().toLowerCase() === e);
+  return hit ? { key: hit[0], created: hit[1].created } : null;
+}
+
 // A paid license installs into up to LICENSE_SEATS distinct stores; re-installing
 // into an already-seated store is always free. Prevents one key from being shared
 // to unlimited stores while staying generous for real multi-store use.
@@ -571,6 +596,19 @@ async function createCheckout(theme, email) {
   const p = themePrice(theme);
   if (!p) return { ok: false, error: "this theme is free — no purchase needed" };
   if (!STRIPE_SECRET) return { ok: false, error: "purchasing isn't enabled yet (the platform owner must connect Stripe)" };
+  // Refuse to charge twice. Returns the key they already hold so the caller can
+  // send them to it rather than leaving them stuck on a refusal they cannot act
+  // on. Only possible when we have an email up front — the builder path lets
+  // Stripe collect it, so that one is still guarded client-side only.
+  const already = emailOwnsTheme(theme, email);
+  if (already) {
+    return {
+      ok: false,
+      owned: true,
+      license: already.key,
+      error: "You already own this template — it's in Your purchases, and your licence key is there too.",
+    };
+  }
   const e = getMarket().themes[slug(theme)];
   const session = await stripe("/checkout/sessions", "POST", {
     mode: "payment",

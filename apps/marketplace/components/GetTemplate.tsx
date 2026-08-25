@@ -114,6 +114,12 @@ export function GetTemplate({ slug, free, priceLabel }: { slug: string; free: bo
       });
       const d = await r.json();
       if (d?.ok && d.url) { window.location.href = d.url; return; }
+      /* The server refuses to charge twice and says so. Act on it rather than
+         printing it: flip the page into its owned state and close the modal, so
+         the buyer ends up at the licence they already hold instead of staring
+         at a refusal. This is also the only path that catches a signed-out
+         buyer, whom the client-side check cannot see. */
+      if (d?.owned) { setOwned(true); setModal(false); return; }
       setErr(d?.error || "Checkout is unavailable right now.");
     } catch { setErr("Checkout failed — please try again."); }
     setBusy(false);

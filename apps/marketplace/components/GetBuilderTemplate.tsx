@@ -46,6 +46,7 @@ export function GetBuilderTemplate({ slug, name, free, priceLabel }: { slug: str
       });
       const d = await r.json();
       if (d?.ok && d.url) { window.location.href = d.url; return; }
+      if (d?.owned) { setOwned(true); return; }
       setErr(d?.error || "Checkout is unavailable right now.");
     } catch { setErr("Checkout failed — please try again."); }
     setBusy(false);
