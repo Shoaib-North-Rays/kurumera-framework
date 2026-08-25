@@ -20,12 +20,24 @@ const DESC =
 
 export const metadata = {
   metadataBase: new URL("https://marketplace.kurumera.com"),
-  title: "Kurumera Templates — Find the perfect website template",
+  /* A TEMPLATE, so pages stop hand-appending a suffix. Four different ones were
+     in use — "— Kurumera", "— Kurumera Templates", "— Kurumera template" —
+     because each route wrote its own. `absolute` opts a page out where it needs
+     the whole title to itself. */
+  title: {
+    default: "Kurumera Templates — Find the perfect website template",
+    template: "%s — Kurumera Templates",
+  },
   description: DESC,
   openGraph: {
     title: "Kurumera Templates — Find the perfect website template",
     description: DESC,
-    url: "https://marketplace.kurumera.com",
+    /* NO hardcoded `url`. It pinned every page's card to the site root: Next
+       inherits a parent openGraph object wholesale when a segment does not
+       declare its own, and the page's `title` does not backfill into it. So
+       sharing any template rendered the homepage card, with the homepage URL —
+       on a marketplace whose entire distribution is people sharing individual
+       templates. metadataBase resolves the right URL per route instead. */
     siteName: "Kurumera Templates",
     type: "website",
   },

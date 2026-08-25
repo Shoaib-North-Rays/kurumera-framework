@@ -1,7 +1,7 @@
 import { Purchases } from "@/components/Purchases";
 
 export const metadata = {
-  title: "Your purchases — Kurumera Templates",
+  title: "Your purchases",
   robots: { index: false },
 };
 

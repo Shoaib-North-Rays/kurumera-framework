@@ -1,2 +1,18 @@
+# NOTE: the live robots.txt at marketplace.kurumera.com is currently served by
+# Cloudflare's managed rules, which override this file. Decide deliberately which
+# one wins before launch — this is the app's intent.
+
 User-agent: *
 Allow: /
+
+# Private surfaces. These render per-account content behind a sign-in and are
+# already noindex in their page metadata; saying so here saves the crawl budget
+# and keeps them out of any index that ignores the meta tag.
+Disallow: /purchases
+Disallow: /saved
+Disallow: /auth/
+Disallow: /purchase/
+Disallow: /api/
+
+# The sitemap existed at /sitemap.xml and nothing advertised it.
+Sitemap: https://marketplace.kurumera.com/sitemap.xml

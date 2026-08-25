@@ -1,6 +1,6 @@
 import { CreatorDashboard } from "@/components/CreatorDashboard";
 
-export const metadata = { title: "Creator dashboard — Kurumera" };
+export const metadata = { title: "Creator dashboard" };
 
 export default function CreatorPage() {
   return (

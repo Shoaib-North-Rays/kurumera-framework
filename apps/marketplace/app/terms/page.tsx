@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Terms of Service — Kurumera Templates",
+  title: "Terms of Service",
   description: "The terms for using Kurumera Templates and licensing templates.",
 };
 

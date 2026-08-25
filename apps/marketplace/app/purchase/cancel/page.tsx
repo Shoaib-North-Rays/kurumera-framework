@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Checkout cancelled — Kurumera Templates",
+  title: "Checkout cancelled",
   robots: { index: false },
 };
 

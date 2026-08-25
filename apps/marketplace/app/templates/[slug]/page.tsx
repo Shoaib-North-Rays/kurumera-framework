@@ -1,3 +1,4 @@
+import { TemplateJsonLd } from "@/components/TemplateJsonLd";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -39,12 +40,34 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // Metadata must not take the page down, so an outage here falls back to a
   // generic title; the page body below is where the distinction is enforced.
   const t = await getTemplate(slug).catch(() => null);
-  if (!t) return { title: "Template — Kurumera" };
+  if (!t) return { title: "Template" };
   // Only the creator's own first paragraph — never a generated summary.
   const desc = t.description.split(/\n{2,}/)[0]?.trim();
+  const summary = desc
+    ? desc.slice(0, 200)
+    : `A ${t.category || "website"} template you can preview live and customise in the Kurumera builder.`;
   return {
-    title: `${t.name} — Kurumera template`,
-    ...(desc ? { description: desc.slice(0, 200) } : {}),
+    title: t.name,
+    description: summary,
+    /* ITS OWN CARD. Every page inherited the homepage's openGraph wholesale, so
+       sharing a template anywhere rendered "Kurumera Templates - Find the
+       perfect website template" with the site-root URL. The template's own
+       cover is the most persuasive image we have; using anything else here
+       throws away the reason people share these links at all. */
+    alternates: { canonical: `/templates/${t.slug}` },
+    openGraph: {
+      type: "article",
+      title: `${t.name} - Kurumera template`,
+      description: summary,
+      url: `/templates/${t.slug}`,
+      ...(t.coverImage ? { images: [{ url: t.coverImage, width: 1280, height: 900, alt: `${t.name} preview` }] } : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${t.name} - Kurumera template`,
+      description: summary,
+      ...(t.coverImage ? { images: [t.coverImage] } : {}),
+    },
   };
 }
 
@@ -70,7 +93,9 @@ export default async function TemplateDetail({ params }: { params: Promise<{ slu
   const versionCount = t.versions.length || 1;
 
   return (
-    <div className="dp">
+    <>
+      <TemplateJsonLd t={t} />
+      <div className="dp">
       {/* ── MASTHEAD ─────────────────────────────────────────────────────────
           Three beats, staggered by the shared observer: the category orients,
           the name arrives on a mask wipe (the one expressive moment on the
@@ -181,6 +206,7 @@ export default async function TemplateDetail({ params }: { params: Promise<{ slu
           </div>
         </section>
       )}
-    </div>
+      </div>
+    </>
   );
 }

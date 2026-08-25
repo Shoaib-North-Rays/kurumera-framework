@@ -15,7 +15,7 @@ import type { Metadata } from "next";
  * someone looking for a template.
  */
 export const metadata: Metadata = {
-  title: "Page not found — Kurumera",
+  title: "Page not found",
   robots: { index: false, follow: true },
 };
 

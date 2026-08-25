@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { PurchaseComplete } from "@/components/PurchaseComplete";
 
 export const metadata = {
-  title: "Purchase complete — Kurumera Templates",
+  title: "Purchase complete",
   robots: { index: false },
 };
 

@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Privacy Policy — Kurumera Templates",
+  title: "Privacy Policy",
   description: "How Kurumera Templates handles your data.",
 };
 
