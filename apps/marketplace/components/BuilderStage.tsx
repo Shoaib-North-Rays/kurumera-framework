@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { Template } from "@/lib/registry";
 
 /**
  * THE STAGE — the page's own headline, shown mid-edit.
@@ -60,20 +59,33 @@ const SWATCHES = [
   { hex: "#FFFFFF", name: "Page" },
 ];
 
-function Cover({ t, sizes, priority }: { t: Template; sizes: string; priority?: boolean }) {
-  if (!t?.coverImage) {
-    return <span className="stg__nocover" style={{ background: t?.coverColor || "#1b1b1b" }} aria-hidden />;
-  }
-  return <Image className="stg__img" src={t.coverImage} alt="" fill sizes={sizes} priority={priority} />;
+/**
+ * The supplied product cut-outs. Every one is a transparent PNG, so each needs
+ * a ground of its own — `contain` on a dark card would leave the product
+ * floating in a hole. The grounds are pastels pulled from each product's own
+ * colours, which is what keeps a mint jacket and a holographic board from
+ * fighting: the chrome stays green, the merchandise brings its own light.
+ */
+const SHOTS = {
+  jacket: { src: "/stage-jacket.png", ground: "#B9CFC4", alt: "" },
+  board: { src: "/stage-board.png", ground: "#F0E2EC", alt: "" },
+  shoe: { src: "/stage-shoe.png", ground: "#E6E3F7", alt: "" },
+  boot: { src: "/stage-boot.png", ground: "#EDF0EE", alt: "" },
+  jar: { src: "/stage-jar.png", ground: "#CFE7DC", alt: "" },
+} as const;
+
+type ShotKey = keyof typeof SHOTS;
+
+function Shot({ name, sizes, priority }: { name: ShotKey; sizes: string; priority?: boolean }) {
+  const s = SHOTS[name];
+  return (
+    <span className="stg__shot" style={{ background: s.ground }}>
+      <Image className="stg__img" src={s.src} alt={s.alt} fill sizes={sizes} priority={priority} />
+    </span>
+  );
 }
 
-export function BuilderStage({ templates }: { templates: Template[] }) {
-  // Four distinct covers carry the composition. Fewer than that and the props
-  // repeat, which reads as a placeholder rather than a catalogue.
-  const withCovers = templates.filter((t) => !!t.coverImage);
-  if (withCovers.length < 4) return null;
-  const [a, b, c, d] = withCovers;
-
+export function BuilderStage() {
   return (
     <section className="stg" aria-labelledby="stg-title">
       {/* Decorative grid. Its own layer so nothing in the composition has to
@@ -83,7 +95,7 @@ export function BuilderStage({ templates }: { templates: Template[] }) {
       <div className="stg__inner">
         {/* ── 1 · LEFT: media + the theme's palette ───────────────────────── */}
         <div className="stg__media" data-reveal="scale" style={delay(STEPS.media)}>
-          <Cover t={a} sizes="(max-width: 900px) 40vw, 260px" priority />
+          <Shot name="jacket" sizes="(max-width: 1180px) 15vw, 260px" priority />
           <div className="stg__swatches" data-reveal="fade" style={delay(STEPS.swatches)}>
             {SWATCHES.map((s) => (
               <span key={s.hex} className="stg__swatch" style={{ background: s.hex }} title={s.name} aria-hidden />
@@ -93,16 +105,16 @@ export function BuilderStage({ templates }: { templates: Template[] }) {
 
         {/* ── 2 · RIGHT: the picker ───────────────────────────────────────── */}
         <div className="stg__picks" aria-hidden>
-          {[b, c, d].map((t, i) => (
+          {(["board", "shoe", "boot"] as ShotKey[]).map((name, i) => (
             <div
-              key={t.slug}
+              key={name}
               className="stg__pick"
               data-reveal="scale"
               style={delay([STEPS.pick1, STEPS.pick2, STEPS.pick3][i])}
             >
               <span className={`stg__check${i === 0 ? " is-on" : ""}`} />
               <span className="stg__pick-frame">
-                <Cover t={t} sizes="(max-width: 900px) 30vw, 150px" />
+                <Shot name={name} sizes="(max-width: 1180px) 10vw, 160px" />
               </span>
             </div>
           ))}
@@ -170,7 +182,7 @@ export function BuilderStage({ templates }: { templates: Template[] }) {
 
         <div className="stg__cart" data-reveal="scale" style={delay(STEPS.cart)} aria-hidden>
           <span className="stg__cart-shot">
-            <Cover t={c} sizes="220px" />
+            <Shot name="jar" sizes="(max-width: 1180px) 15vw, 240px" />
           </span>
           <span className="stg__cart-foot">
             <span className="stg__cart-bars">

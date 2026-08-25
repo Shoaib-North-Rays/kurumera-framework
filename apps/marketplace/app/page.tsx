@@ -149,7 +149,7 @@ export default async function HomePage() {
           thing neither of them says: what the editor actually does. Shown
           rather than described — this section's own copy sits inside the
           builder's selection outline. */}
-      <BuilderStage templates={templates} />
+      <BuilderStage />
 
       {/* ── 1b · THE SHOWCASE ────────────────────────────────────────────────
           Imagery leads, then the index gives the full list in text. This band

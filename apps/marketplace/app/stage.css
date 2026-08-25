@@ -185,8 +185,23 @@
   overflow: hidden;
   background: #16211A;
 }
-.stg__img { object-fit: cover; }
-.stg__nocover { position: absolute; inset: 0; }
+.stg__media .stg__shot { padding: 4%; }
+/* The supplied products are transparent cut-outs, so they are CONTAINED on a
+   ground of their own rather than cropped to fill. The ground lives on
+   .stg__shot (set inline, per product) and the padding here is what keeps the
+   product off the card's edge.
+
+   The padding insets the image because an absolutely-positioned child with
+   `inset: 0` resolves against its containing block's PADDING box — so this is
+   the whole inset mechanism, not decoration. */
+.stg__shot {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: inherit;
+  padding: 7%;
+}
+.stg__img { object-fit: contain; }
 
 /* The palette panel rides across the lower third of the media, as in the
    reference: it reads as an inspector floating over the artwork. */
@@ -237,6 +252,7 @@
   overflow: hidden;
   background: #16211A;
 }
+.stg__pick-frame .stg__shot { padding: 11%; }
 .stg__check {
   position: absolute;
   top: 14px;
@@ -351,7 +367,7 @@
 .stg__cart-shot {
   position: relative;
   display: block;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
   border-radius: 8px;
   overflow: hidden;
   background: #16211A;
