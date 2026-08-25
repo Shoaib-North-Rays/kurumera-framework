@@ -54,7 +54,7 @@ interface RawTheme {
   views?: number;
 }
 
-function normalize(t: RawTheme): Template {
+export function normalize(t: RawTheme): Template {
   return {
     slug: t.slug,
     name: t.name || t.slug,

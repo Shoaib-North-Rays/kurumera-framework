@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { getSession, signOut, startSignIn, type Session } from "@/lib/session";
 import { LivePreview } from "@/components/LivePreview";
-import { CATEGORIES } from "@/lib/registry";
+import { CATEGORIES, BUILDER_ORIGIN } from "@/lib/registry";
 import { Check, Bolt } from "@/components/Icons";
 
 // Must mirror the push-service currency whitelist (bogus codes break checkout).
@@ -71,6 +71,12 @@ export function CreatorDashboard() {
       <div className="wrap" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 20, gap: 12, flexWrap: "wrap" }}>
         <span className="muted" style={{ fontSize: 14 }}>Signed in{store ? <> — store <b style={{ color: "var(--ink)" }}>{store}</b></> : ""}</span>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* EARNINGS WERE UNREACHABLE FROM HERE. A creator manages listings on
+              this page, but their sales, their balance after the platform fee
+              and their payout account all live in the builder app — and nothing
+              on the marketplace linked to it. There was no path from "I sell
+              templates here" to "here is what I have earned". */}
+          <a href={`${BUILDER_ORIGIN}/earnings`} className="btn btn--tertiary">Earnings &amp; payouts</a>
           <Link href="/purchases" className="btn btn--tertiary">My purchases</Link>
           <button className="btn btn--tertiary" onClick={() => { signOut(); setSession(null); setThemes([]); }}>Sign out</button>
         </div>

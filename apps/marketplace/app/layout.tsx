@@ -63,7 +63,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <MotionRoot />
         <Header />
-        <main>{children}</main>
+        {/* SKIP LINK. There was none, and <main> had no id to target — so every
+            keyboard and screen-reader user traversed the brand, four nav links,
+            search and the account menu on every page, and on /templates a
+            further ~25 filter links, before reaching a single result. Visually
+            hidden until focused (.skip in globals.css). */}
+        <a className="skip" href="#main">Skip to content</a>
+        <main id="main">{children}</main>
         <Footer />
       </body>
     </html>

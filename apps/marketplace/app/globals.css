@@ -847,3 +847,56 @@ button { font-family: inherit; }
 .pcard__cli > summary:hover { color: var(--ink); }
 .pcard__cli[open] > summary { margin-bottom: var(--s-3); }
 @media (max-width: 620px) { .pcard__head { grid-template-columns: 1fr; } .pcard__shot { max-width: 220px; } }
+
+/* ── Skip link ───────────────────────────────────────────────────────────────
+   Off-screen until focused, then a real, visible control at the top-left. Not
+   `display:none` and not `visibility:hidden` — both remove it from the tab
+   order, which defeats the entire point of a skip link. */
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 999;
+  padding: var(--s-3) var(--s-5);
+  background: var(--green);
+  color: #fff;
+  font-weight: var(--fw-bold);
+  border-radius: 0 0 var(--r-sm) 0;
+}
+.skip:focus {
+  left: 0;
+}
+
+/* ── Skeletons ───────────────────────────────────────────────────────────────
+   Shape-only placeholders for the loading states. The shimmer is gated on
+   prefers-reduced-motion via the global kill in this file, so it degrades to a
+   flat block rather than pulsing at someone who asked it not to. */
+.sk {
+  background: var(--sunken);
+  border-radius: var(--r-sm);
+  position: relative;
+  overflow: hidden;
+}
+.sk--line { border-radius: 999px; }
+@media (prefers-reduced-motion: no-preference) {
+  .sk::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent);
+    animation: sk-sweep 1.4s ease-in-out infinite;
+  }
+  @keyframes sk-sweep { to { transform: translateX(100%); } }
+}
+
+/* Available to a screen reader, absent from the page. */
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

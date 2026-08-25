@@ -7,7 +7,12 @@ export default function PrivacyPage() {
   return (
     <div className="wrap wrap--read legal">
       <h1>Privacy Policy</h1>
-      <p className="legal__meta">Last updated: {new Date().getFullYear()}</p>
+      {/* A FIXED DATE. This computed the current year at render, so it silently
+          claimed the document had been updated this year whatever year it was,
+          and would have flipped to 2027 at midnight on 1 January without a word
+          of the text changing. A legal document needs a date that is true.
+          Update this line when the text below actually changes. */}
+      <p className="legal__meta">Last updated: 2026-08-25</p>
 
       <h2>What we collect</h2>
       <ul>
