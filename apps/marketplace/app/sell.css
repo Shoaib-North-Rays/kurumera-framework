@@ -116,10 +116,14 @@
   line-height: var(--lh-body);
 }
 
-/* ── Two ways to build ──────────────────────────────────────────────────── */
+/* ── Two ways to build ────────────────────────────────────────────────────
+   minmax(min(20rem, 100%), 1fr), not minmax(20rem, 1fr). The bare version
+   forces a 320px track even inside a container narrower than 320px, so at a
+   320px viewport the cards overflowed the page by exactly the gutter. min()
+   lets the track collapse below its ideal minimum instead of pushing out. */
 .ways {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
   gap: var(--s-5);
   margin-top: var(--s-7);
 }
@@ -241,7 +245,7 @@
 /* ── FAQ ────────────────────────────────────────────────────────────────── */
 .sell-faq__list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr));
   gap: var(--s-6) var(--s-8);
   margin-top: var(--s-7);
 }
