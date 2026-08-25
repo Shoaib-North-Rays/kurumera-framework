@@ -50,7 +50,7 @@
   padding-inline: var(--gutter-lg, 2rem);
   /* The floating pieces are absolutely placed against this box, so it needs a
      height that holds them. The centre column sets it. */
-  min-height: clamp(30rem, 44vw, 44rem);
+  min-height: clamp(30rem, 52vw, 52rem);
   display: grid;
   place-items: center;
 }
@@ -59,7 +59,12 @@
 .stg__stage {
   position: relative;
   z-index: 3;
-  width: min(100%, 46rem);
+  /* Narrow enough, and pushed down far enough, that the outline clears the
+     picker cards at top-right and the swatch panel at left. Those two are the
+     only things it can collide with, and a selection box crossing under a
+     floating card reads as a z-index accident rather than a composition. */
+  width: min(100%, 40rem);
+  margin-top: clamp(0rem, 13vw, 11rem);
   text-align: center;
 }
 
@@ -203,13 +208,15 @@
 }
 .stg__img { object-fit: contain; }
 
-/* The palette panel rides across the lower third of the media, as in the
-   reference: it reads as an inspector floating over the artwork. */
+/* The palette panel rides across the artwork and past its right edge, as in the
+   reference: overhanging is what makes it read as a control floating ON the
+   photograph rather than a caption inside it. Positioned against .stg__inner,
+   so the media card's `overflow: hidden` cannot clip it. */
 .stg__swatches {
   position: absolute;
-  left: 42%;
-  bottom: 28%;
-  z-index: 2;
+  left: clamp(3rem, 7.5vw, 8.5rem);
+  top: clamp(7rem, 13vw, 12rem);
+  z-index: 4;
   display: flex;
   align-items: center;
   gap: clamp(0.4rem, 0.9vw, 0.8rem);
@@ -221,8 +228,8 @@
   backdrop-filter: blur(10px);
 }
 .stg__swatch {
-  width: clamp(1.1rem, 2vw, 1.85rem);
-  height: clamp(1.1rem, 2vw, 1.85rem);
+  width: clamp(1rem, 1.7vw, 1.6rem);
+  height: clamp(1rem, 1.7vw, 1.6rem);
   border-radius: 999px;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
@@ -236,7 +243,7 @@
 }
 .stg__pick {
   position: relative;
-  width: clamp(5rem, 10vw, 9.5rem);
+  width: clamp(5rem, 8.6vw, 8.5rem);
   padding: 8px;
   border-radius: 10px;
   border: 1px solid var(--stg-panel-edge);
@@ -432,7 +439,9 @@
 @media (max-width: 860px) {
   .stg { padding-block: clamp(3rem, 9vw, 4.5rem); }
   .stg__inner { min-height: 0; }
+  .stg__stage { margin-top: 0; }
   .stg__media,
+  .stg__swatches,
   .stg__picks,
   .stg__layers,
   .stg__cart { display: none; }

@@ -49,14 +49,22 @@ const STEPS = {
 
 const delay = (ms: number) => ({ "--reveal-delay": `${ms}ms` }) as React.CSSProperties;
 
-/** The theme's own palette, which is what the swatch row is for — these are the
- *  real token values from tokens.css, not decorative circles. */
+/**
+ * Colour options for the jacket the panel sits on — the two it is actually
+ * made of, then three alternatives.
+ *
+ * These were the brand's own green tokens at first, which was wrong twice
+ * over: five values from one hue read as a broken gradient rather than a set
+ * of choices, and a swatch row floating on a product means variants, not
+ * theme settings. The chrome carries the brand; the merchandise carries its
+ * own colour.
+ */
 const SWATCHES = [
-  { hex: "#22C55E", name: "Accent" },
-  { hex: "#86EFAC", name: "Accent soft" },
-  { hex: "#166534", name: "Brand dark" },
-  { hex: "#F0FDF4", name: "Surface" },
-  { hex: "#FFFFFF", name: "Page" },
+  { hex: "#A9D5C4", name: "Sage" },
+  { hex: "#C9A9E9", name: "Lilac" },
+  { hex: "#F2E9DC", name: "Bone" },
+  { hex: "#E3A6A1", name: "Clay" },
+  { hex: "#2F3A36", name: "Charcoal" },
 ];
 
 /**
@@ -96,11 +104,15 @@ export function BuilderStage() {
         {/* ── 1 · LEFT: media + the theme's palette ───────────────────────── */}
         <div className="stg__media" data-reveal="scale" style={delay(STEPS.media)}>
           <Shot name="jacket" sizes="(max-width: 1180px) 15vw, 260px" priority />
-          <div className="stg__swatches" data-reveal="fade" style={delay(STEPS.swatches)}>
-            {SWATCHES.map((s) => (
-              <span key={s.hex} className="stg__swatch" style={{ background: s.hex }} title={s.name} aria-hidden />
-            ))}
-          </div>
+        </div>
+
+        {/* A SIBLING of the media card, not a child. The card clips its own
+            corners, and this panel is meant to overhang it — nested, it lost
+            two of its five swatches to `overflow: hidden`. */}
+        <div className="stg__swatches" data-reveal="fade" style={delay(STEPS.swatches)} aria-hidden>
+          {SWATCHES.map((s) => (
+            <span key={s.hex} className="stg__swatch" style={{ background: s.hex }} title={s.name} />
+          ))}
         </div>
 
         {/* ── 2 · RIGHT: the picker ───────────────────────────────────────── */}
