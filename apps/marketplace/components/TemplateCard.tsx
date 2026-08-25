@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LivePreview } from "@/components/LivePreview";
 import { SaveButton } from "@/components/SaveButton";
 import { Stars } from "@/components/Stars";
-import { Arrow, Download } from "@/components/Icons";
+import { Download } from "@/components/Icons";
 import { badges, featureLabels, priceLabel, isFree, isBuilder, categoryLabel, livePreviewUrl, builderPreviewUrl, type Template, authorLabel } from "@/lib/registry";
 
 /** Column span on the discovery grid's 12 tracks. Absent = the card renders
@@ -14,11 +14,11 @@ export function TemplateCard({ t, span, reveal }: { t: Template; span?: CardSpan
   const bs = badges(t);
   const feats = featureLabels(t, 3);
   const cat = t.category ? categoryLabel(t.category) : "";
-  // Promoted cards get the room for a sentence — but only if there is one.
-  // Three of the seven published templates have an empty description, and a
-  // card that reserves space for absent copy is how a grid starts looking broken.
-  const promoted = span != null && span >= 6;
-  const blurb = promoted && t.description ? t.description : "";
+  // No blurb and no arrow affordance on the grid. Cards are a uniform quarter
+  // now, and three of the eight published templates have an empty description —
+  // a card that reserves space for absent copy is how a grid starts looking
+  // broken. The description lives on the detail page, which has room for it
+  // either way.
 
   return (
     <article className="tpl-card" data-span={span} data-reveal={reveal ? "" : undefined}>
@@ -44,19 +44,11 @@ export function TemplateCard({ t, span, reveal }: { t: Template; span?: CardSpan
           containing one — no nested anchors, and the overlay actions stay live. */}
       <Link href={href} className="tpl-card__body">
         {cat && <span className="tpl-card__creator" style={{ color: "var(--green-dark)", fontWeight: 600 }}>{cat}</span>}
-        {promoted ? (
-          <div className="tpl-card__title">
-            <h3 className="tpl-card__name">{t.name}</h3>
-            <span className="tpl-card__go mi-arrow" aria-hidden="true"><Arrow /></span>
-          </div>
-        ) : (
-          <h3 className="tpl-card__name">{t.name}</h3>
-        )}
+        <h3 className="tpl-card__name">{t.name}</h3>
         <span className="tpl-card__creator">by {authorLabel(t.author)}</span>
         {/* Renders nothing at all when nobody who owns this template has rated
             it — see Stars. Most listings are in that state. */}
         <Stars rating={t.rating} />
-        {blurb && <span className="tpl-card__desc">{blurb}</span>}
         {feats.length > 0 && <span className="tpl-card__creator">{feats.join(" · ")}</span>}
         <div className="tpl-card__foot">
           {/* Total installs across the whole marketplace is 3. "0 installs" is a

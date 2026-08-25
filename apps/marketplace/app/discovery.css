@@ -162,10 +162,12 @@
   gap: var(--s-6);
 }
 
-/* The whole span vocabulary — four values and no more, so the rhythm stays
+/* Two values, not four. The 6 and 12 spans went with the promoted and banner
+   variants: with a uniform grid nothing emits them, and a rule no markup can
+   reach is the dead CSS that KM-7 was about. 4 stays for the responsive
+   step-down below.
+   The whole span vocabulary — so the rhythm stays
    legible: 12 = banner, 6 = feature, 4 = third, 3 = quarter. */
-.disc-grid > [data-span="12"] { grid-column: span 12; }
-.disc-grid > [data-span="6"]  { grid-column: span 6; }
 .disc-grid > [data-span="4"]  { grid-column: span 4; }
 .disc-grid > [data-span="3"]  { grid-column: span 3; }
 
@@ -181,35 +183,13 @@
   .disc-grid > [data-span] { grid-column: span 12; }
 }
 
-/* Promoted card: more room for the live preview, and a name one step up. */
-.disc-grid > [data-span="6"] .tpl-card__media,
-.disc-grid > [data-span="12"] .tpl-card__media { aspect-ratio: 16 / 10; }
-.disc-grid > [data-span="6"] .tpl-card__body,
-.disc-grid > [data-span="12"] .tpl-card__body { padding: var(--s-6); gap: var(--s-3); }
-.disc-grid > [data-span="6"] .tpl-card__name,
-.disc-grid > [data-span="12"] .tpl-card__name { font-size: var(--t-h3); line-height: var(--lh-heading); }
-
-/* Banner card — the row-filling variant. Horizontal, so a full-width card does
-   not become a full-width picture frame with three words underneath it. */
-.disc-grid > [data-span="12"] { flex-direction: row; }
-.disc-grid > [data-span="12"] .tpl-card__media {
-  width: 52%;
-  flex: none;
-  aspect-ratio: 16 / 9;
-  border-bottom: 0;
-  border-right: 1px solid var(--border);
-}
-.disc-grid > [data-span="12"] .tpl-card__body { justify-content: center; padding: var(--s-8); }
-@media (max-width: 900px) {
-  .disc-grid > [data-span="12"] { flex-direction: column; }
-  .disc-grid > [data-span="12"] .tpl-card__media {
-    width: auto;
-    aspect-ratio: 16 / 10;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .disc-grid > [data-span="12"] .tpl-card__body { padding: var(--s-6); }
-}
+/* ONE card shape, everywhere on this grid.
+   The promoted (span 6) and banner (span 12) variants are gone with the rhythm
+   that produced them — three aspect ratios, three body paddings and three name
+   sizes in one catalogue meant no two cards could be compared. The covers are
+   1280x900, so the frame is 64:45 and nothing is cropped; see KM-10, which was
+   the same fault on the home page's wall. */
+.disc-grid .tpl-card__media { aspect-ratio: 64 / 45; }
 
 /* Description exists on only 4 of the 7 published templates, so it renders
    conditionally and only on promoted cards — never as a filler line. */
@@ -334,19 +314,12 @@
   padding: var(--s-4) 0 0;
   gap: var(--s-1);
 }
-.disc-grid > [data-span="6"] .tpl-card__body,
-.disc-grid > [data-span="12"] .tpl-card__body { padding: var(--s-5) 0 0; }
 .disc-grid .tpl-card__foot {
   padding-top: var(--s-3);
   margin-top: var(--s-3);
   border-top: 1px solid var(--border);
 }
 
-/* The banner variant keeps its horizontal split but loses the dividing border,
-   which only existed to separate two halves of a filled box. */
-.disc-grid > [data-span="12"] { gap: var(--s-7); align-items: center; }
-.disc-grid > [data-span="12"] .tpl-card__media { border-right: 1px solid var(--border); }
-.disc-grid > [data-span="12"] .tpl-card__body { padding: 0; }
 
 /* The save control sat on the card's white fill; on a bare plate it needs its
    own ground to stay legible over a screenshot. */

@@ -102,28 +102,25 @@ function makeHref(base: string, params: SP, effective: SP, forced: Record<string
 /**
  * Column spans for the results grid, on twelve tracks.
  *
- * The rhythm is a seven-card cycle — [6,3,3] then [3,3,3,3] — so each cycle
- * opens with a promoted card and every row closes flush. The tail is widened to
- * fill its final row, because a grid that ends on a hole reads as broken rather
- * than editorial, and with seven templates published the tail IS the page.
+ * UNIFORM. Every card is a quarter, so four sit in a row and every row is the
+ * same height.
  *
- * Layout only. Nothing here promotes a card on invented merit: position in the
- * active sort order is the entire basis, so the top result is the large one.
+ * This used to be a seven-card rhythm — [6,3,3] then [3,3,3,3], with a widened
+ * tail — which gave each page one half-width card, a run of quarters, and
+ * whatever the remainder needed to close the last row. On paper it was
+ * editorial. On the page it meant a catalogue where the first template was
+ * twice the size of the rest, the covers were cropped to three different aspect
+ * ratios, and the names sat at three different heights, so nothing could be
+ * compared with anything. A catalogue is a comparison surface: same frame, same
+ * crop, same baseline, or the layout is making an argument the data does not
+ * support.
+ *
+ * Promotion by position was the other problem. The largest card was simply the
+ * top result of the active sort, so re-sorting silently re-promoted a different
+ * template — the size read as a recommendation while meaning nothing.
  */
-const CYCLE: CardSpan[] = [6, 3, 3, 3, 3, 3, 3];
-const TAIL: Record<number, CardSpan[]> = {
-  0: [],
-  1: [12],
-  2: [6, 6],
-  3: [6, 3, 3],
-  4: [6, 6, 6, 6],
-  5: [6, 3, 3, 6, 6],
-  6: [6, 3, 3, 4, 4, 4],
-};
 function rhythm(n: number): CardSpan[] {
-  const out: CardSpan[] = [];
-  while (n - out.length >= CYCLE.length) out.push(...CYCLE);
-  return out.concat(TAIL[n - out.length]);
+  return Array.from({ length: n }, () => 3 as CardSpan);
 }
 
 /**
