@@ -216,6 +216,25 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* FAQPage, from the SAME constant the accordion below renders. Built
+          from the data rather than restated, because structured data that
+          disagrees with the visible page is penalised harder than none — and a
+          hand-copied duplicate is exactly how that drift starts. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: FAQ.map((f) => ({
+              "@type": "Question",
+              name: f.q,
+              acceptedAnswer: { "@type": "Answer", text: f.a },
+            })),
+          }),
+        }}
+      />
+
       {/* ── 5 · FAQ · the quiet one ───────────────────────────────────────────
           Narrower than everything around it, and the axis is reversed — answers
           at column 1, the heading rail at column 9. After the full-width
