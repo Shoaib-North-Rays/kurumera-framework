@@ -70,7 +70,7 @@ export function Footer() {
         <div className="ft__nav">
           <div className="ft__brand">
             <Link href="/" className="ft__logo" aria-label="Kurumera — home">
-              <KurumeraLogo height={30} />
+              <KurumeraLogo height={26} plaque />
             </Link>
             <p className="ft__tag">
               Website templates you can preview live, customize without limits, and publish on your own domain.

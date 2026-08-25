@@ -27,6 +27,13 @@ import Image from "next/image";
  * THE WORDMARK IS LOWERCASE. The official one is all-lowercase "kurumera"; a
  * capitalised K is a different logo. This page previously set it in title case
  * next to a hand-drawn mark, which was wrong twice over.
+ *
+ * STYLED WITH INLINE STYLES, NOT UTILITY CLASSES. The first version of this
+ * carried Tailwind classes, which exist in the builder and do not exist here —
+ * so `inline-flex` and `items-center` resolved to nothing, the wrapper fell
+ * back to `display: inline`, and the mark stacked on top of the wordmark. A
+ * component that is copied between apps cannot depend on one app's CSS
+ * framework; inline styles are the only thing guaranteed to travel with it.
  */
 
 /* Brand fills, from the origin file. Slightly different greens per facet give
@@ -61,17 +68,46 @@ export function KurumeraMark({ size = 24, className }: { size?: number; classNam
  * does not reflow as the images stream in — a logo that jumps on load is the
  * first thing a visitor sees go wrong.
  */
-export function KurumeraLogo({ height = 30, className = "" }: { height?: number; className?: string }) {
+export function KurumeraLogo({
+  height = 30,
+  className = "",
+  plaque = false,
+}: {
+  height?: number;
+  className?: string;
+  /**
+   * Mount the lockup on a soft white card. REQUIRED ON DARK SURFACES: the
+   * wordmark artwork is dark teal, so on the footer's --ink ground it would be
+   * all but invisible. The origin component in the admin frontend carries the
+   * same flag and the same warning.
+   */
+  plaque?: boolean;
+}) {
   const wordHeight = Math.round(height * 0.52);
   return (
-    <span className={`inline-flex items-center ${className}`} style={{ gap: Math.round(height * 0.24) }}>
+    <span
+      className={className}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: Math.round(height * 0.24),
+        lineHeight: 0,
+        ...(plaque
+          ? {
+              background: "rgba(255,255,255,0.96)",
+              borderRadius: 12,
+              padding: `${Math.round(height * 0.3)}px ${Math.round(height * 0.45)}px`,
+              boxShadow: "0 1px 2px rgba(0,0,0,.06)",
+            }
+          : null),
+      }}
+    >
       <Image
         src="/brand/kurumera-k.webp"
         alt=""
         height={height}
         width={Math.round(height * (248 / 350))}
-        style={{ height, width: "auto" }}
-        className="block select-none"
+        style={{ display: "block", height, width: "auto", userSelect: "none" }}
         priority
         draggable={false}
       />
@@ -80,8 +116,7 @@ export function KurumeraLogo({ height = 30, className = "" }: { height?: number;
         alt="Kurumera"
         height={wordHeight}
         width={Math.round(wordHeight * (740 / 170))}
-        style={{ height: wordHeight, width: "auto" }}
-        className="block select-none"
+        style={{ display: "block", height: wordHeight, width: "auto", userSelect: "none" }}
         priority
         draggable={false}
       />

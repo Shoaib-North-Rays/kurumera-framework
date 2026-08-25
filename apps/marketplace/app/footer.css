@@ -64,15 +64,12 @@
   gap: var(--s-8);
   padding-block: var(--sec-sm);
 }
+/* Artwork, not type. The font rules here styled a text wordmark that is gone;
+   the lockup brings its own colour, so `color: #fff` would have done nothing
+   except tint an alt-text fallback. */
 .ft__logo {
   display: inline-flex;
   align-items: center;
-  gap: var(--s-3);
-  font-family: var(--font-head);
-  font-size: var(--t-h4);
-  font-weight: var(--fw-black);
-  letter-spacing: var(--ls-heading);
-  color: #fff;
 }
 .ft__tag {
   margin-top: var(--s-4);
