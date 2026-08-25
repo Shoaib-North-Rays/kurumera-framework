@@ -75,10 +75,8 @@
   border-radius: 14px;
   overflow: hidden;
   background: linear-gradient(150deg, var(--ai-deep) 0%, var(--ai-mid) 55%, var(--ai-deep) 100%);
-  padding-block: clamp(2.5rem, 5vw, 4.5rem) 0;
-  /* The preview deliberately runs off the bottom edge — the panel is a window
-     onto something taller, not a frame around a picture. */
-  min-height: clamp(22rem, 40vw, 40rem);
+  padding-block: clamp(2.5rem, 5vw, 4.5rem);
+  min-height: clamp(20rem, 34vw, 34rem);
 }
 
 /* The light inside the panel. Two soft radials rather than one, so the glow has
@@ -207,15 +205,19 @@
 .ai__screen {
   position: relative;
   z-index: 3;
-  width: min(34rem, 62%);
+  width: min(48rem, 74%);
   margin: clamp(2rem, 4vw, 3.5rem) auto 0;
-  border-radius: 12px 12px 0 0;
+  border-radius: 12px;
   overflow: hidden;
   background: #fff;
-  box-shadow: 0 -2px 0 rgba(255, 255, 255, 0.5), 0 30px 80px rgba(0, 0, 0, 0.45);
-  /* Taller than it is wide, and clipped by the panel: a storefront scrolling
-     past the bottom edge, not a video in a box. */
-  aspect-ratio: 4 / 5;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16), 0 30px 80px rgba(0, 0, 0, 0.45);
+  /* THE SOURCE'S OWN RATIO. demo.mp4 is 1280x720, so the frame is 16:9 and
+     there is nothing to crop or letterbox. This was a 4:5 portrait frame while
+     the file was still missing — a shape borrowed from the reference, which
+     shows a tall scrolling page. Against a 16:9 recording that frame would have
+     been 55% empty white. Same rule as the wall cards in KM-10: the frame takes
+     its shape from the thing inside it, never the other way round. */
+  aspect-ratio: 16 / 9;
 }
 .ai__video {
   display: block;
