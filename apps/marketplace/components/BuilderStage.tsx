@@ -2,13 +2,20 @@ import Image from "next/image";
 import Link from "next/link";
 
 /**
- * THE STAGE — the page's own headline, shown mid-edit.
+ * THE STAGE — this page's own headline, shown mid-edit.
  *
- * The section between "here is the marketplace" (hero) and "here is the
- * catalogue" (wall) has one job: say what the thing actually does. It does that
- * by demonstrating rather than describing — the copy you are reading sits
- * inside the builder's own selection outline, surrounded by the pieces of the
- * editor that produced it. The claim and the evidence are the same object.
+ * It answers the objection that stops a template sale: buy this, and am I stuck
+ * with it? So it demonstrates rather than describes — the copy you are reading
+ * sits inside the editor's selection outline, surrounded by the panels that
+ * produced it. The claim and the evidence are the same object.
+ *
+ * IT IS DELIBERATELY NOT A PITCH FOR THE EDITOR. The first version was
+ * ("Every pixel, yours to move"), and that is builder marketing: correct, and
+ * the wrong surface for it, since kurumera.com sells the product and this page
+ * sells templates. The distinction is not pedantic — a visitor here has already
+ * decided to look at templates, and the only thing worth telling them about the
+ * editor is what it means for the one they are about to buy. Its call to action
+ * therefore goes to the catalogue, never to the builder.
  *
  * CHOREOGRAPHY, in the order the eye should travel (delays in STEPS below):
  *   1 · media + swatches arrive on the left      — "you start with something"
@@ -150,26 +157,27 @@ export function BuilderStage() {
             </span>
 
             <p className="stg__eyebrow" data-reveal="fade" style={delay(STEPS.eyebrow)}>
-              Kurumera website builder
+              Every template is editable
             </p>
 
             <h2 className="stg__title" id="stg-title">
               <span className="stg__line" data-reveal="mask" style={delay(STEPS.headline)}>
-                Every pixel,
+                Buy it, then
               </span>{" "}
               <span className="stg__line" data-reveal="mask" style={delay(STEPS.headline + 140)}>
-                yours to move.
+                change anything.
               </span>
             </h2>
 
             <p className="stg__lede" data-reveal="fade" style={delay(STEPS.lede)}>
-              Start from a template, then change anything — sections, colour, type, the lot —
-              in an editor that shows you the real page while you work.
+              Every template here opens in the editor — move sections, swap colours and
+              type, rewrite the copy. You are buying a starting point, not something you
+              have to live with.
             </p>
           </div>
 
           <Link className="stg__cta" href="/templates" data-reveal="fade" style={delay(STEPS.cta)}>
-            Start building free
+            Browse the templates
             <span className="stg__cta-arrow" aria-hidden>→</span>
           </Link>
 
@@ -188,7 +196,7 @@ export function BuilderStage() {
             <hr className="stg__rule" />
             <span className="stg__group">Template</span>
             <span className="stg__row"><i className="stg__caret is-open">›</i><i className="stg__ico is-media" />Image banner</span>
-            <span className="stg__row stg__row--child"><i className="stg__ico is-text">T</i>Every pixel, yours to move.</span>
+            <span className="stg__row stg__row--child"><i className="stg__ico is-text">T</i>Buy it, then change anything.</span>
           </div>
         </div>
 

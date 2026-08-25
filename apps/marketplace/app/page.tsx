@@ -3,11 +3,9 @@ import "./home.css";
 import "./wall.css";
 import "./hero.css";
 import "./stage.css";
-import "./ai.css";
 import { Hero } from "@/components/Hero";
 import { EditorialWall } from "@/components/EditorialWall";
 import { BuilderStage } from "@/components/BuilderStage";
-import { AiStage } from "@/components/AiStage";
 import {
   fetchTemplates, categoryCounts, CATEGORIES, isFree, isBuilder, priceLabel,
   featureLabels, categoryLabel, builderPreviewUrl, BUILDER_ORIGIN, type Template,
@@ -147,16 +145,10 @@ export default async function HomePage() {
       />
 
       {/* ── 1a · THE STAGE ───────────────────────────────────────────────────
-          Between "here is the marketplace" and "here is the catalogue", the one
-          thing neither of them says: what the editor actually does. Shown
-          rather than described — this section's own copy sits inside the
-          builder's selection outline. */}
+          Answers the objection that stops a template sale — buy this, and am I
+          stuck with it? — by showing this page's own copy inside the editor's
+          selection outline, rather than claiming it in a sentence. */}
       <BuilderStage />
-
-      {/* ── 1b · GENERATION ──────────────────────────────────────────────────
-          The stage says every part of a page is editable. This says you do not
-          have to start from an empty one. */}
-      <AiStage templates={templates} />
 
       {/* ── 1b · THE SHOWCASE ────────────────────────────────────────────────
           Imagery leads, then the index gives the full list in text. This band
