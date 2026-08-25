@@ -61,14 +61,19 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       </head>
       <body>
+        {/* SKIP LINK — FIRST IN THE BODY, which is the whole point. There was
+            none at all, and <main> had no id to target, so every keyboard and
+            screen-reader user traversed the brand, four nav links, search and
+            the account menu on every page, and on /templates a further ~25
+            filter links, before reaching a single result.
+
+            It sits above <Header /> because a skip link that is not the first
+            focusable thing in the document skips nothing: put it after the
+            header and the user has already tabbed through everything it was
+            meant to bypass. Visually hidden until focused (.skip). */}
+        <a className="skip" href="#main">Skip to content</a>
         <MotionRoot />
         <Header />
-        {/* SKIP LINK. There was none, and <main> had no id to target — so every
-            keyboard and screen-reader user traversed the brand, four nav links,
-            search and the account menu on every page, and on /templates a
-            further ~25 filter links, before reaching a single result. Visually
-            hidden until focused (.skip in globals.css). */}
-        <a className="skip" href="#main">Skip to content</a>
         <main id="main">{children}</main>
         <Footer />
       </body>
