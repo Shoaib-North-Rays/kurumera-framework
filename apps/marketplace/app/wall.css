@@ -13,10 +13,19 @@
   --ew-gap: 24px;
   /* 560, not 640: at 773 tall, 110 top + 640 + 24 leaves row 2 invisible.
      560 puts row 2 ~79px into the viewport, as the reference shows. */
-  /* ONE card size for the whole wall. Every card is --ew-w by --ew-h in both
-     rows and at every breakpoint; there are no per-card size modifiers. */
-  --ew-w: 560px;
-  --ew-h: 500px;
+  /* ONE card size for the whole wall — same in both rows, at every breakpoint,
+     with no per-card size modifiers.
+
+     Only the WIDTH is chosen. The height comes from --ew-ratio, which is the
+     covers' own aspect: every screenshot the registry serves is 1280x900, i.e.
+     64:45. Deriving the height means object-fit has nothing to crop. When the
+     card was sized independently (560x500, ratio 1.12) the image scaled to fill
+     the height and roughly 21% of every screenshot was clipped off the sides —
+     the navigation and the layout's outer edges, which is most of what someone
+     is judging. Change --ew-w freely; the crop stays zero. If the shot endpoint
+     ever changes its output size, this ratio is the one thing to update. */
+  --ew-ratio: 64 / 45;
+  --ew-w: 768px;
   --ew-radius: 8px;
   --ew-bg: #111111;
   /* How far the row is pulled left so card 1 is clipped by the viewport. */
@@ -57,7 +66,7 @@
   position: relative;
   flex: 0 0 auto;
   width: var(--ew-w);
-  height: var(--ew-h);
+  aspect-ratio: var(--ew-ratio);
   border-radius: var(--ew-radius);
   overflow: hidden;
   background: #1a1a1a;
@@ -208,7 +217,7 @@
 }
 
 @media (max-width: 1280px) {
-  .ew { --ew-w: 460px; --ew-h: 420px; --ew-bleed: 110px; }
+  .ew { --ew-w: 620px; --ew-bleed: 110px; }
   .ew__feature-title { font-size: 42px; top: 160px; }
   .ew__feature-by { top: 212px; }
   /* Size only. top/left must stay 0 — the arrow is placed by translate
@@ -218,7 +227,7 @@
 }
 
 @media (max-width: 760px) {
-  .ew { --ew-w: 280px; --ew-h: 260px; --ew-bleed: 40px; padding-block: 56px 0; }
+  .ew { --ew-w: 320px; --ew-bleed: 40px; padding-block: 56px 0; }
   .ew__feature-title { font-size: 28px; top: 96px; }
   .ew__feature-by { top: 130px; font-size: 15px; }
   .ew__disc { width: 56px; height: 56px; }

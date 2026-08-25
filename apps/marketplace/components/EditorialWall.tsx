@@ -82,7 +82,9 @@ function Card({
             src={t.coverImage}
             alt=""
             fill
-            sizes="640px"
+            /* Must track --ew-w in wall.css, or the browser picks a source
+               for the wrong width and upscales it. */
+            sizes="(max-width: 760px) 320px, (max-width: 1280px) 620px, 768px"
             priority={priority}
             style={{ objectPosition }}
           />
