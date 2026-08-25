@@ -66,17 +66,15 @@ function priceOf(t: Template): string {
  */
 function Card({
   t,
-  className,
   priority,
   objectPosition = "top center",
 }: {
   t: Template;
-  className: string;
   priority?: boolean;
   objectPosition?: string;
 }) {
   return (
-    <article className={`ew__card ${className}`}>
+    <article className="ew__card">
       <Link href={`/templates/${t.slug}`} className="ew__hit" aria-label={t.name}>
         {t.coverImage ? (
           <Image
@@ -150,20 +148,17 @@ export function EditorialWall({ templates }: { templates: Template[] }) {
       {/* TWO independent scroll containers, not one. The rows drift in opposite
           directions, which is only possible if each owns its own scrollLeft. */}
       <div className="ew__rail ew__rail--1" tabIndex={0} role="region" aria-label="Featured templates, row one">
+        {/* No size modifiers: every card is --ew-w by --ew-h. The rail used to
+            mix four widths and two heights as an editorial rhythm, which read
+            as ragged rather than composed. */}
         <div className="ew__row">
-          <Card t={r1[0]} className="ew__card--edgeL" priority />
-          <Card t={r1[1]} className="ew__card--lg" priority />
-          <Card t={r1[2]} className="ew__card--lg" priority />
-          <Card t={r1[3]} className="ew__card--edgeR" />
+          {r1.map((t, i) => <Card key={`${t.slug}-${i}`} t={t} priority={i < 3} />)}
         </div>
       </div>
 
       <div className="ew__rail ew__rail--2" tabIndex={0} role="region" aria-label="Featured templates, row two">
         <div className="ew__row ew__row--2">
-          <Card t={r2[0]} className="ew__card--md" objectPosition="center" />
-          <Card t={r2[1]} className="ew__card--lg" objectPosition="center" />
-          <Card t={r2[2]} className="ew__card--md" objectPosition="center" />
-          <Card t={r2[3]} className="ew__card--lg" objectPosition="center" />
+          {r2.map((t, i) => <Card key={`${t.slug}-${i}`} t={t} objectPosition="center" />)}
         </div>
       </div>
 
