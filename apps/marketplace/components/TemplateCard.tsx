@@ -13,7 +13,11 @@ export function TemplateCard({ t, span, reveal }: { t: Template; span?: CardSpan
   const href = `/templates/${t.slug}`;
   const bs = badges(t);
   const feats = featureLabels(t, 3);
-  const cat = t.category ? categoryLabel(t.category) : "";
+  // ALWAYS a label, never an empty slot. Half the listings carry a category and
+  // half do not, and an eyebrow that appears on some cards and not others pushes
+  // their names onto a different baseline — which is exactly what a catalogue
+  // must not do, since the whole surface exists to be compared down a column.
+  const cat = t.category ? categoryLabel(t.category) : isBuilder(t) ? "Builder theme" : "Code theme";
   // No blurb and no arrow affordance on the grid. Cards are a uniform quarter
   // now, and three of the eight published templates have an empty description —
   // a card that reserves space for absent copy is how a grid starts looking

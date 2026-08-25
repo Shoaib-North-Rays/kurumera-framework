@@ -160,6 +160,12 @@
      long template name push the whole row wider than the column. */
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: var(--s-6);
+  /* Stretch, so every card in a row is the height of the tallest. The card body
+     already pushes its foot down with margin-top:auto, but that can only align
+     anything if the cards it is inside are the same height — otherwise each
+     foot bottoms out at its own card and the install/price row staircases
+     across the row. */
+  align-items: stretch;
 }
 
 /* Two values, not four. The 6 and 12 spans went with the promoted and banner
@@ -294,6 +300,9 @@
   border: 0;
   border-radius: 0;
   overflow: visible;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 /* The lift was the card's hover feedback. With no box to lift, the media takes
    over: the frame's border darkens and the image itself scales inside it. */
