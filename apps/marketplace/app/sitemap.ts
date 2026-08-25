@@ -9,8 +9,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
      unreachable — which Google reads as "these pages are gone", not as "try
      again later". Failing the request outright makes the crawler retry. */
   const templates = await fetchTemplates();
-  const stat = ["", "/templates", "/templates/free", "/templates/paid", "/creator", "/privacy", "/terms"].map((p) => ({
-    url: `${BASE}${p}`, changeFrequency: "weekly" as const, priority: p === "" ? 1 : 0.7,
+  // /creator is the signed-in dashboard — it gates to a sign-in prompt for a
+  // crawler, so it is not a useful indexable URL and has been dropped. /sell is
+  // the public creator page and belongs here in its place, alongside the guides
+  // and the four legal documents, which are exactly the pages people search for
+  // by name ("kurumera refund policy") and previously could not find.
+  const stat = [
+    "", "/templates", "/templates/free", "/templates/paid",
+    "/sell", "/docs/creator-guide", "/docs/payouts", "/docs/taxes",
+    "/terms", "/license", "/refunds", "/privacy",
+  ].map((p) => ({
+    url: `${BASE}${p}`,
+    changeFrequency: "weekly" as const,
+    // Legal and guide pages are real destinations but not the point of the
+    // site; the discovery routes should outrank them.
+    priority: p === "" ? 1 : p.startsWith("/templates") || p === "/sell" ? 0.7 : 0.4,
   }));
   /* ONLY CATEGORIES THAT HAVE SOMETHING IN THEM. All twelve were submitted
      regardless, and six are empty — so half the sitemap pointed at pages whose

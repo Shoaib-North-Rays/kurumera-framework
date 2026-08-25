@@ -32,15 +32,23 @@ const COLS = [
   {
     title: "Creators",
     links: [
-      { label: "For creators", href: "/creator" },
+      // "For creators" pointed at the signed-in DASHBOARD, which opens with
+      // "Manage your templates" — useless to someone who has never published
+      // one. The front door is /sell; the dashboard is for people already in.
+      { label: "Sell on Kurumera", href: "/sell" },
+      { label: "Creator guide", href: "/docs/creator-guide" },
+      { label: "Getting paid", href: "/docs/payouts" },
+      { label: "Tax responsibilities", href: "/docs/taxes" },
       { label: "Creator dashboard", href: "/creator" },
     ],
   },
   {
-    title: "Company",
+    title: "Legal",
     links: [
+      { label: "Terms of Service", href: "/terms" },
+      { label: "Template licence", href: "/license" },
+      { label: "Refund policy", href: "/refunds" },
       { label: "Privacy", href: "/privacy" },
-      { label: "Terms", href: "/terms" },
       { label: "support@kurumera.com", href: "mailto:support@kurumera.com" },
     ],
   },
@@ -93,8 +101,10 @@ export function Footer() {
         <div className="ft__legal">
           <span>© {year} Kurumera. All rights reserved.</span>
           <span className="ft__legal-links">
-            <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
+            <Link href="/license">Licence</Link>
+            <Link href="/refunds">Refunds</Link>
+            <Link href="/privacy">Privacy</Link>
           </span>
         </div>
       </div>

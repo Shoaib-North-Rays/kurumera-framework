@@ -11,7 +11,10 @@ export const NAV = [
   { label: "Templates", href: "/templates" },
   { label: "Free", href: "/templates/free" },
   { label: "Paid", href: "/templates/paid" },
-  { label: "For Creators", href: "/creator" },
+  // Was "/creator" — the signed-in dashboard. A visitor who has never published
+  // anything landed on "Manage your templates" and had nowhere to go. /sell is
+  // the page that explains the deal; the dashboard is linked from there.
+  { label: "Sell", href: "/sell" },
 ];
 
 /**

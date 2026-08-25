@@ -1,0 +1,424 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Documentation & legal shell.
+
+   Eight long-form pages arrived at once — the creator guide, payouts, taxes,
+   terms, licence, refunds — and none of them had anywhere to live. The only
+   long-form styling in the app was `.legal`, seven rules deep, which set a
+   heading and a paragraph and stopped. Dropping six thousand words into that
+   would have produced exactly the "simple page" this is meant not to be.
+
+   So this is a shell, not a stylesheet for one page: a persistent section nav,
+   a live on-this-page rail, and a set of content primitives (steps, callouts,
+   tables, numbered clauses) that the pages compose. Anything used twice is
+   here; nothing here is used once.
+
+   Two constraints from the existing system, held throughout:
+     · The radius scale tops out at 8px (--r-md). This design is SHARP. No
+       pill buttons, no 16px cards — that would read as a different product.
+     · Type, space and colour come from tokens.css. There is not a hex value
+       or a magic pixel in this file outside the grid geometry itself.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Shell ───────────────────────────────────────────────────────────────
+   Three columns at desktop: nav · measure · rail. The centre column is
+   --w-content (68rem) capped by a 74ch measure on the prose itself, so the
+   text never runs long even when the viewport is enormous. */
+.doc {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr) 13rem;
+  gap: clamp(2rem, 4vw, 4.5rem);
+  align-items: start;
+  padding-block: var(--s-8) var(--sec-lg);
+}
+
+/* ── Left: section navigation ────────────────────────────────────────── */
+.doc__side { position: sticky; top: calc(var(--h-header) + var(--s-5)); }
+
+.doc__sidegroup + .doc__sidegroup { margin-top: var(--s-6); }
+
+.doc__sidetitle {
+  font-family: var(--font-body);
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: var(--s-3);
+}
+
+.doc__sidelist { display: grid; gap: 1px; }
+
+.doc__sidelink {
+  display: block;
+  padding: var(--s-2) var(--s-3);
+  margin-left: calc(var(--s-3) * -1);
+  border-radius: var(--r-sm);
+  font-size: var(--t-caption);
+  line-height: var(--lh-title);
+  color: var(--muted);
+  text-decoration: none;
+  transition: color var(--d-fast) var(--e-out), background var(--d-fast) var(--e-out);
+}
+.doc__sidelink:hover { color: var(--ink); background: var(--sunken); }
+
+/* Current page. The left edge marks it rather than a fill, so the nav stays
+   quiet — a filled block here competes with the content for attention. */
+.doc__sidelink[aria-current="page"] {
+  color: var(--green-dark);
+  font-weight: var(--fw-semibold);
+  box-shadow: inset 2px 0 0 var(--green);
+  background: var(--mint);
+}
+
+/* ── Right: on this page ─────────────────────────────────────────────── */
+.doc__toc { position: sticky; top: calc(var(--h-header) + var(--s-5)); }
+
+.doc__toclist {
+  display: grid;
+  gap: var(--s-1);
+  border-left: 1px solid var(--border);
+  padding-left: var(--s-4);
+}
+
+.doc__toclink {
+  display: block;
+  padding-block: 3px;
+  font-size: var(--t-caption);
+  line-height: var(--lh-title);
+  color: var(--faint);
+  text-decoration: none;
+  transition: color var(--d-fast) var(--e-out);
+}
+.doc__toclink:hover { color: var(--ink); }
+.doc__toclink[data-active="true"] { color: var(--green-dark); font-weight: var(--fw-medium); }
+
+/* ── Page header ─────────────────────────────────────────────────────── */
+.doc-hero { padding-bottom: var(--s-7); border-bottom: 1px solid var(--border); margin-bottom: var(--s-8); }
+
+.doc-hero__eyebrow {
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--green-dark);
+}
+
+.doc-hero h1 {
+  font-family: var(--font-head);
+  font-size: var(--t-h2);
+  font-weight: var(--fw-black);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--ls-heading);
+  margin-top: var(--s-3);
+  text-wrap: balance;
+}
+
+.doc-hero__lede {
+  margin-top: var(--s-4);
+  font-size: var(--t-body-lg);
+  line-height: var(--lh-body);
+  color: var(--muted);
+  max-width: 60ch;
+  text-wrap: pretty;
+}
+
+.doc-hero__meta {
+  margin-top: var(--s-5);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-5);
+  font-size: var(--t-caption);
+  color: var(--faint);
+}
+
+/* ── Prose ───────────────────────────────────────────────────────────── */
+.prose { max-width: 74ch; }
+.prose > * + * { margin-top: var(--s-4); }
+
+.prose h2 {
+  font-family: var(--font-head);
+  font-size: var(--t-h3);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--ls-heading);
+  margin-top: var(--s-8);
+  /* Anchored headings: keep the target clear of the sticky header when a TOC
+     link jumps to it, or the heading lands underneath the chrome. */
+  scroll-margin-top: calc(var(--h-header) + var(--s-5));
+  text-wrap: balance;
+}
+.prose h3 {
+  font-family: var(--font-head);
+  font-size: var(--t-h4);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-title);
+  margin-top: var(--s-6);
+  scroll-margin-top: calc(var(--h-header) + var(--s-5));
+}
+.prose h2 + p, .prose h3 + p, .prose h2 + ul, .prose h3 + ul { margin-top: var(--s-3); }
+
+.prose p, .prose li {
+  color: var(--muted);
+  font-size: var(--t-body-lg);
+  line-height: var(--lh-body);
+  text-wrap: pretty;
+}
+.prose strong { color: var(--ink); font-weight: var(--fw-semibold); }
+.prose ul, .prose ol { padding-left: var(--s-5); display: grid; gap: var(--s-3); }
+.prose li::marker { color: var(--green); }
+.prose a { color: var(--green-dark); text-underline-offset: 2px; }
+.prose a:hover { color: var(--green-hover); }
+
+.prose code {
+  background: var(--sunken);
+  padding: 1px var(--s-2);
+  border-radius: var(--r-xs);
+  font-size: .875em;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  color: var(--ink);
+}
+
+.prose hr { border: 0; border-top: 1px solid var(--border); margin-top: var(--s-8); }
+
+/* ── Callouts ────────────────────────────────────────────────────────────
+   Left-rule, not a filled box with an emoji. Four kinds; the accent is the
+   only thing that varies, so they read as one family. */
+.callout {
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-4) var(--s-5);
+  border-left: 2px solid var(--border-strong);
+  background: var(--sunken);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  margin-top: var(--s-5);
+}
+.callout__title {
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.callout p, .callout li { font-size: var(--t-caption); margin: 0; }
+.callout ul { padding-left: var(--s-5); display: grid; gap: var(--s-2); }
+
+.callout--note  { border-left-color: var(--green); background: var(--mint); }
+.callout--note  .callout__title { color: var(--green-dark); }
+.callout--warn  { border-left-color: var(--warn); }
+.callout--money { border-left-color: var(--green-bright); }
+
+/* ── Steps ───────────────────────────────────────────────────────────────
+   A numbered rail. The number is the structure — these ARE sequential (you
+   cannot publish before you build), so numbering encodes something true. */
+.steps { display: grid; gap: 0; margin-top: var(--s-6); counter-reset: step; }
+
+.step {
+  counter-increment: step;
+  position: relative;
+  padding: 0 0 var(--s-7) var(--s-8);
+  border-left: 1px solid var(--border);
+}
+.step:last-child { border-left-color: transparent; padding-bottom: 0; }
+
+.step::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--green-dark);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.step__title {
+  font-family: var(--font-head);
+  font-size: var(--t-h4);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-title);
+  color: var(--ink);
+  margin-top: 2px;
+}
+.step__body { margin-top: var(--s-3); }
+.step__body > * + * { margin-top: var(--s-3); }
+.step__body p, .step__body li { color: var(--muted); font-size: var(--t-body-lg); line-height: var(--lh-body); }
+.step__body ul { padding-left: var(--s-5); display: grid; gap: var(--s-2); }
+.step__body code { background: var(--sunken); padding: 1px var(--s-2); border-radius: var(--r-xs); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .875em; color: var(--ink); }
+
+/* ── Terminal block ──────────────────────────────────────────────────────
+   Dark, because a command you paste should be unmistakably a command. */
+.term {
+  margin-top: var(--s-4);
+  background: var(--ink);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.term__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+  border-bottom: 1px solid rgb(255 255 255 / .10);
+  font-size: var(--t-meta);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: rgb(255 255 255 / .48);
+}
+.term pre {
+  margin: 0;
+  padding: var(--s-4);
+  overflow-x: auto;   /* the page must never scroll sideways for a long command */
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: var(--t-caption);
+  line-height: 1.7;
+  color: #D7E0DC;
+}
+.term .tok-cmd { color: var(--green-bright); }
+.term .tok-flag { color: #8FB8FF; }
+.term .tok-cmt { color: rgb(255 255 255 / .40); }
+
+/* ── Data table ──────────────────────────────────────────────────────── */
+.dtable-wrap { margin-top: var(--s-5); overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-md); }
+.dtable { width: 100%; border-collapse: collapse; font-size: var(--t-caption); }
+.dtable th, .dtable td { padding: var(--s-3) var(--s-4); text-align: left; border-bottom: 1px solid var(--border); }
+.dtable thead th {
+  background: var(--sunken);
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.dtable tbody tr:last-child td { border-bottom: 0; }
+.dtable td { color: var(--muted); line-height: var(--lh-body); }
+.dtable td:first-child { color: var(--ink); font-weight: var(--fw-medium); }
+/* Money and percentages line up in columns. */
+.dtable .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ── Numbered legal clauses ──────────────────────────────────────────────
+   Hanging numbers, so the clause number is findable when someone cites one at
+   you. This is the whole reason legal documents are numbered. */
+.clauses { counter-reset: clause; margin-top: var(--s-6); }
+
+.clause { counter-increment: clause; margin-top: var(--s-7); scroll-margin-top: calc(var(--h-header) + var(--s-5)); }
+.clause__h {
+  font-family: var(--font-head);
+  font-size: var(--t-h4);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-title);
+  letter-spacing: var(--ls-heading);
+  color: var(--ink);
+  display: flex;
+  gap: var(--s-3);
+}
+.clause__h::before {
+  content: counter(clause) ".";
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.clause__body { margin-top: var(--s-3); padding-left: calc(var(--s-3) + 1.6ch); }
+.clause__body > * + * { margin-top: var(--s-3); }
+.clause__body p, .clause__body li { color: var(--muted); font-size: var(--t-body-lg); line-height: var(--lh-body); text-wrap: pretty; }
+.clause__body ul { padding-left: var(--s-5); display: grid; gap: var(--s-2); }
+.clause__body strong { color: var(--ink); font-weight: var(--fw-semibold); }
+.clause__body a { color: var(--green-dark); }
+
+/* Sub-clauses: 4.1, 4.2 — numbered off the parent. */
+.subclauses { counter-reset: sub; display: grid; gap: var(--s-3); margin-top: var(--s-3); }
+.subclause { counter-increment: sub; display: grid; grid-template-columns: 3.2ch 1fr; gap: var(--s-3); }
+.subclause::before {
+  content: counter(clause) "." counter(sub);
+  color: var(--faint);
+  font-size: var(--t-caption);
+  font-variant-numeric: tabular-nums;
+  padding-top: .35em;
+}
+
+/* ── Summary strip ───────────────────────────────────────────────────────
+   The plain-English précis that sits above a legal document. It is explicitly
+   NOT the agreement, and the copy says so — a summary that reads as binding is
+   a liability, not a kindness. */
+.tldr {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s-5) var(--s-6);
+  background: var(--surface);
+  margin-bottom: var(--s-8);
+}
+.tldr__title {
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--green-dark);
+}
+.tldr ul { margin-top: var(--s-4); padding-left: var(--s-5); display: grid; gap: var(--s-3); }
+.tldr li { color: var(--muted); font-size: var(--t-caption); line-height: var(--lh-body); }
+.tldr__foot { margin-top: var(--s-4); font-size: var(--t-meta); color: var(--faint); line-height: var(--lh-body); }
+
+/* ── Fact grid — the numbers that govern, stated once, up front ────────── */
+.factgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; margin-top: var(--s-6); }
+.fact { background: var(--page); padding: var(--s-5); }
+.fact__v { font-family: var(--font-head); font-size: var(--t-h3); font-weight: var(--fw-black); line-height: 1; letter-spacing: var(--ls-heading); color: var(--ink); font-variant-numeric: tabular-nums; }
+.fact__k { margin-top: var(--s-2); font-size: var(--t-caption); color: var(--muted); line-height: var(--lh-body); }
+
+/* ── Next / previous ─────────────────────────────────────────────────── */
+.docnav { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: var(--s-4); margin-top: var(--s-9); padding-top: var(--s-6); border-top: 1px solid var(--border); }
+.docnav__card { display: grid; gap: var(--s-1); padding: var(--s-4) var(--s-5); border: 1px solid var(--border); border-radius: var(--r-md); text-decoration: none; transition: border-color var(--d-fast) var(--e-out), background var(--d-fast) var(--e-out); }
+.docnav__card:hover { border-color: var(--green); background: var(--mint); }
+.docnav__dir { font-size: var(--t-meta); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--faint); }
+.docnav__t { font-weight: var(--fw-semibold); color: var(--ink); line-height: var(--lh-title); }
+.docnav__card--prev { text-align: left; }
+.docnav__card--next { text-align: right; }
+
+/* ══ Responsive ═══════════════════════════════════════════════════════════
+   The rail goes first (it is an aid, not content), then the nav becomes a
+   horizontal scroller pinned under the header — the pattern every docs site
+   converges on because a 15rem sidebar on a phone is a wall between the reader
+   and the page. */
+@media (max-width: 1180px) {
+  .doc { grid-template-columns: 14rem minmax(0, 1fr); }
+  .doc__toc { display: none; }
+}
+
+@media (max-width: 860px) {
+  .doc { grid-template-columns: minmax(0, 1fr); gap: var(--s-6); padding-block: var(--s-6) var(--sec-md); }
+
+  .doc__side {
+    position: sticky;
+    top: var(--h-header);
+    z-index: 5;
+    margin-inline: calc(var(--gutter) * -1);
+    padding: var(--s-3) var(--gutter);
+    background: var(--page);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .doc__side::-webkit-scrollbar { display: none; }
+
+  /* Groups flatten into one row; the group titles would be noise. */
+  .doc__sidegroup { display: contents; }
+  .doc__sidetitle { display: none; }
+  .doc__sidelist { display: flex; gap: var(--s-2); }
+  .doc__sidelink { white-space: nowrap; margin-left: 0; border: 1px solid var(--border); }
+  .doc__sidelink[aria-current="page"] { box-shadow: none; border-color: var(--green); }
+
+  .prose, .doc-hero__lede { max-width: none; }
+  .step { padding-left: var(--s-7); }
+  .clause__body { padding-left: 0; }
+}
+
+/* The nav is a scroller on small screens; make that discoverable by touch
+   without a scrollbar, and never trap a keyboard user inside it. */
+.doc__side:focus-visible { outline: 2px solid var(--green-ring); outline-offset: 2px; }

@@ -1,0 +1,292 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   /sell — the creator front door.
+
+   This is the one marketing page on the site aimed at supply rather than
+   demand, and it has a single job: make the revenue share legible in about two
+   seconds. So the 80/20 split is drawn at hero scale instead of stated in a
+   sentence, and everything else on the page is quieter than it.
+
+   Shares the primitives in docs.css (.steps, .callout, .dtable) rather than
+   restating them — the numbers here and in the guides must look like one
+   product, because they describe one deal.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Hero ─────────────────────────────────────────────────────────────────
+   A mint wash rather than a photograph. There is no honest picture of "selling
+   a template", and a stock one would undercut the page's whole claim. */
+.sell-hero {
+  position: relative;
+  padding-block: var(--sec-lg) var(--sec-md);
+  background:
+    radial-gradient(120% 80% at 85% 0%, var(--mint) 0%, transparent 62%),
+    linear-gradient(180deg, var(--mint-2) 0%, transparent 55%);
+  overflow: hidden;   /* the radial must not widen the page */
+}
+
+.sell-hero__inner {
+  display: grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap: clamp(2.5rem, 6vw, 6rem);
+  align-items: center;
+}
+
+.sell-hero__h {
+  font-family: var(--font-head);
+  font-size: var(--t-h1);
+  font-weight: var(--fw-black);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--ls-display);
+  margin-top: var(--s-4);
+  text-wrap: balance;
+}
+
+.sell-hero__lede p {
+  margin-top: var(--s-5);
+  font-size: var(--t-body-lg);
+  line-height: var(--lh-body);
+  color: var(--muted);
+  max-width: 46ch;
+  text-wrap: pretty;
+}
+.sell-hero__lede strong { color: var(--ink); font-weight: var(--fw-bold); }
+
+.sell-hero__acts { display: flex; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-7); }
+
+.sell-hero__fine {
+  margin-top: var(--s-5);
+  font-size: var(--t-caption);
+  color: var(--faint);
+  line-height: var(--lh-body);
+}
+
+/* ── The split, drawn ─────────────────────────────────────────────────────
+   One stacked bar. The creator's share is the solid green mass and the
+   platform's is a hairline-bordered neutral, so the ratio reads before either
+   number does — which is the point. */
+.splitviz {
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s-6);
+  box-shadow: var(--shadow-lift);
+}
+
+.splitviz__bar {
+  display: flex;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  min-block-size: 8.5rem;
+}
+
+.splitviz__you,
+.splitviz__us {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--s-4);
+  min-inline-size: 0;   /* flex children must be allowed to shrink or the 20% overflows */
+}
+
+.splitviz__you { background: var(--green-dark); color: #fff; }
+.splitviz__us  { background: var(--sunken); color: var(--muted); border-left: 1px solid var(--border); }
+
+.splitviz__pct {
+  font-family: var(--font-head);
+  font-size: var(--t-h3);
+  font-weight: var(--fw-black);
+  line-height: 1;
+  letter-spacing: var(--ls-heading);
+  font-variant-numeric: tabular-nums;
+}
+.splitviz__us .splitviz__pct { font-size: var(--t-h4); color: var(--ink); }
+
+.splitviz__who {
+  margin-top: var(--s-2);
+  font-size: var(--t-meta);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  opacity: .82;
+}
+
+.splitviz__cap {
+  margin-top: var(--s-4);
+  font-size: var(--t-caption);
+  color: var(--faint);
+  line-height: var(--lh-body);
+}
+
+/* ── Two ways to build ──────────────────────────────────────────────────── */
+.ways {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: var(--s-5);
+  margin-top: var(--s-7);
+}
+
+.way {
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-6);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--page);
+  transition: border-color var(--d-normal) var(--e-out), box-shadow var(--d-normal) var(--e-out);
+}
+.way:hover { border-color: var(--green); box-shadow: var(--shadow-sm); }
+
+.way__icon {
+  display: grid;
+  place-items: center;
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: var(--r-sm);
+  background: var(--mint);
+  color: var(--green-dark);
+}
+.way__icon svg { inline-size: 20px; block-size: 20px; }
+
+.way__t {
+  margin-top: var(--s-5);
+  font-family: var(--font-head);
+  font-size: var(--t-h4);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-title);
+  letter-spacing: var(--ls-heading);
+}
+
+.way__d { margin-top: var(--s-3); color: var(--muted); line-height: var(--lh-body); text-wrap: pretty; }
+
+.way__list { margin-top: var(--s-5); display: grid; gap: var(--s-3); list-style: none; padding: 0; }
+.way__list li {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: var(--s-3);
+  align-items: start;
+  font-size: var(--t-caption);
+  color: var(--muted);
+  line-height: var(--lh-body);
+}
+.way__list svg { inline-size: 16px; block-size: 16px; color: var(--green); margin-top: .2em; }
+.way__list code { background: var(--sunken); padding: 1px var(--s-2); border-radius: var(--r-xs); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9em; color: var(--ink); }
+
+/* Pushed to the bottom so both cards' CTAs align however long the copy is. */
+.way__cta {
+  margin-top: auto;
+  padding-top: var(--s-6);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-weight: var(--fw-semibold);
+  font-size: var(--t-caption);
+  color: var(--green-dark);
+  text-decoration: none;
+}
+.way__cta:hover { color: var(--green-hover); }
+.way__cta svg { inline-size: 14px; block-size: 14px; }
+
+/* ── Earnings ───────────────────────────────────────────────────────────── */
+.sell-earn { background: var(--surface); }
+.sell-earn .dtable th[scope="row"] { font-variant-numeric: tabular-nums; }
+.sell-earn .dtable strong { color: var(--green-dark); }
+.sell-earn__note {
+  margin-top: var(--s-5);
+  font-size: var(--t-caption);
+  color: var(--faint);
+  line-height: var(--lh-body);
+  max-width: 68ch;
+}
+.sell-earn__note a { color: var(--green-dark); }
+
+/* ── Steps ──────────────────────────────────────────────────────────────── */
+.sell-steps .steps { max-width: 52rem; }
+
+/* ── Requirements ───────────────────────────────────────────────────────── */
+.sell-req { background: var(--surface); }
+.sell-req__grid {
+  display: grid;
+  grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: start;
+}
+.sell-req__intro { position: sticky; top: calc(var(--h-header) + var(--s-6)); }
+.sell-req__intro .section__title { margin-top: var(--s-3); }
+.sell-req__intro .section__sub { margin-top: var(--s-4); }
+.sell-req__intro .btn { margin-top: var(--s-6); }
+
+.sell-req__list { display: grid; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
+
+.reqitem {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: var(--s-4);
+  align-items: start;
+  padding: var(--s-5) var(--s-6);
+  background: var(--page);
+}
+.reqitem__tick {
+  display: grid;
+  place-items: center;
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 50%;
+  background: var(--mint);
+  color: var(--green-dark);
+  margin-top: .1em;
+}
+.reqitem__tick svg { inline-size: 13px; block-size: 13px; }
+.reqitem__t { font-size: var(--t-body); font-weight: var(--fw-semibold); color: var(--ink); line-height: var(--lh-title); }
+.reqitem__d { margin-top: var(--s-2); font-size: var(--t-caption); color: var(--muted); line-height: var(--lh-body); text-wrap: pretty; }
+
+/* ── FAQ ────────────────────────────────────────────────────────────────── */
+.sell-faq__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: var(--s-6) var(--s-8);
+  margin-top: var(--s-7);
+}
+.sfaq__q {
+  font-family: var(--font-head);
+  font-size: var(--t-h4);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-title);
+  letter-spacing: var(--ls-heading);
+  color: var(--ink);
+}
+.sfaq__a { margin-top: var(--s-3); color: var(--muted); line-height: var(--lh-body); text-wrap: pretty; }
+
+/* ── Close ────────────────────────────────────────────────────────────────
+   Mint, not dark. The footer immediately below is the page's dark surface, and
+   two dark bands back to back would read as one long unbroken block. */
+.sell-close { background: var(--mint); padding-block: var(--sec-lg); }
+.sell-close__inner { text-align: center; }
+.sell-close__h {
+  font-family: var(--font-head);
+  font-size: var(--t-h1);
+  font-weight: var(--fw-black);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--ls-display);
+  color: var(--ink);
+}
+.sell-close__acts { display: flex; flex-wrap: wrap; gap: var(--s-3); justify-content: center; margin-top: var(--s-7); }
+.sell-close__fine { margin-top: var(--s-6); font-size: var(--t-caption); color: var(--muted); }
+.sell-close__fine a { color: var(--green-dark); font-weight: var(--fw-medium); }
+
+/* ══ Responsive ═══════════════════════════════════════════════════════════ */
+@media (max-width: 1020px) {
+  .sell-hero__inner { grid-template-columns: minmax(0, 1fr); }
+  /* The bar is the argument, so it stays — just under the copy, not beside it. */
+  .sell-hero__viz { max-width: 34rem; }
+  .sell-req__grid { grid-template-columns: minmax(0, 1fr); }
+  .sell-req__intro { position: static; }
+}
+
+@media (max-width: 560px) {
+  .sell-hero { padding-block: var(--sec-md) var(--sec-sm); }
+  .splitviz { padding: var(--s-4); }
+  .splitviz__bar { min-block-size: 7rem; }
+  /* At 320px the 20% column cannot hold a number and a label side by side, so
+     the labels drop and the percentages carry it alone. */
+  .splitviz__us .splitviz__who { display: none; }
+  .sell-hero__acts .btn, .sell-close__acts .btn { inline-size: 100%; justify-content: center; }
+}
