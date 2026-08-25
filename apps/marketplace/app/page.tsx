@@ -2,8 +2,10 @@ import Link from "next/link";
 import "./home.css";
 import "./wall.css";
 import "./hero.css";
+import "./stage.css";
 import { Hero } from "@/components/Hero";
 import { EditorialWall } from "@/components/EditorialWall";
+import { BuilderStage } from "@/components/BuilderStage";
 import {
   fetchTemplates, categoryCounts, CATEGORIES, isFree, isBuilder, priceLabel,
   featureLabels, categoryLabel, builderPreviewUrl, BUILDER_ORIGIN, type Template,
@@ -141,6 +143,13 @@ export default async function HomePage() {
         ratingAverage={ratingAverage}
         chips={chips.map((c) => ({ key: c.key, label: c.label }))}
       />
+
+      {/* ── 1a · THE STAGE ───────────────────────────────────────────────────
+          Between "here is the marketplace" and "here is the catalogue", the one
+          thing neither of them says: what the editor actually does. Shown
+          rather than described — this section's own copy sits inside the
+          builder's selection outline. */}
+      <BuilderStage templates={templates} />
 
       {/* ── 1b · THE SHOWCASE ────────────────────────────────────────────────
           Imagery leads, then the index gives the full list in text. This band
