@@ -32,9 +32,10 @@ export function WallAutoScroll({
   direction = "right",
 }: {
   selector: string;
-  /** "right" drifts toward the end; "left" drifts back toward the start. Two
-   *  rows moving opposite ways is what makes the wall read as a moving surface
-   *  rather than one long belt. */
+  /** STARTING direction: "right" heads toward the end, "left" starts parked at
+   *  the end and heads back. Each row then reverses at whichever end it
+   *  reaches. Two rows moving opposite ways is what makes the wall read as a
+   *  moving surface rather than one long belt. */
   direction?: "left" | "right";
 }) {
   useEffect(() => {
@@ -57,6 +58,9 @@ export function WallAutoScroll({
     // A left-drifting row must START at the end, or it has nowhere to travel.
     if (direction === "left") rail.scrollLeft = rail.scrollWidth - rail.clientWidth;
     let pos = rail.scrollLeft;
+    /** +1 travels toward the end, -1 back toward the start. Flipped at each
+     *  end by the step below, so the drift never has to teleport. */
+    let dir = direction === "right" ? 1 : -1;
     let resumeTimer: number | undefined;
     let disposed = false;
 
@@ -76,11 +80,18 @@ export function WallAutoScroll({
       // Measured EVERY frame, never once at mount — see the note above.
       const max = rail.scrollWidth - rail.clientWidth;
       if (!paused && !document.hidden && max > 1) {
-        if (direction === "right") {
-          pos = pos >= max - 1 ? 0 : pos + PX_PER_FRAME;   // wrap at the end
-        } else {
-          pos = pos <= 1 ? max : pos - PX_PER_FRAME;       // wrap at the start
-        }
+        // BOUNCE, not wrap. Jumping from one end to the other only looks
+        // continuous if there is a duplicate set of cards to land in; there
+        // isn't, so the old `pos >= max ? 0` reset moved the rail 735px
+        // backwards in a single frame (measured). Cloning the row would fix
+        // the seam but hands screen-reader and keyboard users every template
+        // twice. Reversing at each end needs no clones and has no seam — and
+        // the rows still read as opposed, because each turns around at its own
+        // end rather than all snapping back together.
+        const next = pos + dir * PX_PER_FRAME;
+        if (next >= max) { pos = max; dir = -1; }
+        else if (next <= 0) { pos = 0; dir = 1; }
+        else { pos = next; }
         rail.scrollLeft = pos;
       }
       raf = requestAnimationFrame(step);

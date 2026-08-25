@@ -104,12 +104,6 @@
   .ew__card:focus-within .ew__disc { opacity: 1; scale: 1; }
 }
 
-/* No hover available (touch): show it, since it cannot be revealed. */
-@media not all and (hover: hover) {
-  .ew__scrim, .ew__feature-body, .ew__brand { opacity: 1; }
-  .ew__disc { display: none; }
-}
-
 /* The arrow, positioned by the pointer. --ax/--ay are written by CursorArrow on
    pointermove and fall back to the card's centre, so it is correctly placed
    before the cursor arrives and wherever the script never runs. */
@@ -201,6 +195,20 @@
 }
 
 /* ── Responsive: keep the asymmetry, reduce the scale ──────────────────────── */
+/* No hover available (touch): show the overlay, since it cannot be revealed.
+   
+   THIS MUST STAY BELOW the base .ew__disc / .ew__feature-body declarations.
+   A media query adds NO specificity, so at equal specificity the later rule in
+   source order wins. Sitting above them, this whole block was dead: measured on
+   an emulated phone where the query genuinely matched, the copy still computed
+   to opacity 0 and the disc to display:grid — the card's name, byline and
+   description were in the DOM and permanently unreachable, on the one device
+   class that has no hover to reveal them. */
+@media not all and (hover: hover) {
+  .ew__scrim, .ew__feature-body, .ew__brand { opacity: 1; }
+  .ew__disc { display: none; }
+}
+
 @media (max-width: 1280px) {
   .ew { --ew-h: 520px; --ew-bleed: 110px; }
   .ew__card--edgeL { width: 380px; }
