@@ -325,7 +325,14 @@
 }
 .disc-grid .tpl-card__foot {
   padding-top: var(--s-3);
-  margin-top: var(--s-3);
+  /* AUTO, not a fixed gap. globals.css sets margin-top:auto so the foot sinks
+     to the bottom of the body; this rule replaced it with 12px and quietly
+     undid it, so the foot sat directly under whatever content each card
+     happened to have. Cards with a features line — half of them — carried
+     their install-and-price row 26px lower than their neighbours in the same
+     row. The auto is what does the aligning; the padding is only the gap above
+     the rule. */
+  margin-top: auto;
   border-top: 1px solid var(--border);
 }
 
