@@ -221,9 +221,18 @@
   display: block;
   width: 100%;
   height: 100%;
-  /* `cover` and top-anchored, so whatever the source's aspect ratio, the top of
-     the page stays in frame instead of being centred and cropped on both sides. */
-  object-fit: cover;
+  /* CONTAIN, not cover, and pinned to the top.
+
+     The frame is portrait because the composition wants a page running off the
+     bottom edge, but the source's shape is not known here: the poster is a
+     1280x900 landscape screenshot and the video will be whatever it is. `cover`
+     scaled the landscape poster to fill the height and cut 44% off its sides —
+     the storefront's own headline was sliced down the middle.
+
+     Contained and top-anchored, any source shows complete, and the white below
+     it is the page continuing rather than a letterbox: this is a browser window
+     onto a site, so white under the fold is the correct thing to see. */
+  object-fit: contain;
   object-position: top center;
   background: #fff;
 }
