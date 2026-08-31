@@ -2214,9 +2214,13 @@ const server = http.createServer((req, res) => {
   }
   // Admin: every store that has earned, with what it's owed + its payout method.
   if (p.endsWith("/_push/market/admin/payouts") && req.method === "GET") {
-    const store = slug(u.searchParams.get("store") || "");
-    verifyOwnership(req.headers["authorization"], store).then((az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
+    // Identity, not store ownership. This lists what EVERY creator on the
+    // platform is owed; making it depend on a store the admin happens to staff
+    // gated a platform-wide view behind an unrelated tenant, and refused
+    // outright (400 "no store") for an admin whose session carried none.
+    // `isAdmin` is still the real gate, and it is unchanged.
+    verifyIdentity(req.headers["authorization"]).then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail });
       if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
       const m = getMarket();
       const stores = [...new Set(Object.values(m.themes).map((e) => slug(e.sourceStore || "")).filter(Boolean))];
@@ -2236,8 +2240,10 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/market/admin/payouts/mark") && req.method === "POST") {
     readBody().then(async (buf) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { return json(400, { error: "bad json" }); }
-      const az = await verifyOwnership(req.headers["authorization"], slug(body.store || ""));
-      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
+      // Same reasoning as the GET: `body.store` was the caller's own store and
+      // had nothing to do with `target`, the store being paid.
+      const az = await verifyIdentity(req.headers["authorization"]);
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail });
       if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
       const target = slug(body.target || "");
       const currency = String(body.currency || "USD").toUpperCase().slice(0, 8);
@@ -2254,9 +2260,9 @@ const server = http.createServer((req, res) => {
   // Platform analytics — marketplace-wide totals (admin only). Templates by type,
   // installs, sales + gross/fee revenue by currency, creators, top templates.
   if (p.endsWith("/_push/market/admin/analytics") && req.method === "GET") {
-    const store = slug(u.searchParams.get("store") || "");
-    verifyOwnership(req.headers["authorization"], store).then((az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
+    // Marketplace-wide totals — same store-vs-identity fix as the payouts above.
+    verifyIdentity(req.headers["authorization"]).then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail });
       if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
       const m = getMarket();
       const licenses = Object.values(getLicenses().keys).filter((l) => !l.revoked);
