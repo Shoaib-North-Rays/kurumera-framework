@@ -157,6 +157,13 @@ export function RevealLines({
         >
           <span data-reveal="mask" style={{ display: "block" }}>
             {line}
+            {/* Same reason as the hero h1: every line is a block, so the reader
+                sees separate lines either way — but textContent joins them with
+                nothing between, and headings came out as "No mockups.No
+                lock-in." and "Questions,answered." to Google, social previews
+                and screen readers. A trailing space inside a block box is
+                collapsed visually, so nothing moves on screen. */}
+            {i < lines.length - 1 ? " " : ""}
           </span>
         </span>
       ))}

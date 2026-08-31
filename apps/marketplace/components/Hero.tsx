@@ -180,8 +180,15 @@ export function Hero({
           </p>
 
           <h1 className="hero__title" id="hero-title" data-reveal-group="">
-            <span className="hero__line"><span data-reveal="mask">Build it your way.</span></span>
-            <span className="hero__line"><span data-reveal="mask">Launch with</span></span>
+            {/* The trailing spaces are load-bearing. Each .hero__line is a block,
+                so the browser draws three lines either way — but textContent
+                concatenates them with nothing between, and this h1 was reading
+                "Build it your way.Launch withconfidence." to every consumer that
+                reads text rather than layout: Google, social previews, screen
+                readers. A trailing space in a block box is collapsed away
+                visually, so this costs nothing and fixes all three. */}
+            <span className="hero__line"><span data-reveal="mask">Build it your way.{" "}</span></span>
+            <span className="hero__line"><span data-reveal="mask">Launch with{" "}</span></span>
             <span className="hero__line">
               <span data-reveal="mask">
                 <em className="hero__accent">

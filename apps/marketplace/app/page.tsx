@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import "./home.css";
 import "./wall.css";
@@ -90,6 +91,19 @@ const FAQ = [
     a: "Yes — publish through the creator dashboard. You keep ownership of your work and set your own price; the marketplace lists it for others to install under the platform's terms.",
   },
 ];
+
+/**
+ * The homepage declared no metadata of its own, so it inherited the layout's
+ * title/description (correct) but had NO canonical (not). It is the most linked
+ * and most shared URL on the site, and it is reachable as `/`, with any tracking
+ * query a campaign appends, and via `www.` — all of which a crawler treats as
+ * separate URLs competing with each other until one of them is declared
+ * canonical. Everything else here is inherited deliberately; only the canonical
+ * is missing, so only the canonical is added.
+ */
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 export default async function HomePage() {
   // Degrades to empty on an outage rather than taking the front page down.
