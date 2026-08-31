@@ -847,6 +847,8 @@ button { font-family: inherit; }
 .pcard__by { font-size: var(--t-caption); color: var(--muted); }
 .pcard__facts { font-size: var(--t-meta); color: var(--faint); }
 .pcard__acts { display: flex; gap: var(--s-5); flex-wrap: wrap; margin-top: var(--s-2); }
+.pcard__dl { display: inline-flex; align-items: center; gap: var(--s-2); margin-top: var(--s-3); }
+.pcard__dl svg { width: 15px; height: 15px; }
 .pcard__cli { margin-top: var(--s-4); }
 .pcard__cli > summary { cursor: pointer; font-size: var(--t-caption); font-weight: var(--fw-semibold); color: var(--muted); padding: var(--s-2) 0; }
 .pcard__cli > summary:hover { color: var(--ink); }

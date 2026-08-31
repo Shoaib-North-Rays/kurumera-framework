@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { getSession, startSignIn, type Session } from "@/lib/session";
-import { Bolt } from "@/components/Icons";
+import { Bolt, Download } from "@/components/Icons";
 
 function CopyBox({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
@@ -133,6 +133,22 @@ export function Purchases() {
               </div>
 
               <CopyBox label="license key" value={it.key} />
+
+              {/* THE THING THEY BOUGHT, as a file.
+                  `/_push/market/source` has always handed over the source for a
+                  valid key alone — no store, no session — but nothing on the web
+                  used it, so collecting a purchase meant installing a Node CLI
+                  and signing into it first. A plain <a download> is enough: it is
+                  a GET on our own origin, so the browser streams it straight to
+                  disk with no fetch, no blob and no memory ceiling. */}
+              <a
+                className="btn btn--secondary pcard__dl"
+                href={`/api/market/source?theme=${encodeURIComponent(it.theme)}&license=${encodeURIComponent(it.key)}`}
+                download={`${it.theme}.tar.gz`}
+                rel="nofollow"
+              >
+                <Download /> Download source
+              </a>
 
               {/* Secondary. Needed, but not what this page is for. */}
               <details className="pcard__cli">
