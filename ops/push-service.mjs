@@ -51,6 +51,7 @@ const AUTHZ_URL = CONTROL_URL.replace(/\/control$/, "/authz");
 // store?" and 400s without a store — correct for push/publish/install, wrong as
 // the only way to learn who is calling. `/auth/me/` needs nothing but the token.
 const IDENTITY_URL = CONTROL_URL.replace(/\/themes\/control$/, "/auth/me");
+const MEMBERSHIPS_URL = IDENTITY_URL + "/memberships/";
 // This host's identity in the multi-host registry. Each host heartbeats the
 // control plane and stamps the stores it runs, so the platform knows which hosts
 // are alive and (later) can fail a dead host's stores over to a live one.
@@ -791,6 +792,40 @@ async function verifyIdentity(authHeader) {
     }
   }
   return { ok: false, status: 503, error: lastErr };
+}
+
+/**
+ * Every store this person staffs — the supply-side twin of verifyIdentity.
+ *
+ * A listing records the store it was published FROM (`sourceStore`), which is
+ * correct provenance. What was wrong is that the creator dashboard then showed
+ * only the listings of whichever single store the session happened to be on. In
+ * production that means nine listings published from nine different stores, and
+ * a creator signed into a tenth sees "no templates published yet" — a true
+ * sentence that reads as a broken page.
+ *
+ * A creator is a person. `/auth/me/memberships/` is the backend's own answer to
+ * which stores that person legitimately staffs, so listing across exactly those
+ * grants nothing they could not already reach one store at a time.
+ */
+async function storesFor(authHeader) {
+  const bearer = authHeader || "";
+  if (!bearer.startsWith("Bearer ") || bearer.length < 12) return { ok: false, status: 401, error: "sign in first" };
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(MEMBERSHIPS_URL, { headers: { Authorization: bearer }, signal: ctrl.signal });
+    clearTimeout(timer);
+    if (res.status === 401 || res.status === 403) return { ok: false, status: 401, error: "invalid or expired session — sign in again" };
+    const d = await res.json().catch(() => null);
+    const rows = Array.isArray(d) ? d : (d && Array.isArray(d.results) ? d.results : []);
+    const stores = rows.map((r) => slug(r && r.slug ? r.slug : "")).filter(Boolean);
+    // An empty list is a legitimate answer (a buyer who staffs nothing), not an
+    // error — the caller decides what that means.
+    return { ok: true, stores };
+  } catch (e) {
+    return { ok: false, status: 503, error: `store list unavailable: ${e && e.message ? e.message : "network error"}` };
+  }
 }
 
 async function verifyOwnership(authHeader, store, action, confirm) {
@@ -1987,19 +2022,31 @@ const server = http.createServer((req, res) => {
   // A creator authenticates with their Kurumera token and manages the listings
   // published from a store they own (verified against the backend authz).
   if (p.endsWith("/_push/market/mine") && req.method === "GET") {
-    const store = slug(u.searchParams.get("store") || "");
-    verifyOwnership(req.headers["authorization"], store).then((az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
+    // `?store=` is now an optional FILTER, not the identity. Omit it and you get
+    // everything you have published, from every store you staff — see storesFor.
+    const only = slug(u.searchParams.get("store") || "");
+    storesFor(req.headers["authorization"]).then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail });
+      const mineStores = only ? az.stores.filter((x) => x === only) : az.stores;
+      // Asking for a store you do not staff is a refusal, not an empty list.
+      if (only && !mineStores.length) return json(403, { error: "not authorized for this store" });
+      const allow = new Set(mineStores);
       const m = getMarket();
       const mine = Object.entries(m.themes)
-        .filter(([, e]) => slug(e.sourceStore) === store)
+        .filter(([, e]) => allow.has(slug(e.sourceStore)))
         .map(([s, e]) => ({
+          // Which store this was published from. The dashboard needs it per row:
+          // update/unpublish still authorize against the OWNING store, so a row
+          // cannot be edited using whichever store the session happens to be on.
+          sourceStore: slug(e.sourceStore),
           slug: s, name: e.name, description: e.description || "", author: e.author || "",
           price: Number(e.price) > 0 ? Number(e.price) : 0, currency: e.currency || "USD",
           tags: e.tags || [], category: e.category || "", latest: e.latest,
           installs: (e.versions || []).reduce((n, v) => n + (v.installs || 0), 0),
         }));
-      json(200, { store, themes: mine });
+      // `store` kept for the deployed dashboard and older CLIs; `stores` is the
+      // honest answer now that a creator is not pinned to one.
+      json(200, { store: only || (mineStores[0] || ""), stores: mineStores, themes: mine });
     });
     return;
   }

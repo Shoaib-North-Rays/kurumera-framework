@@ -10,29 +10,40 @@ import { Check, Bolt } from "@/components/Icons";
 // Must mirror the push-service currency whitelist (bogus codes break checkout).
 const CURRENCIES = ["USD", "EUR", "GBP", "PKR", "INR", "AED", "SAR", "AUD", "CAD", "SGD", "JPY", "KRW"];
 
-interface CTheme { slug: string; name: string; description: string; price: number; currency: string; tags: string[]; category: string; installs: number; latest: string }
+interface CTheme { slug: string; name: string; description: string; price: number; currency: string; tags: string[]; category: string; installs: number; latest: string;
+  /** The store this listing was PUBLISHED FROM. Edits authorize against this,
+   *  not against whichever store the session happens to be on. */
+  sourceStore: string }
 
 export function CreatorDashboard() {
   const [ready, setReady] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [themes, setThemes] = useState<CTheme[]>([]);
+  const [stores, setStores] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => { setSession(getSession()); setReady(true); }, []);
 
-  const load = useCallback(async (token: string, store: string) => {
+  /* NO STORE. A creator is a person, and their listings are spread across every
+     store they have ever published from — nine live listings currently come from
+     nine different stores. Scoping this to session.tenant meant a creator signed
+     into any other store was told "no templates published yet", which is true of
+     that store and false of them. */
+  const load = useCallback(async (token: string) => {
     setLoading(true); setError("");
     try {
-      const r = await fetch(`/api/market/mine?store=${encodeURIComponent(store)}`, { headers: { Authorization: `Bearer ${token}` } });
+      const r = await fetch(`/api/market/mine`, { headers: { Authorization: `Bearer ${token}` } });
       const d = await r.json();
       if (!r.ok) { setError(d?.error || "Couldn't load your templates."); setLoading(false); return; }
-      setThemes(d.themes || []); setLoading(false);
+      setThemes(d.themes || []); setStores(d.stores || []); setLoading(false);
     } catch { setError("Network error — please try again."); setLoading(false); }
   }, []);
 
   useEffect(() => {
-    if (session?.token && session.tenant) load(session.token, session.tenant);
+    // A token is enough to ask. Requiring session.tenant meant a creator whose
+    // session carried no store never issued the request at all.
+    if (session?.token) load(session.token);
     else setLoading(false);
   }, [session, load]);
 
@@ -69,7 +80,15 @@ export function CreatorDashboard() {
   return (
     <>
       <div className="wrap" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 20, gap: 12, flexWrap: "wrap" }}>
-        <span className="muted" style={{ fontSize: 14 }}>Signed in{store ? <> — store <b style={{ color: "var(--ink)" }}>{store}</b></> : ""}</span>
+        {/* Was "store <slug>", which read as the SCOPE of the page. It is not:
+            this lists everything you have published, from every store you
+            staff. Stating how many stores that spans is true; naming one was
+            not — and naming the wrong one is what made a creator with listings
+            elsewhere see an empty page. */}
+        <span className="muted" style={{ fontSize: 14 }}>
+          Signed in
+          {stores.length > 1 ? <> — {stores.length} stores</> : stores.length === 1 ? <> — store <b style={{ color: "var(--ink)" }}>{stores[0]}</b></> : ""}
+        </span>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {/* EARNINGS WERE UNREACHABLE FROM HERE. A creator manages listings on
               this page, but their sales, their balance after the platform fee
@@ -78,7 +97,7 @@ export function CreatorDashboard() {
               templates here" to "here is what I have earned". */}
           <a href={`${BUILDER_ORIGIN}/earnings`} className="btn btn--tertiary">Earnings &amp; payouts</a>
           <Link href="/purchases" className="btn btn--tertiary">My purchases</Link>
-          <button className="btn btn--tertiary" onClick={() => { signOut(); setSession(null); setThemes([]); }}>Sign out</button>
+          <button className="btn btn--tertiary" onClick={() => { signOut(); setSession(null); setThemes([]); setStores([]); }}>Sign out</button>
         </div>
       </div>
       <div className="wrap">
@@ -86,7 +105,8 @@ export function CreatorDashboard() {
         {error && <p className="err">{error}</p>}
         {!loading && !themes.length && !error && (
           <p className="muted" style={{ padding: "30px 0" }}>
-            No templates published from <b>{store || "your store"}</b> yet. Publish one with <code>kurumera marketplace publish --store {store || "<your-store>"}</code>.
+            You haven&rsquo;t published any templates yet. Publish one with{" "}
+            <code>kurumera marketplace publish --store {store || "<your-store>"}</code>.
           </p>
         )}
         <div className="creator-list">
@@ -95,7 +115,7 @@ export function CreatorDashboard() {
               key={t.slug}
               theme={t}
               token={session.token}
-              store={store}
+              store={t.sourceStore || store}
               onRemove={() => setThemes((prev) => prev.filter((x) => x.slug !== t.slug))}
             />
           ))}
