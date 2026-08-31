@@ -124,6 +124,14 @@
   position: sticky;
   top: var(--sticky-top);
   display: grid;
+  /* Both of these exist for the same reason as the minmax(0, 1fr) on .dp-grid,
+     one level down. As a grid ITEM the rail defaults to min-width:auto, and as
+     a grid CONTAINER its implicit column is `auto` — so its width was pinned to
+     the widest thing inside it (the Buy panel) and it could not shrink into a
+     320px track. Fixing only the parent moved the overflow here rather than
+     removing it. */
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: var(--s-5);
 }
 .dp-buy {
@@ -436,7 +444,14 @@
 
 @media (max-width: 980px) {
   .dp-grid {
-    grid-template-columns: 1fr;
+    /* minmax(0, 1fr), NOT 1fr. A bare `1fr` is `minmax(auto, 1fr)`, and auto's
+       automatic minimum is MIN-CONTENT — so the track grows to whatever the
+       widest unshrinkable descendant needs (an iframe contributes its 300px
+       intrinsic width) and blows straight through the container. At 320px this
+       made the track 295px inside a 261px content box and the PRODUCT PAGE
+       scrolled sideways. The base rule on line 78 already gets this right;
+       this override dropped it. */
+    grid-template-columns: minmax(0, 1fr);
   }
   /* Single column: the masthead already carries the name, so the order becomes
      read it → look at it → buy it. The rail stops being sticky because a
