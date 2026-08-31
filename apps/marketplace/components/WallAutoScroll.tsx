@@ -104,6 +104,14 @@ export function WallAutoScroll({
     rail.addEventListener("pointerleave", onLeave);
     rail.addEventListener("focusin", onEnter);
     rail.addEventListener("focusout", onLeave);
+    /* An explicit takeover signal, because `scroll` cannot be used: this
+       component WRITES rail.scrollLeft every frame, so listening for scroll
+       would pause it against its own movement and it would never drift again.
+       The rail arrows dispatch this before they scrollBy — without it the rAF
+       loop below overwrites scrollLeft on the very next frame and cancels the
+       smooth animation, which made an arrow click travel ~27px instead of a
+       whole card. */
+    rail.addEventListener("wall:takeover", pause);
     rail.addEventListener("wheel", pause, { passive: true });
     rail.addEventListener("touchstart", pause, { passive: true });
     rail.addEventListener("keydown", pause);
@@ -118,6 +126,7 @@ export function WallAutoScroll({
       rail.removeEventListener("pointerleave", onLeave);
       rail.removeEventListener("focusin", onEnter);
       rail.removeEventListener("focusout", onLeave);
+      rail.removeEventListener("wall:takeover", pause);
       rail.removeEventListener("wheel", pause);
       rail.removeEventListener("touchstart", pause);
       rail.removeEventListener("keydown", pause);

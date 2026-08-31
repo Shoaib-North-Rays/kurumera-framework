@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Template } from "@/lib/registry";
 import { WallAutoScroll } from "./WallAutoScroll";
 import { CursorArrow } from "./CursorArrow";
+import { WallArrows } from "./WallArrows";
 
 /**
  * Editorial media wall — a deterministic asymmetric composition, NOT a carousel.
@@ -136,14 +137,16 @@ function Card({
 export function EditorialWall({ templates }: { templates: Template[] }) {
   if (templates.length < 4) return null;
 
-  // Deterministic slots. The featured card is position 3 in row 1, as measured.
-  const r1 = [templates[0], templates[1], templates[2], templates[3]];
-  const r2 = [
-    templates[4 % templates.length],
-    templates[5 % templates.length],
-    templates[6 % templates.length],
-    templates[7 % templates.length],
-  ];
+  /* EVERY template, split across the two rails — not the first eight.
+     This used to take indices 0-3 and 4-7 with a modulo wrap, which had two
+     faults at once: with more than eight templates the rest were silently
+     dropped (the ninth listing, kalicosmeticsluxe, never appeared on the home
+     page at all), and with fewer than eight the modulo showed the SAME template
+     twice in the same wall. Splitting the real array does neither: the wall now
+     grows with the catalogue, and no card is ever a duplicate. */
+  const half = Math.ceil(templates.length / 2);
+  const r1 = templates.slice(0, half);
+  const r2 = templates.slice(half);
 
   return (
     <section className="ew" aria-label="Featured templates">
@@ -163,6 +166,12 @@ export function EditorialWall({ templates }: { templates: Template[] }) {
           {r2.map((t, i) => <Card key={`${t.slug}-${i}`} t={t} objectPosition="center" />)}
         </div>
       </div>
+
+      {/* Clickable controls. The rails were scrollable by wheel, drag and
+          keyboard, and drifted on their own — but a mouse user had nothing to
+          press, so the catalogue was reachable and did not look it. */}
+      <WallArrows selector=".ew__rail--1" label="templates, row one" row={1} />
+      <WallArrows selector=".ew__rail--2" label="templates, row two" row={2} />
 
       <CursorArrow selector=".ew" />
       <WallAutoScroll selector=".ew__rail--1" direction="right" />
