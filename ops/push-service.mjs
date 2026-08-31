@@ -46,6 +46,11 @@ const SERVICE_KEY = process.env.KURUMERA_SERVICE_KEY || "";
 // Ownership authz lives next to the control API (…/themes/authz). The backend,
 // not this service, decides whether a developer may mutate a store.
 const AUTHZ_URL = CONTROL_URL.replace(/\/control$/, "/authz");
+// Identity-only check, for entitlements that belong to a PERSON rather than a
+// store. `/themes/authz/` deliberately answers "may this developer mutate this
+// store?" and 400s without a store — correct for push/publish/install, wrong as
+// the only way to learn who is calling. `/auth/me/` needs nothing but the token.
+const IDENTITY_URL = CONTROL_URL.replace(/\/themes\/control$/, "/auth/me");
 // This host's identity in the multi-host registry. Each host heartbeats the
 // control plane and stamps the stores it runs, so the platform knows which hosts
 // are alive and (later) can fail a dead host's stores over to a live one.
@@ -739,6 +744,55 @@ async function control(path, body) {
 // back as a well-formed-but-unconfirmed 400, distinct from every
 // authorization failure — surfaced immediately below, never retried (it's
 // not transient, retrying it 3x would just waste 1.2s for the same answer).
+/**
+ * Who is calling — no store required.
+ *
+ * A PURCHASE IS A PROPERTY OF A PERSON, NOT OF A STORE. A licence is issued
+ * against the buyer's email, it covers up to LICENSE_SEATS different stores, and
+ * the source download (`/market/source`) already asks for nothing but the key.
+ * Yet the endpoint that lists what you bought authenticated through
+ * verifyOwnership, which refuses to answer without a `store` — so a buyer who
+ * has not created a store yet, which is an entirely normal state for someone who
+ * has just paid for a template, got:
+ *
+ *     400 "no store — pass --store or run `kurumera login`"
+ *
+ * on the page that exists to show them the key they paid for. Store-scoped
+ * MUTATIONS (install, publish, rollback, the creator's own listings) still go
+ * through verifyOwnership and are unchanged — installing into a store must still
+ * prove you own that store.
+ *
+ * This widens nothing: the caller still needs a valid token, and the response is
+ * still filtered to licences matching that token's own email.
+ */
+async function verifyIdentity(authHeader) {
+  const bearer = authHeader || "";
+  if (!bearer.startsWith("Bearer ") || bearer.length < 12) {
+    return { ok: false, status: 401, error: "sign in first" };
+  }
+  // Same retry shape as verifyOwnership: one blip reaching auth must not read as
+  // "you have no purchases".
+  let lastErr = "identity check unavailable";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, 400 * attempt));
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(IDENTITY_URL + "/", { headers: { Authorization: bearer }, signal: ctrl.signal });
+      clearTimeout(timer);
+      const d = await res.json().catch(() => ({}));
+      if (res.status === 200 && d && d.email) return { ok: true, actor: String(d.email) };
+      if (res.status === 401 || res.status === 403) {
+        return { ok: false, status: 401, error: "invalid or expired session — sign in again" };
+      }
+      lastErr = `identity check failed (${res.status})`;
+    } catch (e) {
+      lastErr = `identity check unreachable: ${e && e.message ? e.message : "network error"}`;
+    }
+  }
+  return { ok: false, status: 503, error: lastErr };
+}
+
 async function verifyOwnership(authHeader, store, action, confirm) {
   const bearer = authHeader || "";
   if (!bearer.startsWith("Bearer ") || bearer.length < 12) {
@@ -1913,8 +1967,10 @@ const server = http.createServer((req, res) => {
   // (resolved from the token via store authz; `actor` is the proven email). No
   // email-guessing, so one user can never read another's license keys.
   if (p.endsWith("/_push/market/purchases") && req.method === "GET") {
-    const store = slug(u.searchParams.get("store") || "");
-    verifyOwnership(req.headers["authorization"], store).then((az) => {
+    // NO STORE. What you bought is a fact about you, not about a store you may
+    // or may not have created yet — see verifyIdentity. `?store=` is still
+    // accepted and ignored so older CLIs and the deployed web app keep working.
+    verifyIdentity(req.headers["authorization"]).then((az) => {
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       const email = String(az.actor || "").toLowerCase();
       if (!email) return json(200, { email: "", purchases: [] });
