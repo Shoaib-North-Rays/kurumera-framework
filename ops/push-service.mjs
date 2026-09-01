@@ -2431,10 +2431,11 @@ const server = http.createServer((req, res) => {
   }
   // Moderation queue — builder listings awaiting review (admin only).
   if (p.endsWith("/_push/market/admin/review/queue") && req.method === "GET") {
-    const store = slug(u.searchParams.get("store") || "");
-    verifyOwnership(req.headers["authorization"], store).then((az) => {
-      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
-      if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
+    // Reviewing the public catalogue is a platform job, not a store one — the
+    // same store-vs-identity fix already applied to payouts and analytics. It
+    // also lets the operator console reach this with its service key.
+    authorizeAdmin(req, u.searchParams.get("actor")).then((az) => {
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail });
       const m = getMarket();
       const pending = Object.entries(m.themes)
         .filter(([, e]) => e.status === "submitted")
@@ -2453,10 +2454,8 @@ const server = http.createServer((req, res) => {
   if (p.endsWith("/_push/market/admin/review") && req.method === "POST") {
     readBody().then(async (buf) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { return json(400, { error: "bad json" }); }
-      const store = slug(body.store || "");
-      const az = await verifyOwnership(req.headers["authorization"], store);
-      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
-      if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
+      const az = await authorizeAdmin(req, body.actor_email);
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail });
       const theme = slug(body.theme || "");
       const action = String(body.action || "");
       if (action !== "approve" && action !== "reject") return json(400, { error: "action must be approve or reject" });
@@ -2464,7 +2463,13 @@ const server = http.createServer((req, res) => {
       const e = m.themes[theme];
       if (!e) return json(404, { error: "no such listing" });
       e.status = action === "approve" ? "approved" : "rejected";
+      // A decision with no decider is not a review. Kept on the listing so the
+      // queue can show who cleared it and when.
+      e.reviewedAt = Date.now();
+      e.reviewedBy = az.actor || "";
+      if (action === "reject") e.reviewNote = String(body.note || "").slice(0, 300);
       setMarket(m);
+      console.log(`listing ${action}d: ${theme} by ${e.reviewedBy}`);
       json(200, { ok: true, theme, status: e.status });
     });
     return;
