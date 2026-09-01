@@ -424,7 +424,7 @@ function getPayouts() {
   try { _payoutsCache = JSON.parse(readFileSync(PAYOUTS_STATE, "utf8")); return _payoutsCache; }
   catch (e) {
     if (existsSync(PAYOUTS_STATE) && _payoutsCache) { console.error(`payouts.json unreadable, using cache: ${e?.message}`); return _payoutsCache; }
-    return { methods: {}, paid: {} };
+    return { methods: {}, paid: {}, requests: {} };
   }
 }
 function setPayouts(x) { _payoutsCache = x; writeJson(PAYOUTS_STATE, x); }
@@ -452,6 +452,46 @@ function netEarnedByStore(store) {
 }
 
 // What a store is OWED right now, by currency = net earned − already paid.
+
+/**
+ * Payout requests.
+ *
+ * Until now a creator could add a bank account and then only wait: there was no
+ * way to say "please send it", and no record that they had asked. The operator
+ * had to remember to look at a page in another console. This is the missing
+ * half — the creator's side of a conversation that was previously one-way.
+ *
+ * Deliberately NOT a new ledger. A request is an intent to be paid; `paid[]`
+ * remains the only record of money actually moving, so a request can never
+ * change what is owed. Marking a payment closes whatever request it satisfies,
+ * and if none exists the payment still stands on its own — an operator paying
+ * someone who never asked must not be blocked by bookkeeping.
+ */
+function payoutRequests(store) {
+  return (getPayouts().requests || {})[slug(store)] || [];
+}
+
+function pendingRequest(store, currency) {
+  return payoutRequests(store).find(
+    (r) => r.status === "pending" && String(r.currency).toUpperCase() === String(currency).toUpperCase(),
+  ) || null;
+}
+
+/** Close any pending request a payment satisfies. Never throws: see above. */
+function settleRequests(x, store, currency, amount, by) {
+  const list = (x.requests && x.requests[store]) || [];
+  let left = Number(amount) || 0;
+  for (const r of list) {
+    if (r.status !== "pending") continue;
+    if (String(r.currency).toUpperCase() !== String(currency).toUpperCase()) continue;
+    if (left + 0.005 < Number(r.amount || 0)) continue;   // a partial payment leaves it open
+    r.status = "paid";
+    r.resolvedAt = Date.now();
+    r.resolvedBy = by || "";
+    left -= Number(r.amount || 0);
+  }
+}
+
 function owedByStore(store) {
   const earned = netEarnedByStore(store);
   const paidByCur = {};
@@ -2204,7 +2244,7 @@ const server = http.createServer((req, res) => {
         }
       }
       const method = getPayouts().methods[store] || null;
-      json(200, { listings, totals: Object.values(totals), installs: installsAll, platformFeePct: PLATFORM_FEE_PCT, payoutMethod: method, owed: owedByStore(store) });
+      json(200, { listings, totals: Object.values(totals), installs: installsAll, platformFeePct: PLATFORM_FEE_PCT, payoutMethod: method, owed: owedByStore(store), payoutRequests: payoutRequests(store) });
     });
     return;
   }
@@ -2213,7 +2253,62 @@ const server = http.createServer((req, res) => {
     const store = slug(u.searchParams.get("store") || "");
     verifyOwnership(req.headers["authorization"], store).then((az) => {
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
-      json(200, { method: getPayouts().methods[store] || null, owed: owedByStore(store) });
+      json(200, {
+        method: getPayouts().methods[store] || null,
+        owed: owedByStore(store),
+        requests: payoutRequests(store),
+      });
+    });
+    return;
+  }
+  // Creator asks to be paid what they are owed. See the note on payoutRequests.
+  if (p.endsWith("/_push/market/payout/request") && req.method === "POST") {
+    readBody().then(async (buf) => {
+      let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { return json(400, { error: "bad json" }); }
+      const store = slug(body.store || "");
+      const az = await verifyOwnership(req.headers["authorization"], store);
+      if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
+
+      const x = getPayouts();
+      // Nowhere to send it is a refusal, not a request. Asking to be paid with
+      // no account on file produces a queue entry nobody can action.
+      if (!x.methods[store]) {
+        return json(400, { error: "Add a payout account first — there is nowhere to send the money yet." });
+      }
+
+      const currency = String(body.currency || "USD").toUpperCase().slice(0, 8);
+      const owed = owedByStore(store).find((o) => o.currency === currency);
+      const outstanding = owed ? Number(owed.owed) || 0 : 0;
+      if (outstanding <= 0) return json(400, { error: `Nothing outstanding in ${currency}.` });
+
+      // Default to everything owed; a smaller explicit amount is allowed, a
+      // larger one is not — a request must never exceed the balance behind it.
+      const asked = body.amount === undefined || body.amount === null || body.amount === ""
+        ? outstanding
+        : Number(body.amount);
+      if (!Number.isFinite(asked) || asked <= 0) return json(400, { error: "amount must be greater than zero" });
+      if (asked - outstanding > 0.005) {
+        return json(400, { error: `You can request at most ${outstanding} ${currency}.` });
+      }
+
+      if (pendingRequest(store, currency)) {
+        return json(409, { error: `A ${currency} payout request is already pending.` });
+      }
+
+      const entry = {
+        id: `pr_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+        currency,
+        amount: Math.round(asked * 100) / 100,
+        at: Date.now(),
+        by: az.actor || "",
+        note: String(body.note || "").slice(0, 200),
+        status: "pending",
+      };
+      (x.requests ||= {});
+      (x.requests[store] ||= []).push(entry);
+      setPayouts(x);
+      console.log(`payout requested: ${store} ${entry.amount} ${currency} by ${entry.by}`);
+      json(200, { ok: true, request: entry, requests: payoutRequests(store) });
     });
     return;
   }
@@ -2266,6 +2361,7 @@ const server = http.createServer((req, res) => {
         owed: owedByStore(s),
         method: payouts.methods[s] || null,
         paidHistory: payouts.paid[s] || [],
+        requests: (payouts.requests || {})[s] || [],
         author: (Object.values(m.themes).find((e) => slug(e.sourceStore || "") === s) || {}).author || "",
       })).filter((r) => r.owed.some((o) => o.net > 0));
       json(200, { rows, platformFeePct: PLATFORM_FEE_PCT });
@@ -2287,6 +2383,9 @@ const server = http.createServer((req, res) => {
       if (!Number.isFinite(amount) || amount <= 0) return json(400, { error: "amount must be > 0" });
       const x = getPayouts();
       (x.paid[target] ||= []).push({ currency, amount: Math.round(amount * 100) / 100, at: Date.now(), by: az.actor, note: String(body.note || "").slice(0, 200) });
+      // Close whatever request this payment answers, so the creator's page stops
+      // saying "pending" the moment the money is recorded as sent.
+      settleRequests(x, target, currency, amount, az.actor);
       setPayouts(x);
       json(200, { ok: true, owed: owedByStore(target) });
     });
