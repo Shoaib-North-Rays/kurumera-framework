@@ -827,6 +827,12 @@ button { font-family: inherit; }
    creator sees, and it was broken on the narrowest common device. */
 @media (max-width: 860px) {
   .cgate { grid-template-columns: minmax(0, 1fr); gap: var(--s-7); }
+  /* minmax(0, 1fr) on the CONTAINER is not enough: both children are grid items,
+     so each carries min-width:auto, whose automatic minimum is min-content — and
+     that pushed the single column to 341px inside a 261px box. Verified in the
+     browser: forcing min-width:0 on exactly these two takes the overflow to 0
+     and the column to 260.8px, with nothing else left too wide. */
+  .cgate__pitch, .cgate__panel { min-width: 0; }
 }
 .cgate__h {
   font-size: var(--t-h2);
