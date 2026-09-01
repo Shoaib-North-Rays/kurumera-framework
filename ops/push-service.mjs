@@ -1341,6 +1341,11 @@ async function wakeStore(s) {
   return { status: ready ? "woken" : "starting" };
 }
 // Same, for a store's preview container (dev-facing, reaped just like live).
+/** Escape a value for HTML text. `slug()` normalises; it does not sanitise. */
+function esc(v) {
+  return String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
 async function wakePreview(s) {
   s = slug(s);
   touch(s, "preview");
@@ -2695,7 +2700,9 @@ const server = http.createServer((req, res) => {
   // ── PREVIEW proxy (store+version scoped, wake-on-request) ──────────────────
   const s = qStore || slug(cookieStore(req));
   if (!s) { res.writeHead(400, { "Content-Type": "text/html" }); return res.end("<h1>Add ?store=&lt;slug&gt;, or browse the <a href='/marketplace'>theme marketplace</a>.</h1>"); }
-  wakePreview(s).finally(() => {
+  // `woke` distinguishes the two failures that were previously identical: a
+  // container that is booting (true) from a store that was never built (false).
+  wakePreview(s).catch(() => false).then((woke) => {
     const preq = http.request(
       { hostname: previewName(s), port: 3000, path: req.url, method: req.method, headers: { ...req.headers, host: `${s}.kurumera.com` } },
       (pr) => {
@@ -2706,7 +2713,43 @@ const server = http.createServer((req, res) => {
         pr.pipe(res);
       },
     );
-    preq.on("error", () => { res.writeHead(502, { "Content-Type": "text/html" }); res.end(`<h1>No preview for "${s}" yet — run \`kurumera theme push\`.</h1>`); });
+
+    /*
+     * This used to be a flat `502` carrying an explanatory <h1>.
+     *
+     * Nobody ever read that <h1>. Cloudflare intercepts a 502 from the origin
+     * and serves its OWN "Bad gateway / Host Error" page instead, so the one
+     * useful sentence was thrown away at the edge and every visitor -- whatever
+     * had actually gone wrong -- saw the site itself appear to be down. It also
+     * poisoned the marketplace: cover screenshots are captured by loading the
+     * preview, so listings ended up with Cloudflare's error page baked in as
+     * their artwork.
+     *
+     * So: never 502 here. Three distinct outcomes, three honest answers.
+     */
+    preq.on("error", () => {
+      // 1. Right name, wrong parameter. `?store=` addresses a merchant's own
+      //    pushed theme; `?market=` addresses a marketplace listing. The two
+      //    namespaces overlap, so a listing slug asked for as a store is a
+      //    typo with an obvious intent -- serve what they meant.
+      if (getMarket().themes[s]) {
+        res.writeHead(302, { Location: `/?market=${encodeURIComponent(s)}`, "Cache-Control": "no-store" });
+        return res.end();
+      }
+
+      // 2. The store exists and its container is still coming up. Same
+      //    treatment as the market path: refresh until it answers, so an
+      //    embedded iframe heals itself instead of needing a human.
+      if (woke) {
+        res.writeHead(503, { "Content-Type": "text/html; charset=utf-8", "Retry-After": "2", "Cache-Control": "no-store" });
+        return res.end(`<!doctype html><meta http-equiv="refresh" content="2"><body style="font-family:system-ui,sans-serif;display:grid;place-items:center;height:100vh;margin:0;color:#586964;background:#F5F7F6"><p>Warming up the &ldquo;${esc(s)}&rdquo; preview&hellip;</p></body>`);
+      }
+
+      // 3. There is genuinely no such store. 404, and say so in words a person
+      //    can act on rather than a gateway error they cannot.
+      res.writeHead(404, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>No preview for ${esc(s)}</title><body style="font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;color:#1f2a27;background:#F5F7F6"><main style="max-width:32rem;padding:2rem;text-align:center"><h1 style="font-size:1.35rem;margin:0 0 .6rem">No preview for &ldquo;${esc(s)}&rdquo;</h1><p style="margin:0 0 1.2rem;color:#586964;line-height:1.55">Nothing has been published to this store yet. Run <code style="background:#e6ebe9;padding:.15em .4em;border-radius:4px">kurumera theme push</code> from your theme, or browse the marketplace for one to start from.</p><a href="https://marketplace.kurumera.com" style="display:inline-block;background:#1f2a27;color:#fff;text-decoration:none;font-weight:600;padding:.6rem 1.1rem;border-radius:8px">Browse themes</a></main></body>`);
+    });
     req.pipe(preq);
   });
 });
