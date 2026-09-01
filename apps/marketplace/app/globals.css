@@ -821,6 +821,13 @@ button { font-family: inherit; }
   align-items: start;
   padding-block: var(--sec-md);
 }
+/* The creator sign-in gate had NO breakpoint: two columns and a 96px gap at
+   every width, so on a 320px phone the gap alone ate a third of the screen and
+   the page scrolled sideways by 51px. This is the first thing a prospective
+   creator sees, and it was broken on the narrowest common device. */
+@media (max-width: 860px) {
+  .cgate { grid-template-columns: minmax(0, 1fr); gap: var(--s-7); }
+}
 .cgate__h {
   font-size: var(--t-h2);
   line-height: var(--lh-heading);
