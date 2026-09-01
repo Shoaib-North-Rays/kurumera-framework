@@ -874,6 +874,38 @@ async function verifyOwnership(authHeader, store, action, confirm) {
 // Authorize a store mutation from EITHER the trusted backend control plane
 // (X-Kurumera-Service key — it already authenticated the merchant and passes the
 // acting email in the body) OR a developer CLI (dev JWT, verified for ownership).
+/**
+ * Authorization for the platform-wide admin surfaces (payouts, analytics).
+ *
+ * TWO CALLERS, TWO DIFFERENT QUESTIONS.
+ *
+ * The operator console is Django, server-rendered, and has ALREADY decided the
+ * caller is a platform superuser before the page renders. It holds the service
+ * key, which is how every other trusted backend→push-service call is made. For
+ * that caller the check here is not "is this email on a list" — the platform's
+ * own console said yes — it is simply "is this really the platform". The actor
+ * it names is recorded so the payout ledger says who marked a payment sent.
+ *
+ * A person calling directly with their own bearer token gets the original
+ * treatment: resolve who they are, then check KURUMERA_ADMIN_EMAILS.
+ *
+ * The first version of this only did the second, which broke the console for a
+ * reason worth writing down: superuser rows and marketplace-admin emails are
+ * different sets. The signed-in superuser was info@kurumera.com, whose minted
+ * token did not even authenticate at /auth/me/ (401), and whose email is not in
+ * KURUMERA_ADMIN_EMAILS anyway — so the page failed twice over for a caller the
+ * platform had already trusted.
+ */
+async function authorizeAdmin(req, bodyActor) {
+  if (SERVICE_KEY && req.headers["x-kurumera-service"] === SERVICE_KEY) {
+    return { ok: true, actor: String(bodyActor || "").trim() || "operator console" };
+  }
+  const az = await verifyIdentity(req.headers["authorization"]);
+  if (!az.ok) return az;
+  if (!isAdmin(az.actor)) return { ok: false, status: 403, error: "admin only" };
+  return az;
+}
+
 async function authorizeMutation(req, store, bodyActor, action, confirm) {
   if (SERVICE_KEY && req.headers["x-kurumera-service"] === SERVICE_KEY) {
     return { ok: true, actor: bodyActor || undefined };
@@ -2224,9 +2256,8 @@ const server = http.createServer((req, res) => {
     // gated a platform-wide view behind an unrelated tenant, and refused
     // outright (400 "no store") for an admin whose session carried none.
     // `isAdmin` is still the real gate, and it is unchanged.
-    verifyIdentity(req.headers["authorization"]).then((az) => {
+    authorizeAdmin(req, u.searchParams.get("actor")).then((az) => {
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail });
-      if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
       const m = getMarket();
       const stores = [...new Set(Object.values(m.themes).map((e) => slug(e.sourceStore || "")).filter(Boolean))];
       const payouts = getPayouts();
@@ -2247,9 +2278,8 @@ const server = http.createServer((req, res) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { return json(400, { error: "bad json" }); }
       // Same reasoning as the GET: `body.store` was the caller's own store and
       // had nothing to do with `target`, the store being paid.
-      const az = await verifyIdentity(req.headers["authorization"]);
+      const az = await authorizeAdmin(req, body.actor_email);
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail });
-      if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
       const target = slug(body.target || "");
       const currency = String(body.currency || "USD").toUpperCase().slice(0, 8);
       const amount = Number(body.amount);
@@ -2266,9 +2296,8 @@ const server = http.createServer((req, res) => {
   // installs, sales + gross/fee revenue by currency, creators, top templates.
   if (p.endsWith("/_push/market/admin/analytics") && req.method === "GET") {
     // Marketplace-wide totals — same store-vs-identity fix as the payouts above.
-    verifyIdentity(req.headers["authorization"]).then((az) => {
+    authorizeAdmin(req, u.searchParams.get("actor")).then((az) => {
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail });
-      if (!isAdmin(az.actor)) return json(403, { error: "admin only" });
       const m = getMarket();
       const licenses = Object.values(getLicenses().keys).filter((l) => !l.revoked);
       const round2 = (n) => Math.round(n * 100) / 100;
