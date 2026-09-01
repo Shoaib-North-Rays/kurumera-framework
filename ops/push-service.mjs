@@ -2039,6 +2039,11 @@ const server = http.createServer((req, res) => {
           // update/unpublish still authorize against the OWNING store, so a row
           // cannot be edited using whichever store the session happens to be on.
           sourceStore: slug(e.sourceStore),
+          // The creator dashboard had no artwork to show, so it fell back to
+          // scaling a LIVE iframe of the theme into a thumbnail — which wakes a
+          // container per card and renders the whole page at 20% to fit. The
+          // cover is already captured and already what every other surface uses.
+          coverImage: e.coverImage || "",
           slug: s, name: e.name, description: e.description || "", author: e.author || "",
           price: Number(e.price) > 0 ? Number(e.price) : 0, currency: e.currency || "USD",
           tags: e.tags || [], category: e.category || "", latest: e.latest,

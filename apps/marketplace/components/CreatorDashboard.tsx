@@ -5,12 +5,12 @@ import Link from "next/link";
 import { getSession, signOut, startSignIn, type Session } from "@/lib/session";
 import { LivePreview } from "@/components/LivePreview";
 import { CATEGORIES, BUILDER_ORIGIN } from "@/lib/registry";
-import { Check, Bolt } from "@/components/Icons";
+import { Check, Bolt, Arrow } from "@/components/Icons";
 
 // Must mirror the push-service currency whitelist (bogus codes break checkout).
 const CURRENCIES = ["USD", "EUR", "GBP", "PKR", "INR", "AED", "SAR", "AUD", "CAD", "SGD", "JPY", "KRW"];
 
-interface CTheme { slug: string; name: string; description: string; price: number; currency: string; tags: string[]; category: string; installs: number; latest: string;
+interface CTheme { slug: string; name: string; description: string; price: number; currency: string; tags: string[]; category: string; installs: number; latest: string; coverImage?: string;
   /** The store this listing was PUBLISHED FROM. Edits authorize against this,
    *  not against whichever store the session happens to be on. */
   sourceStore: string }
@@ -89,7 +89,10 @@ export function CreatorDashboard() {
           Signed in
           {stores.length > 1 ? <> — {stores.length} stores</> : stores.length === 1 ? <> — store <b style={{ color: "var(--ink)" }}>{stores[0]}</b></> : ""}
         </span>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        {/* flexWrap: the outer row wraps but this group did not, so three
+            buttons stayed on one 352px line and pushed the PAGE sideways at
+            360px. Pre-existing; visible on any small phone. */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           {/* EARNINGS WERE UNREACHABLE FROM HERE. A creator manages listings on
               this page, but their sales, their balance after the platform fee
               and their payout account all live in the builder app — and nothing
@@ -123,6 +126,26 @@ export function CreatorDashboard() {
       </div>
     </>
   );
+}
+
+
+/**
+ * Builder designs are versioned by epoch-millisecond stamp, so this card was
+ * showing creators "v1787058242903" and calling it a version. Nobody can read
+ * that, and it is not a number they chose. A code theme's semver ("1.0.7") is
+ * meaningful, so it is left alone — only the timestamp is turned back into the
+ * date it actually is.
+ */
+function versionLabel(latest: string): string {
+  const v = String(latest || "").trim();
+  if (!v) return "no version yet";
+  if (/^\d{12,}$/.test(v)) {
+    const d = new Date(Number(v));
+    if (!Number.isNaN(d.getTime())) {
+      return `published ${d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`;
+    }
+  }
+  return `v${v}`;
 }
 
 function ThemeRow({ theme, token, store, onRemove }: { theme: CTheme; token: string; store: string; onRemove: () => void }) {
@@ -171,14 +194,47 @@ function ThemeRow({ theme, token, store, onRemove }: { theme: CTheme; token: str
 
   return (
     <div className="crow">
-      <div className="crow__media"><LivePreview slug={theme.slug} name={theme.name} /></div>
       <div className="crow__body">
         <div className="crow__top">
-          <div>
-            <div className="crow__name">{theme.name}</div>
-            <div className="crow__stat">{theme.slug} · v{theme.latest}</div>
+          {/* The cover sits IN the header at its own 64:45 shape, not as a
+              full-height column. A landscape screenshot cannot fill a tall
+              narrow column without cropping to an unrecognisable slice — and
+              leaving the column at its natural aspect left a block of dead grey
+              beside a five-field form, which is what made this page look
+              unfinished. As a header thumbnail it is legible, and the form gets
+              the whole width back.
+
+              LivePreview remains the fallback for listings published before
+              covers were captured; it is no longer the default, because it
+              scales a live 1280px render of the page into a thumbnail and wakes
+              a container per card to do it. */}
+          <div className="crow__thumb">
+            {theme.coverImage
+              ? /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={theme.coverImage} alt="" loading="lazy" />
+              : <LivePreview slug={theme.slug} name={theme.name} />}
           </div>
-          <div className="crow__stat"><b>{theme.installs.toLocaleString()}</b> installs</div>
+          <div className="crow__ident">
+            <div className="crow__name">{theme.name}</div>
+            <div className="crow__meta">
+              <code>{theme.slug}</code>
+              <span aria-hidden>·</span>
+              <span>{versionLabel(theme.latest)}</span>
+            </div>
+          </div>
+          <div className="crow__facts">
+            {/* "1 installs" was on screen. Small, but it is the kind of thing a
+                creator reads as nobody having looked at this page. */}
+            <span className="crow__stat">
+              <b>{theme.installs.toLocaleString()}</b>{" "}
+              {theme.installs === 1 ? "install" : "installs"}
+            </span>
+            {/* There was no way to see the listing as a buyer sees it — the one
+                thing a creator most wants after changing a price or a cover. */}
+            <a className="crow__view" href={`/templates/${theme.slug}`} target="_blank" rel="noreferrer">
+              View listing <Arrow />
+            </a>
+          </div>
         </div>
 
         <div className="crow__form">
@@ -199,15 +255,18 @@ function ThemeRow({ theme, token, store, onRemove }: { theme: CTheme; token: str
               {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
             </select>
           </div>
-          <div className="field">
-            <label htmlFor={`t-${theme.slug}`}>Tags (comma-separated)</label>
+          <div className="field field--wide">
+            <label htmlFor={`t-${theme.slug}`}>Tags</label>
             <input id={`t-${theme.slug}`} className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="ecommerce, modern, dark" />
+            <span className="hint">Comma-separated. Three to five honest ones beat a long list.</span>
           </div>
-        </div>
 
-        <div className="field" style={{ marginTop: 12 }}>
-          <label htmlFor={`d-${theme.slug}`}>Description</label>
-          <textarea id={`d-${theme.slug}`} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={400} placeholder="One-line description shown on the listing…" />
+          <div className="field field--wide">
+            <label htmlFor={`d-${theme.slug}`}>Description</label>
+            <textarea id={`d-${theme.slug}`} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={400} placeholder="One-line description shown on the listing…" />
+            {/* 400 is enforced by maxLength and was invisible until you hit it. */}
+            <span className="hint">{description.length}/400</span>
+          </div>
         </div>
 
         <div className="crow__row2">
