@@ -1,0 +1,20 @@
+# Runtime image for the push-service.
+#
+# The one thing that is easy to get wrong, and expensive when you do:
+# this service orchestrates every other container on the host over the
+# mounted docker socket, so it needs the docker CLI. `node:20-alpine`
+# alone does NOT have it, and the host's own /usr/bin/docker cannot be
+# bind-mounted in as a substitute — it is dynamically linked against
+# glibc and this image is musl.
+#
+# Run it without the CLI and nothing announces the problem: the service
+# starts, /_push/market keeps answering 200, and every container
+# operation underneath — waking a store preview, installing a theme,
+# building an artifact, the reconcile loop — fails with
+# "docker: executable file not found in $PATH". Store previews return
+# gateway errors while the service looks perfectly healthy.
+#
+# Build and run it with ops/run-push-service.sh, never by hand.
+FROM node:20-alpine
+RUN apk add --no-cache docker-cli tar
+CMD ["node", "/ops/push-service.mjs"]
