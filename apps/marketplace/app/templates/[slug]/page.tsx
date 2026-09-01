@@ -132,8 +132,8 @@ export default async function TemplateDetail({ params }: { params: Promise<{ slu
             the honest arrival for something that is already the product. */}
         <Reveal variant="fade" className="dp-preview">
           {builder
-            ? <BuilderPreview slug={t.slug} name={t.name} />
-            : <DetailPreview slug={t.slug} name={t.name} />}
+            ? <BuilderPreview slug={t.slug} name={t.name} cover={t.coverImage} />
+            : <DetailPreview slug={t.slug} name={t.name} cover={t.coverImage} />}
           <p className="dp-stage-note">
             This is the template running live, not a screenshot — resize it with the device
             buttons, or open it full screen.

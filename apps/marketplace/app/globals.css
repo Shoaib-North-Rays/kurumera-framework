@@ -553,7 +553,7 @@ button { font-family: inherit; }
 .pdp__devices svg { width: 18px; height: 18px; }
 .pdp__open { margin-left: auto; }
 .pdp__stage { background: var(--sunken); border: 1px solid var(--border); border-radius: var(--r-card); padding: var(--s-4); display: grid; place-items: center; overflow: hidden; }
-.pdp__device { background: #fff; border-radius: var(--r-sm); overflow: hidden; box-shadow: var(--shadow); width: 100%; transition: width var(--d-normal) var(--e-out); }
+.pdp__device { position: relative; background: #fff; border-radius: var(--r-sm); overflow: hidden; box-shadow: var(--shadow); width: 100%; transition: width var(--d-normal) var(--e-out); }
 .pdp__device iframe { width: 100%; height: 640px; border: 0; display: block; background: #fff; }
 
 .pdp__rail { position: sticky; top: var(--sticky-top); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); padding: var(--s-6); box-shadow: var(--shadow-sm); }
@@ -906,4 +906,67 @@ button { font-family: inherit; }
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ── Preview poster ────────────────────────────────────────────────────────
+   Covers the live frame until it is genuinely ready. Preview containers scale
+   to zero, so a reaped code theme takes ~2.9s to boot (measured) during which
+   the stage was an empty white box — on the page where someone decides whether
+   to spend $300. The cover screenshot is already rendered and already cached by
+   the card grid, so it costs nothing to show it immediately. */
+.dp-poster {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--sunken);
+  /* Never intercepts a click meant for the frame underneath. */
+  pointer-events: none;
+  animation: dp-poster-in var(--d-normal, 320ms) var(--e-out, ease) both;
+}
+.dp-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;   /* covers are 64:45 shot from the top of the page */
+  display: block;
+}
+/* No cover on the listing — a calm surface rather than a white void. */
+.dp-poster__blank {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(100deg, var(--sunken) 30%, var(--surface) 50%, var(--sunken) 70%);
+  background-size: 220% 100%;
+  animation: dp-shimmer 1.4s linear infinite;
+}
+.dp-poster__tag {
+  position: absolute;
+  left: var(--s-3);
+  bottom: var(--s-3);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / .62);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: var(--t-meta);
+  font-weight: var(--fw-semibold);
+  letter-spacing: .01em;
+}
+.dp-poster__dot {
+  inline-size: 7px;
+  block-size: 7px;
+  border-radius: 999px;
+  background: var(--green-bright, #22C55E);
+  animation: dp-pulse 1.1s ease-in-out infinite;
+}
+@keyframes dp-poster-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes dp-shimmer { from { background-position: 120% 0 } to { background-position: -20% 0 } }
+@keyframes dp-pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+
+/* The poster is information, not decoration, so it stays — only the movement
+   stops. */
+@media (prefers-reduced-motion: reduce) {
+  .dp-poster, .dp-poster__blank, .dp-poster__dot { animation: none; }
 }
