@@ -970,3 +970,5 @@ button { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .dp-poster, .dp-poster__blank, .dp-poster__dot { animation: none; }
 }
+
+.pcard__hint { margin-top: var(--s-2); font-size: var(--t-caption); color: var(--faint); line-height: var(--lh-body); max-width: 46ch; }

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { getSession, startSignIn, type Session } from "@/lib/session";
 import { Bolt, Download } from "@/components/Icons";
+import { BUILDER_ORIGIN } from "@/lib/registry";
 
 function CopyBox({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
@@ -31,17 +32,20 @@ export function Purchases() {
      and creator come from the public registry, joined on slug. Fetched once,
      alongside the licences; a card renders without it and gains the picture
      when it lands. */
-  const [meta, setMeta] = useState<Record<string, { coverImage: string; author: string; price: number; currency: string }>>({});
+  const [meta, setMeta] = useState<Record<string, { coverImage: string; author: string; price: number; currency: string; type: string }>>({});
 
   useEffect(() => {
     fetch("/api/market/list")
       .then((r) => r.json())
       .then((d) => {
-        const out: Record<string, { coverImage: string; author: string; price: number; currency: string }> = {};
+        const out: Record<string, { coverImage: string; author: string; price: number; currency: string; type: string }> = {};
         for (const t of (Array.isArray(d?.themes) ? d.themes : [])) {
           out[String(t.slug)] = {
             coverImage: String(t.coverImage || ""), author: String(t.author || ""),
             price: Number(t.price) || 0, currency: String(t.currency || "USD"),
+            // "builder" | "code". Decides which of two completely different
+            // workflows this purchase actually has.
+            type: String(t.type || ""),
           };
         }
         setMeta(out);
@@ -141,21 +145,46 @@ export function Purchases() {
                   and signing into it first. A plain <a download> is enough: it is
                   a GET on our own origin, so the browser streams it straight to
                   disk with no fetch, no blob and no memory ceiling. */}
-              <a
-                className="btn btn--secondary pcard__dl"
-                href={`/api/market/source?theme=${encodeURIComponent(it.theme)}&license=${encodeURIComponent(it.key)}`}
-                download={`${it.theme}.tar.gz`}
-                rel="nofollow"
-              >
-                <Download /> Download source
-              </a>
+              {/* WHAT YOU BOUGHT DECIDES WHAT YOU NEED NEXT.
+                  A builder design is pages installed into a store and edited in
+                  the visual builder: there is no repository to clone and no CLI
+                  in that workflow at all. This card offered every buyer the same
+                  three code-theme actions — and for a builder design "Download
+                  source" does not merely look wrong, it 404s, because there is
+                  no source to send. The post-purchase page was fixed for exactly
+                  this months ago; this page was not. */}
+              {m?.type === "builder" ? (
+                <>
+                  <a
+                    className="btn btn--primary pcard__dl"
+                    href={`${BUILDER_ORIGIN}/install/${encodeURIComponent(it.theme)}?license=${encodeURIComponent(it.key)}&mode=new-theme`}
+                  >
+                    <Bolt /> Open in Editor
+                  </a>
+                  <p className="pcard__hint">
+                    Installs as a new theme on your store, then opens it in the builder —
+                    every section stays editable.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <a
+                    className="btn btn--secondary pcard__dl"
+                    href={`/api/market/source?theme=${encodeURIComponent(it.theme)}&license=${encodeURIComponent(it.key)}`}
+                    download={`${it.theme}.tar.gz`}
+                    rel="nofollow"
+                  >
+                    <Download /> Download source
+                  </a>
 
-              {/* Secondary. Needed, but not what this page is for. */}
-              <details className="pcard__cli">
-                <summary>Install from the command line</summary>
-                <CopyBox label="install into a store" value={`kurumera marketplace install ${it.theme} --store <your-store> --license ${it.key}`} />
-                <CopyBox label="clone to customize" value={`kurumera marketplace clone ${it.theme} --license ${it.key}`} />
-              </details>
+                  {/* Secondary. Needed, but not what this page is for. */}
+                  <details className="pcard__cli">
+                    <summary>Install from the command line</summary>
+                    <CopyBox label="install into a store" value={`kurumera marketplace install ${it.theme} --store <your-store> --license ${it.key}`} />
+                    <CopyBox label="clone to customize" value={`kurumera marketplace clone ${it.theme} --license ${it.key}`} />
+                  </details>
+                </>
+              )}
             </div>
           );
         })}
