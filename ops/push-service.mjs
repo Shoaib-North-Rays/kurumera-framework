@@ -2673,6 +2673,25 @@ const server = http.createServer((req, res) => {
   const qMarket = slug(u.searchParams.get("market") || "");
   const qStore = slug(u.searchParams.get("store") || "");
   const mkt = qMarket || (!qStore && (cookieMarket(req) || marketFromReferer(req)));
+
+  /*
+   * A builder design is not a code theme: it has no artifact and no container,
+   * so there is nothing here to start. Without this branch it fell through to
+   * the proxy below, failed, and was reported as a cold start -- leaving the
+   * visitor on "Warming up the ... preview" refreshing every two seconds
+   * forever. An endless wait is a worse answer than an error, because nothing
+   * about it ever tells you to stop waiting.
+   *
+   * The marketplace itself already routes these correctly (`livePreviewUrl`
+   * sends type=builder to the builder app). This only catches the links that
+   * do not come from it: hand-typed URLs, and anything saved before a listing
+   * was republished as a builder design.
+   */
+  if (mkt && (getMarket().themes[mkt] || {}).type === "builder") {
+    res.writeHead(302, { Location: `${BUILDER_ORIGIN}/market-preview/${encodeURIComponent(mkt)}`, "Cache-Control": "no-store" });
+    return res.end();
+  }
+
   if (mkt && getMarket().themes[mkt]) {
     wakeMarketPreview(mkt).finally(() => {
       const preq = http.request(
