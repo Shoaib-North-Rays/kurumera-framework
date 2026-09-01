@@ -28,6 +28,18 @@ export const metadata: Metadata = {
     title: "Sell your templates on Kurumera",
     description: `Keep ${CREATOR_SHARE_PCT}% of every sale. Build visually or in code, set your own price, get paid through Stripe.`,
     url: "https://marketplace.kurumera.com/sell",
+    /* Declared explicitly. Naming an `openGraph` object here stopped the root
+       opengraph-image attaching, so this page went out with NO image at all —
+       and `twitter` fell back to the site defaults, so sharing the creator
+       recruitment page produced a large-image card with no image and the
+       marketplace's generic blurb. */
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Sell your templates on Kurumera" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Sell your templates on Kurumera",
+    description: `Keep ${CREATOR_SHARE_PCT}% of every sale. Build visually or in code, set your own price, get paid through Stripe.`,
+    images: ["/opengraph-image"],
   },
 };
 
