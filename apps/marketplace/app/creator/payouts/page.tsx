@@ -47,7 +47,7 @@ export default function CreatorPayouts() {
 
       <p style={{ marginTop: "var(--s-7)", fontSize: "var(--t-caption)", color: "var(--faint)", lineHeight: "var(--lh-body)" }}>
         Something not right? Email{" "}
-        <a href="mailto:support@kurumera.com" style={{ color: "var(--green-dark)" }}>support@kurumera.com</a>{" "}
+        <a href="mailto:info@kurumera.com" style={{ color: "var(--green-dark)" }}>info@kurumera.com</a>{" "}
         and include the email address on your Kurumera account.
       </p>
     </div>

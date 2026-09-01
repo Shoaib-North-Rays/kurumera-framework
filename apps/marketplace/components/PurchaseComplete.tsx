@@ -74,7 +74,7 @@ export function PurchaseComplete() {
       <div className="purchase">
         <h1>Purchase couldn&rsquo;t be verified</h1>
         <p className="muted">{err}</p>
-        <p className="muted">If you were charged, email <a href="mailto:support@kurumera.com">support@kurumera.com</a> and we&rsquo;ll sort it out.</p>
+        <p className="muted">If you were charged, email <a href="mailto:info@kurumera.com">info@kurumera.com</a> and we&rsquo;ll sort it out.</p>
         <div className="purchase__actions"><Link className="btn btn--secondary" href="/templates">Back to templates</Link></div>
       </div>
     );

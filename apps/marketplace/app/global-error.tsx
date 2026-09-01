@@ -46,7 +46,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               Try again
             </button>
             <a
-              href="mailto:support@kurumera.com"
+              href="mailto:info@kurumera.com"
               style={{ padding: "0.75rem 1.25rem", borderRadius: 10, border: "1px solid #E2E8F0", background: "#fff", color: "#111827", fontWeight: 700, textDecoration: "none" }}
             >
               Contact support

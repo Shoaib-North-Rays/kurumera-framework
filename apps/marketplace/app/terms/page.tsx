@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { DocShell, DocPager, type TocItem } from "@/components/docs/DocShell";
 import {
-  LEGAL_EFFECTIVE, entity, governingLaw,
+  LEGAL_EFFECTIVE, entity, governingLaw, disputeVenue,
   PLATFORM_FEE_PCT, CREATOR_SHARE_PCT, LICENSE_SEATS,
   REFUND_WINDOW_DAYS, CURRENCY,
 } from "@/lib/legal";
@@ -19,12 +19,14 @@ import "@/app/docs.css";
  * Every number is interpolated from lib/legal.ts, which mirrors the enforcing
  * code — so the fee here cannot say 20% while push-service charges 25%.
  *
- * WHERE IT STAYS QUIET, THAT IS DELIBERATE. `entity.registeredName`,
- * `entity.address` and `governingLaw` are empty in lib/legal.ts because I do
- * not know them, and the clauses that need them are omitted rather than filled
- * with a guess. A contract naming the wrong company or the wrong court is worse
- * than one that does not name them at all. Fill those three values in and the
- * clauses appear here automatically.
+ * WHERE IT STAYS QUIET, THAT IS DELIBERATE. Governing law is now set, mirroring
+ * Kurumera's own published terms (Pakistan, arbitration in Karachi) rather than
+ * being invented here. `entity.registeredName` and `entity.address` are still
+ * empty because they are recorded NOWHERE — not in this repo, not in the
+ * published terms, not in the Meta filing that names "North Rays" as the data
+ * controller. That is a gap in the company's legal setup, not only in this file,
+ * and a contract naming the wrong company is worse than one that stays quiet.
+ * Fill them in and the clauses appear here automatically.
  */
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -408,12 +410,23 @@ export default function TermsPage() {
           <h2 className="clause__h">Contact{governingLaw ? " and governing law" : ""}</h2>
           <div className="clause__body">
             {governingLaw ? (
-              <p>
-                These terms are governed by the laws of {governingLaw}, and the courts
-                of {governingLaw} have exclusive jurisdiction over any dispute, subject
-                to any mandatory rights you have as a consumer to bring proceedings
-                where you live.
-              </p>
+              <>
+                {/* Word for word the position Kurumera's main terms have taken
+                    since 2026-07-22 — arbitration, not "the courts of", which
+                    is what an earlier draft of this clause said. One operator
+                    publishing two different dispute procedures is worse than
+                    publishing none. */}
+                <p>
+                  These terms are governed by the laws of {governingLaw}. Disputes will
+                  be resolved by {disputeVenue}, except that either party may seek
+                  injunctive relief in a court of competent jurisdiction to protect its
+                  intellectual property or confidential information.
+                </p>
+                <p>
+                  None of that removes a mandatory right you have as a consumer to bring
+                  proceedings where you live.
+                </p>
+              </>
             ) : null}
             <p>
               Questions about these terms, or anything else:{" "}

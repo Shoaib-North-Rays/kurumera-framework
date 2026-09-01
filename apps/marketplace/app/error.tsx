@@ -47,7 +47,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           maps to the server-side stack Next keeps out of the browser. */}
       {error.digest && (
         <p style={{ marginTop: "var(--s-6)", fontSize: "var(--t-meta)", color: "var(--faint)" }}>
-          If you contact <a href="mailto:support@kurumera.com" style={{ color: "var(--green-dark)" }}>support@kurumera.com</a>,
+          If you contact <a href="mailto:info@kurumera.com" style={{ color: "var(--green-dark)" }}>info@kurumera.com</a>,
           quote reference <code>{error.digest}</code>.
         </p>
       )}

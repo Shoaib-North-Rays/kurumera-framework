@@ -22,11 +22,10 @@
  * Anything marked REVIEW is a business or legal decision. I have put a
  * defensible default in so the pages are complete and coherent rather than
  * littered with "TBD", but they are NOT facts I can verify, and every one of
- * them is listed in the handover notes. `entity.registeredName`,
- * `entity.address` and `governingLaw` are deliberately EMPTY: a contract that
- * names the wrong counterparty or the wrong court is worse than one that is
- * quiet about it, and the components below omit the clause rather than print a
- * guess. Fill them in and the clauses appear.
+ * them is listed in the handover notes. `entity.registeredName` and
+ * `entity.address` remain EMPTY: a contract that names the wrong counterparty
+ * is worse than one that is quiet about it, and the pages omit those clauses
+ * rather than print a guess. Fill them in and the clauses appear.
  */
 
 export const LEGAL_EFFECTIVE = "2026-08-25";
@@ -35,21 +34,58 @@ export const entity = {
   /** Trading name. Safe — this is the brand on every surface already. */
   tradingName: "Kurumera",
 
-  /** REVIEW — registered company name. Empty until confirmed; see note above. */
+  /**
+   * REVIEW — still empty, and deliberately.
+   *
+   * The operator is "North Rays", declared to Meta on 2026-07-22 as the data
+   * controller "located in Pakistan". What is NOT recorded anywhere — not in
+   * this repo, not in the published terms, not in the Meta filing — is the
+   * exact REGISTERED form of that name, its registered address, or its company
+   * number. The existing published terms have the same gap: they say
+   * "Kurumera" and never name a legal entity.
+   *
+   * So this is a gap in the company's legal setup, not only in this file, and
+   * it is not one to close by guessing a suffix. A contract naming the wrong
+   * entity is worse than one that stays quiet. Fill these in and every clause
+   * that needs them appears automatically.
+   */
   registeredName: "",
-
-  /** REVIEW — registered address. Empty until confirmed. */
   address: "",
 
   /** REVIEW — company number, if the entity has one. */
   companyNumber: "",
 
-  supportEmail: "support@kurumera.com",
-  legalEmail: "support@kurumera.com",
+  /**
+   * info@, not support@ — which is what these pages said until now.
+   *
+   * `EMAIL_SUPPORT_EMAIL` in the backend defaults to info@kurumera.com, and all
+   * 32 email references across Kurumera's published legal content use it. None
+   * use support@. So every refund request, every "I lost my licence key", and
+   * every legal notice from these pages was being sent to an address the rest of
+   * the company does not use and may not even monitor.
+   */
+  supportEmail: "info@kurumera.com",
+  legalEmail: "info@kurumera.com",
 } as const;
 
-/** REVIEW — governing law and venue. Empty renders no jurisdiction clause. */
-export const governingLaw = "";
+/**
+ * Governing law — NOT a guess. This mirrors Kurumera's already-published terms
+ * (apps/content/seed/legal/terms.json, live since 2026-07-22, clause 15):
+ *
+ *   "These terms are governed by the laws of the Islamic Republic of Pakistan.
+ *    Disputes will be resolved by arbitration in Karachi under Pakistani
+ *    arbitration law, except that either party may seek injunctive relief in a
+ *    court of competent jurisdiction to protect its intellectual property or
+ *    confidential information."
+ *
+ * The marketplace is the same company under the same law, so it says the same
+ * thing. Two documents from one operator naming two different jurisdictions is
+ * worse than one naming none.
+ */
+export const governingLaw = "the Islamic Republic of Pakistan";
+
+/** Where disputes go, matching the published terms rather than inventing a venue. */
+export const disputeVenue = "arbitration in Karachi under Pakistani arbitration law";
 
 /**
  * FROM CODE — push-service.mjs:246

@@ -270,7 +270,7 @@ export default async function HomePage() {
               <RevealLines as="h2" className="hm-h3 hm-lines" lines={["Questions,", "answered."]} />
               <Reveal as="p" variant="fade" className="hm-faq__note">Anything not covered here reaches a real person.</Reveal>
               <Reveal variant="fade">
-                <a className="hm-more mi-link" href="mailto:support@kurumera.com">support@kurumera.com</a>
+                <a className="hm-more mi-link" href="mailto:info@kurumera.com">info@kurumera.com</a>
               </Reveal>
             </div>
           </div>

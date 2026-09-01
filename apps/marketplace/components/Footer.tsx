@@ -49,7 +49,7 @@ const COLS = [
       { label: "Template licence", href: "/license" },
       { label: "Refund policy", href: "/refunds" },
       { label: "Privacy", href: "/privacy" },
-      { label: "support@kurumera.com", href: "mailto:support@kurumera.com" },
+      { label: "info@kurumera.com", href: "mailto:info@kurumera.com" },
     ],
   },
 ];
