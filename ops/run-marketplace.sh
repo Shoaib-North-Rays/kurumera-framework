@@ -28,7 +28,16 @@ NETWORK=website-builder_web
 PORT=4400
 HEALTH_CMD="wget -qO- http://127.0.0.1:${PORT}/api/health >/dev/null 2>&1 || exit 1"
 # How long the new container gets to answer before it is judged a failure.
-HEALTH_WAIT=120
+HEALTH_START=20s
+# How long the new container gets before it is judged a failure.
+#
+# Measured, not guessed: a container that stays up but serves nothing is
+# reported unhealthy after 91s with the interval and retries below, and the
+# start period adds its 20s on top -- about 110s to a definite verdict. 120
+# left 29s of margin, close enough that a loaded host would trip the timeout
+# instead, rolling back for the right reason but reporting the wrong one. 180
+# makes "unhealthy" the branch that actually fires.
+HEALTH_WAIT=180
 
 # ── What is running now, so we can both copy it and fall back to it ─────────
 PREV_IMAGE=""
@@ -82,7 +91,7 @@ start_container() {
     -e "KURUMERA_AUTH_ORIGIN=$AUTH_ORIGIN" \
     -e "KURUMERA_BUILDER_ORIGIN=$BUILDER_ORIGIN" \
     --health-cmd "$HEALTH_CMD" \
-    --health-interval 30s --health-timeout 5s --health-retries 3 \
+    --health-interval 30s --health-timeout 5s --health-retries 3 --health-start-period "$HEALTH_START" \
     "$image" >/dev/null
 }
 
