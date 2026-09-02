@@ -79,6 +79,90 @@
 .ew__img { object-fit: cover; }
 .ew__fallback { position: absolute; inset: 0; }
 
+/* ── The ground the overlay copy is read against ───────────────────────────── */
+/*
+ * `.ew__scrim` is in the markup and had NO base rule at all, so it painted
+ * nothing. It used to be a flat rgba(12,12,14,.68) and was deleted in 9410932
+ * ("the arrow follows the cursor") without a replacement.
+ *
+ * That was survivable while a card showed a dark photograph. It stopped being
+ * survivable once cards began rendering a LIVE PREVIEW of a real storefront:
+ * the copy here is white with lime tags, and most storefronts are light, so
+ * over a pale hero the title, the byline, the description and the tags all
+ * disappeared. Reported against kalicosmeticsluxe, whose hero is near-white.
+ *
+ * The fix is for the overlay to supply its own ground instead of hoping the
+ * artwork underneath is dark. Two layers do that: a flat wash that lifts the
+ * whole card, and a bottom-weighted gradient carrying the copy stack, which is
+ * bottom-aligned. Contrast then holds over a white storefront and a black one
+ * alike — which is the point, since the card cannot know which it will get.
+ *
+ * Kept ABOVE the touch-fallback block near the end of this file: that block
+ * sets `opacity: 1` at the same specificity, so it only wins by being later.
+ */
+.ew__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;                 /* over the preview, under the copy and the arrow */
+  opacity: 0;                 /* revealed with the rest of the overlay */
+  pointer-events: none;       /* the whole card is one link — never intercept it */
+  background:
+    linear-gradient(
+      to top,
+      rgba(9, 13, 11, 0.95) 0%,
+      rgba(9, 13, 11, 0.90) 32%,
+      rgba(9, 13, 11, 0.74) 55%,
+      rgba(9, 13, 11, 0.50) 76%,
+      rgba(9, 13, 11, 0.30) 100%
+    ),
+    rgba(9, 13, 11, 0.20);
+}
+
+/*
+ * The brand chip, which had no base rule either and rendered as raw inline
+ * text in the card's top-left corner.
+ *
+ * It carries its own pill rather than leaning on the scrim. The scrim is
+ * deliberately lightest at the top so the preview stays visible up there, and
+ * that is not enough contrast on its own for 11px uppercase text over a white
+ * storefront. A solid chip is legible over anything.
+ */
+.ew__brand {
+  position: absolute;
+  z-index: 3;
+  top: 18px;
+  left: 22px;
+  opacity: 0;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(9, 13, 11, 0.82);
+  color: #fff;
+  font-family: var(--font-manrope), system-ui, sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ew__brand-mark {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--green-bright, #22C55E);
+}
+.ew__brand-thin {
+  font-weight: 500;
+  letter-spacing: .06em;
+  color: rgba(255, 255, 255, .82);
+  padding-left: 9px;
+  margin-left: 1px;
+  border-left: 1px solid rgba(255, 255, 255, .24);
+}
+
 /* Hover: restrained, as specified. 1.00 -> 1.02. */
 @media (hover: hover) and (pointer: fine) {
   @media (prefers-reduced-motion: no-preference) {
