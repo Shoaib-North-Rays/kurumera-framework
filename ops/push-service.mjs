@@ -1442,6 +1442,7 @@ function copyDir(src, dest) {
 
 // Publish store <s>'s latest ready build to the registry as <theme>@<version> (immutable).
 async function publishToMarket(s, meta) {
+  const creatorEmail = (meta && meta.creatorEmail) || "";
   s = slug(s);
   const theme = slug(meta.name || s);
   const version = String(meta.version || "").replace(/[^a-zA-Z0-9._-]/g, "");
@@ -1490,8 +1491,30 @@ async function publishToMarket(s, meta) {
   if (md.demoStore) entry.demoStore = md.demoStore;
   entry.versions.push({ version, id: latest, published: Date.now(), installs: 0 });
   entry.latest = version;
+
+  /*
+   * THE MODERATION GATE, which code themes were not subject to at all.
+   *
+   * publishDesignToMarket has always set this. This function never did, and
+   * marketListing() treats an ABSENT status as approved -- so every code theme
+   * ever published went straight into the public catalogue, and none of them
+   * could appear in the review queue, which filters on "submitted". The queue
+   * was not empty because nothing had been submitted; it was empty because
+   * nothing could ever be.
+   *
+   * Same rule as the design path, deliberately: a platform admin publishes
+   * approved, anyone else is submitted for review, and a listing already
+   * approved stays approved when its creator pushes a new version. That last
+   * clause is a real gap -- a new version is new distributable code and is not
+   * re-reviewed -- but it is existing behaviour on the design path and
+   * changing moderation policy is not mine to decide unilaterally. Tracked
+   * separately.
+   */
+  if (creatorEmail) entry.creatorEmail = creatorEmail;   // the review queue shows who submitted it
+  entry.status = isAdmin(creatorEmail) ? "approved" : (entry.status === "approved" ? "approved" : "submitted");
+
   setMarket(m);
-  return { ok: true, theme, version };
+  return { ok: true, theme, version, status: entry.status };
 }
 
 // Install <theme>@<version> into store <s>: copy the registry artifact into a new
@@ -1636,7 +1659,12 @@ function captureCover(theme) {
 function marketListing() {
   const m = getMarket();
   return Object.entries(m.themes)
-    .filter(([, e]) => !e.status || e.status === "approved")   // hide pending/rejected from the public catalogue
+    // Explicit approval only. This used to read `!e.status || ...`, so a
+    // listing that had never been reviewed was indistinguishable from one that
+    // had been cleared -- which is precisely how unmoderated code themes
+    // reached the catalogue. Pre-existing listings were backfilled to
+    // "approved" before this tightened, so nothing already public disappeared.
+    .filter(([, e]) => e.status === "approved")
     .map(([themeSlug, e]) => ({
     slug: themeSlug, name: e.name, description: e.description, author: e.author,
     latest: e.latest, versions: e.versions.map((v) => v.version),
@@ -2579,7 +2607,9 @@ const server = http.createServer((req, res) => {
       const s = slug(body.store);
       const az = await authorizeMutation(req, s, body.actor_email, "market_publish");   // trusted service key (dashboard) or dev CLI bearer
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
-      const r = await publishToMarket(s, body);
+      // az.actor, never body.creatorEmail: the publisher is who authenticated,
+      // not who the request claims to be.
+      const r = await publishToMarket(s, { ...body, creatorEmail: az.actor });
       // Capture a cover here TOO, not just on the builder-design path below.
       //
       // captureCover was wired only to /publish-design, so every CODE theme —
