@@ -12,7 +12,13 @@ export const Search = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><circle
 export const Arrow = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><path d="M5 12h14M13 6l6 6-6 6" /></svg>);
 export const Chevron = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><path d="m9 6 6 6-6 6" /></svg>);
 export const Check = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><path d="M20 6 9 17l-5-5" /></svg>);
-export const Heart = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><path d="M12 20s-7-4.6-9.3-9C1 7.7 2.6 4.5 6 4.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.4 0 5 3.2 3.3 6.5C19 15.4 12 20 12 20Z" /></svg>);
+/* Mirrored about x=12. The previous path was not: it reached 9.99 units left of
+   the centre line and only 5.99 right, so the notch sat off-centre, the right
+   lobe was squashed into a visible kink, and the point did not line up under
+   it. Measured, both stroked and filled, before and after. Two semicircular
+   lobes and two mirrored cubics down to the point keep it symmetric by
+   construction rather than by eye. */
+export const Heart = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><path d="M12 20.4C12 20.4 3 14.9 3 9.1a4.6 4.6 0 0 1 9-1.9 4.6 4.6 0 0 1 9 1.9c0 5.8-9 11.3-9 11.3Z" /></svg>);
 export const Download = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><path d="M12 3v12M8 11l4 4 4-4" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>);
 export const Layers = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><path d="M12 3 3 7.5l9 4.5 9-4.5L12 3Z" /><path d="M3 12l9 4.5L21 12M3 16.5 12 21l9-4.5" /></svg>);
 export const Grid = (p: SVGProps<SVGSVGElement>) => (<svg {...base(p)}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>);

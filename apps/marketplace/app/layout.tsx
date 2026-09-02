@@ -9,7 +9,7 @@ import { Inter, Manrope } from "next/font/google";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { MotionRoot } from "@/components/motion/Reveal";
-import { BOOT_SCRIPT } from "@/lib/motion";
+import { BOOT_SCRIPT, EAGER_SCRIPT } from "@/lib/motion";
 
 // Corrected per architecture note: Manrope (headings) + Inter (body/UI), not Sora.
 const head = Manrope({ subsets: ["latin"], weight: ["500", "600", "700", "800"], variable: "--font-manrope" });
@@ -76,6 +76,28 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <Header />
         <main id="main">{children}</main>
         <Footer />
+        {/* THE SECOND HALF OF THE MOTION SYSTEM, which was never mounted.
+ 
+            BOOT_SCRIPT adds `html.js` in <head>, and motion.css keys every
+            hidden state off that class — so the moment it lands, everything
+            with [data-reveal] is at opacity 0. EAGER_SCRIPT is what puts it
+            back: it reveals what is already on screen at parse time, and arms
+            the failsafe that strips `html.js` if the reveal engine never
+            reports for duty.
+ 
+            It was written, exported and documented, and then never rendered.
+            Reveal.tsx describes cancelling "the failsafe armed by
+            EAGER_SCRIPT" — a timer nothing was setting. So the page armed
+            itself to hide content and had no way to un-hide it except React
+            hydrating successfully. When a chunk 404s after a redeploy, or the
+            bundle is simply slow, the content sits in the DOM at opacity 0
+            indefinitely: header and breadcrumb visible, the entire page body
+            invisible, and a hard refresh the only cure.
+ 
+            It belongs at the END of <body> so the markup it reveals has been
+            parsed. Its own try/catch reveals everything on any error, so every
+            exit from it leaves content visible. */}
+        <script dangerouslySetInnerHTML={{ __html: EAGER_SCRIPT }} />
       </body>
     </html>
   );
