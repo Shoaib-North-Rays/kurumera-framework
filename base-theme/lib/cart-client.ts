@@ -9,7 +9,7 @@
  * key the platform checkout reads, so "Checkout" hands the cart off cleanly to
  * the proven Stripe checkout without re-implementing payments in the theme.
  */
-import { createKurumeraClient } from "@kurumera/storefront";
+import { createKurumeraClient, trackEvent, EVENT, analyticsIdentity } from "@kurumera/storefront";
 
 // The SDK defaults to the public storefront API (admin.kurumera.com/api/v1).
 const CART_KEY = "plantsmall_cart"; // shared with the platform checkout
@@ -52,6 +52,10 @@ export async function addToCart(variantId: string, quantity = 1) {
   const token = await ensureCart();
   const cart = await client().cart.addLine(token, { variant_id: variantId, quantity });
   window.dispatchEvent(new Event("kurumera:cart"));
+  // After the API confirms it, not on click: a failed add is not an add, and
+  // counting it would overstate the top of the funnel against the orders that
+  // actually follow.
+  trackEvent(EVENT.ADD_TO_CART, { data: { variant_id: variantId, quantity } });
   return cart;
 }
 
@@ -74,6 +78,7 @@ export async function removeLine(lineId: string) {
   if (!token) return null;
   const cart = await client().cart.removeLine(token, lineId);
   window.dispatchEvent(new Event("kurumera:cart"));
+  trackEvent(EVENT.REMOVE_FROM_CART, { data: { line_id: lineId } });
   return cart;
 }
 
@@ -92,8 +97,41 @@ export function checkoutHref(): string {
   const token = getCartToken();
   const slug = tenantSlug();
   if (typeof window === "undefined" || !slug) return "/cart";
-  const qs = new URLSearchParams({ store: slug, ...(token ? { cart_token: token } : {}) });
+  /*
+   * Carry the analytics identity across the origin boundary.
+   *
+   * Checkout is hosted on checkout.kurumera.com, and localStorage is
+   * per-origin — so the shopper who browsed and the shopper who paid are two
+   * unrelated visitor_ids and the funnel cannot be joined. That is not a
+   * missing event; it is every event landing under the wrong visitor once the
+   * hand-off happens.
+   *
+   * Sending them costs nothing and is forward-compatible: the checkout app
+   * ignores parameters it does not know. Joining them up needs a matching
+   * change there to prefer an inbound id over a freshly minted one, which is
+   * tracked separately — until then these are inert but correct.
+   */
+  const id = analyticsIdentity();
+  const qs = new URLSearchParams({
+    store: slug,
+    ...(token ? { cart_token: token } : {}),
+    kv: id.visitor_id,
+    ks: id.session_id,
+  });
   return `https://${CHECKOUT_HOST}/checkout?${qs.toString()}`;
+}
+
+/**
+ * BEGIN_CHECKOUT, fired as the shopper leaves for the hosted checkout.
+ *
+ * The checkout app fires its own BEGIN_CHECKOUT when its page mounts, so this
+ * is deliberately NOT a second copy of that event — it is the last thing that
+ * happens on the merchant's own storefront, and the only place the theme can
+ * observe intent to buy. Call it from the checkout button's onClick; the
+ * tracker uses keepalive so the request survives the navigation it triggers.
+ */
+export function trackBeginCheckout(items: number, value: number, currency = ""): void {
+  trackEvent(EVENT.BEGIN_CHECKOUT, { data: { items, value, currency, from: "storefront" } });
 }
 
 /** Cart line as returned by the storefront API (loose, matches the live store). */

@@ -1,6 +1,6 @@
 {
   "name": "@kurumera/storefront",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Typed Storefront SDK for Kurumera Next.js themes.",
   "type": "module",
   "main": "dist/index.js",

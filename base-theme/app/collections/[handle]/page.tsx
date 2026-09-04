@@ -1,6 +1,7 @@
 import type { ProductListItem } from "@kurumera/storefront";
 import { getStore } from "@/lib/kurumera";
 import { ProductCard } from "@/components/ProductCard";
+import { TrackCollectionView } from "@/components/Analytics";
 
 /** collection template */
 export default async function CollectionPage({
@@ -18,6 +19,8 @@ export default async function CollectionPage({
 
   return (
     <section className="section">
+      {/* COLLECTION_VIEW. Renders nothing; deduped per collection. */}
+      <TrackCollectionView collectionId={String(collection.id)} handle={handle} />
       <div className="section__head">
         <h1 className="section__title">{collection.title}</h1>
         <span className="section__count">{products.length} product{products.length === 1 ? "" : "s"}</span>

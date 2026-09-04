@@ -23,6 +23,12 @@ import { cartResource } from "./resources/cart.js";
 import { contentResource } from "./resources/content.js";
 
 export * from "./types.js";
+/**
+ * Storefront analytics. Browser-only and framework-agnostic — safe to import
+ * from a Server Component file; every entry point no-ops without a `window`.
+ */
+export { trackEvent, EVENT, resolveTenantSlug, analyticsIdentity } from "./analytics.js";
+export type { TrackOptions } from "./analytics.js";
 export { KurumeraError, DEFAULT_API_URL, collectAll } from "./http.js";
 export type { ClientConfig, Http } from "./http.js";
 export type { NewLine } from "./resources/cart.js";

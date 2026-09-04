@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { getSettings, themeCssVars } from "@/lib/settings";
 import { getTenantSlug } from "@/lib/kurumera";
+import { PageViews } from "@/components/Analytics";
 import { EditableProvider } from "@kurumera/editable/client";
 import { resolveEditableContent } from "@kurumera/editable/server";
 
@@ -38,7 +39,18 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         {tenantSlug ? (
           <script
             dangerouslySetInnerHTML={{
-              __html: `window.__TENANT__=${JSON.stringify({ slug: tenantSlug }).replace(/</g, "\\u003c")}`,
+              __html:
+                `window.__TENANT__=${JSON.stringify({ slug: tenantSlug }).replace(/</g, "\\u003c")};` +
+                // window.__KURUMERA__ adds what the analytics client needs, and
+                // carries the single switch that keeps preview traffic out of a
+                // merchant's funnel: the marketplace preview container runs with
+                // KURUMERA_DEMO=1 against a fake tenant. Setting it once here
+                // means no individual call site has to remember to check it.
+                `window.__KURUMERA__=${JSON.stringify({
+                  tenant: tenantSlug,
+                  apiUrl: process.env.KURUMERA_API_URL || undefined,
+                  analytics: process.env.KURUMERA_DEMO !== "1",
+                }).replace(/</g, "\\u003c")}`,
             }}
           />
         ) : null}
@@ -58,6 +70,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         >
           <AnnouncementBar />
           <Header />
+          {/* PAGE_VIEW on load and on every client-side navigation. Renders
+              nothing; mounted here so a route change anywhere is counted. */}
+          <PageViews />
           <main className="site-main">{children}</main>
           <Footer />
         </EditableProvider>

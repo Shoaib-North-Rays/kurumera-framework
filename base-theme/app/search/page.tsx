@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getStore } from "@/lib/kurumera";
 import { ProductCard } from "@/components/ProductCard";
+import { TrackSearch } from "@/components/Analytics";
 import type { SearchResults } from "@kurumera/storefront";
 
 /** search template */
@@ -20,6 +21,10 @@ export default async function SearchPage({
 
   return (
     <section className="section">
+      {/* SEARCH, plus SEARCH_NO_RESULTS when nothing matched — the query a
+          shopper typed and the store could not answer is the more actionable
+          half of search analytics. Renders nothing. */}
+      <TrackSearch query={q} results={totalResults} />
       <h1 className="section__title">Search</h1>
       <form action="/search" method="get" className="search-form">
         <input name="q" defaultValue={q} placeholder="Search products…" aria-label="Search" />

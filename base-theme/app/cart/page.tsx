@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  getCart, setLineQuantity, removeLine, checkoutHref,
+  getCart, setLineQuantity, removeLine, checkoutHref, trackBeginCheckout,
   cartSubtotal, lineTotal, type CartLine,
 } from "@/lib/cart-client";
 import { Price } from "@/components/Price";
 import { TrashIcon, ArrowRight } from "@/components/Icon";
+import { TrackCartView } from "@/components/Analytics";
 
 /** cart template — live cart backed by the storefront cart API. */
 export default function CartPage() {
@@ -45,6 +46,8 @@ export default function CartPage() {
 
   return (
     <section className="section cart">
+      {/* CART_VIEW — reached the cart with something in it. Renders nothing. */}
+      <TrackCartView items={lines.length} value={subtotal} />
       <h1 className="section__title">Your cart</h1>
 
       <ul className="cart__lines">
@@ -86,7 +89,18 @@ export default function CartPage() {
           <span className="muted">Subtotal</span>
           <Price amount={String(subtotal)} />
         </div>
-        <a className="btn btn--primary btn--block" href={checkoutHref()}>Checkout <ArrowRight /></a>
+        {/* BEGIN_CHECKOUT fires on the way out, not on arrival: this is the
+            last thing that happens on the merchant's own storefront, and the
+            only point at which the theme can observe intent to buy. The
+            tracker uses keepalive, so the request survives the navigation this
+            click starts. */}
+        <a
+          className="btn btn--primary btn--block"
+          href={checkoutHref()}
+          onClick={() => trackBeginCheckout(lines.length, subtotal)}
+        >
+          Checkout <ArrowRight />
+        </a>
         <p className="cart__note">Taxes and shipping are calculated at checkout.</p>
       </div>
     </section>

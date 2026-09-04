@@ -3,6 +3,7 @@ import { KurumeraError } from "@kurumera/storefront";
 import { getStore } from "@/lib/kurumera";
 import { Price } from "@/components/Price";
 import { AddToCart } from "@/components/AddToCart";
+import { TrackProductView } from "@/components/Analytics";
 import { TruckIcon, RefreshIcon, ShieldIcon } from "@/components/Icon";
 
 /** product template */
@@ -38,6 +39,9 @@ export default async function ProductPage({
 
   return (
     <article className="pdp">
+      {/* PRODUCT_VIEW. Renders nothing; deduped per product so re-rendering on
+          variant or quantity changes does not re-count the view. */}
+      <TrackProductView productId={String(product.id)} handle={handle} />
       <div className="pdp__media">
         {product.featured_image?.src ? (
           // eslint-disable-next-line @next/next/no-img-element
