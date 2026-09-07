@@ -1364,7 +1364,11 @@ function marketDemo(theme) { const e = getMarket().themes[slug(theme)]; return (
 async function wakeMarketPreview(theme) {
   theme = slug(theme);
   const e = getMarket().themes[theme];
-  if (!e || !e.latest) return false;
+  // Preview what a buyer would get -- the approved version, not an unreviewed
+  // push. A preview showing code nobody has cleared is a review gate with a
+  // hole in it.
+  const previewVersion = servedVersion(e);
+  if (!e || !previewVersion) return false;
   const demo = marketDemo(theme);
   touch(theme, "market");
   const name = marketName(theme);
@@ -1374,7 +1378,7 @@ async function wakeMarketPreview(theme) {
     await sh("docker", ["start", name]);
     return waitReady(name, demo);
   }
-  const dir = marketDir(theme, e.latest);
+  const dir = marketDir(theme, previewVersion);
   if (!existsSync(dir)) return false;
   // KURUMERA_DEMO=1 tells the theme to serve its seeded demo catalogue (a mock
   // client, no live merchant) — set ONLY on the marketplace-preview container, so
@@ -1511,7 +1515,18 @@ async function publishToMarket(s, meta) {
    * separately.
    */
   if (creatorEmail) entry.creatorEmail = creatorEmail;   // the review queue shows who submitted it
-  entry.status = isAdmin(creatorEmail) ? "approved" : (entry.status === "approved" ? "approved" : "submitted");
+  if (isAdmin(creatorEmail)) {
+    // A platform admin's push is reviewed by definition, so it goes live.
+    entry.status = "approved";
+    entry.approvedVersion = version;
+  } else {
+    // Anyone else: the push waits for review. `approvedVersion` is left where
+    // it is, so a listing that was already cleared keeps serving that version
+    // and stays on sale while this one is looked at. A listing with no
+    // approvedVersion yet simply stays out of the catalogue until first
+    // approval, which is the original gate.
+    entry.status = "submitted";
+  }
 
   setMarket(m);
   return { ok: true, theme, version, status: entry.status };
@@ -1530,7 +1545,9 @@ async function installFromMarket(s, theme, version, actor, license) {
   // Enforce the per-license store seat limit for paid themes.
   const seatErr = consumeSeat(license, s);
   if (seatErr) return { ok: false, status: 403, error: seatErr };
-  const ver = version && version !== "latest" ? String(version) : entry.latest;
+  // "latest" means the latest APPROVED version. An explicit version is still
+  // honoured -- that path is how an admin installs something deliberately.
+  const ver = version && version !== "latest" ? String(version) : servedVersion(entry);
   const found = entry.versions.find((v) => v.version === ver);
   if (!found) return { ok: false, error: `${theme}@${ver} not found` };
 
@@ -1656,18 +1673,46 @@ function captureCover(theme) {
   });
 }
 
+/**
+ * The version the public gets.
+ *
+ * `latest` is the newest version a creator has PUSHED. `approvedVersion` is the
+ * newest one a human has cleared. They are the same until a creator pushes an
+ * update, and during that window the difference is the whole point: the
+ * catalogue keeps serving the version that was reviewed while the new one waits
+ * in the queue.
+ *
+ * Without this split, review was per-listing rather than per-version — a clean
+ * v1 cleared review and v2 shipped to every buyer unlooked-at. The alternative
+ * (send the listing back to pending) would take a live product off sale every
+ * time its creator fixed a typo.
+ *
+ * Falls back to `latest` for listings that predate the field, which the backfill
+ * fills in; without the fallback an un-backfilled listing would serve nothing.
+ */
+function servedVersion(e) {
+  return (e && (e.approvedVersion || e.latest)) || null;
+}
+
+/** Has this listing ever been cleared? Governs whether the public sees it. */
+function isPubliclyListed(e) {
+  return !!(e && (e.approvedVersion || e.status === "approved"));
+}
+
 function marketListing() {
   const m = getMarket();
   return Object.entries(m.themes)
-    // Explicit approval only. This used to read `!e.status || ...`, so a
-    // listing that had never been reviewed was indistinguishable from one that
-    // had been cleared -- which is precisely how unmoderated code themes
-    // reached the catalogue. Pre-existing listings were backfilled to
-    // "approved" before this tightened, so nothing already public disappeared.
-    .filter(([, e]) => e.status === "approved")
+    // Visible once it has EVER been cleared -- not "is the newest push
+    // approved". A creator pushing an update must not take their own live
+    // product off sale; the catalogue keeps serving the approved version while
+    // the new one waits in the queue. `status` tracks the newest push, which is
+    // what the review queue reads.
+    .filter(([, e]) => isPubliclyListed(e))
     .map(([themeSlug, e]) => ({
     slug: themeSlug, name: e.name, description: e.description, author: e.author,
-    latest: e.latest, versions: e.versions.map((v) => v.version),
+    // The approved version, not the newest push -- this is what a buyer
+    // installs, so it is what the catalogue must advertise.
+    latest: servedVersion(e), versions: e.versions.map((v) => v.version),
     installs: e.versions.reduce((n, v) => n + (v.installs || 0), 0),
     price: Number(e.price) > 0 ? Number(e.price) : 0,
     currency: e.currency || "USD",
@@ -2496,6 +2541,10 @@ const server = http.createServer((req, res) => {
       const e = m.themes[theme];
       if (!e) return json(404, { error: "no such listing" });
       e.status = action === "approve" ? "approved" : "rejected";
+      // Approval attaches to a VERSION, not to the listing. Promoting it here
+      // is what puts the reviewed code in front of buyers; until this line
+      // runs, the catalogue is still serving the previously approved one.
+      if (action === "approve") e.approvedVersion = e.latest;
       // A decision with no decider is not a review. Kept on the listing so the
       // queue can show who cleared it and when.
       e.reviewedAt = Date.now();
@@ -2587,7 +2636,7 @@ const server = http.createServer((req, res) => {
       return res.end(`"${e.name || t}" is a paid theme — buy it, then clone with ?license=<key>`);
     }
     const raw = u.searchParams.get("version");
-    const ver = raw && raw !== "latest" ? String(raw).replace(/[^a-zA-Z0-9._-]/g, "") : e.latest;
+    const ver = raw && raw !== "latest" ? String(raw).replace(/[^a-zA-Z0-9._-]/g, "") : servedVersion(e);
     const dir = marketDir(t, ver);
     if (!existsSync(dir)) { res.writeHead(404, { "Content-Type": "text/plain" }); return res.end(`${t}@${ver} not found`); }
     logSourcePull(t, ver, u.searchParams.get("license") || "", clientIp(req));
