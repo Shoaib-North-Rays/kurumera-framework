@@ -128,7 +128,7 @@ function apiBase(): string {
 
 const UTM_PARAMS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"] as const;
 
-function sessionUtm(): Record<string, string> {
+function sessionUtmInternal(): Record<string, string> {
   const w = win();
   if (!w) return {};
   try {
@@ -248,7 +248,7 @@ export function trackEvent(eventType: string, opts: TrackOptions = {}): void {
       page_path: w.location.pathname,
       // First-touch UTM for the session — attached to every event so clicks AND
       // purchases attribute to the campaign that drove the visit.
-      ...sessionUtm(),
+      ...sessionUtmInternal(),
       data: opts.data ?? {},
       // Body-level fallback: a proxied or same-origin deploy may strip the
       // X-Tenant-ID header, and the store still has to resolve.
@@ -284,6 +284,22 @@ export function analyticsIdentity(): { visitor_id: string; session_id: string } 
     visitor_id: stored("local", VISITOR_KEY),
     session_id: stored("session", SESSION_KEY),
   };
+}
+
+/**
+ * The first-touch UTM captured for this session, if any.
+ *
+ * Attribution is captured per ORIGIN, and checkout lives on a different one —
+ * so without forwarding these, a purchase attributes to whatever the checkout
+ * origin saw (nothing) rather than to the campaign that drove the visit. That
+ * is the number a merchant spends money against.
+ *
+ * The checkout app already reads UTM parameters from its own URL, so a theme
+ * appending these to the checkout link is the whole fix; nothing has to change
+ * on the other side.
+ */
+export function sessionUtm(): Record<string, string> {
+  return sessionUtmInternal();
 }
 
 /** Event types a storefront emits. Mirrors the backend's AnalyticsEvent.EventType. */

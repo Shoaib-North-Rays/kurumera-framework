@@ -9,7 +9,7 @@
  * key the platform checkout reads, so "Checkout" hands the cart off cleanly to
  * the proven Stripe checkout without re-implementing payments in the theme.
  */
-import { createKurumeraClient, trackEvent, EVENT, analyticsIdentity } from "@kurumera/storefront";
+import { createKurumeraClient, trackEvent, EVENT, analyticsIdentity, sessionUtm } from "@kurumera/storefront";
 import type { DiscountValidation } from "@kurumera/storefront";
 
 // The SDK defaults to the public storefront API (admin.kurumera.com/api/v1).
@@ -154,6 +154,11 @@ export function checkoutHref(): string {
     ...(coupon ? { discount_code: coupon } : {}),
     kv: id.visitor_id,
     ks: id.session_id,
+    // First-touch UTM too. Attribution is captured per ORIGIN, so without
+    // forwarding it a purchase attributes to what the checkout origin saw —
+    // nothing — instead of the campaign that drove the visit. The checkout app
+    // already reads UTM from its own URL, so forwarding is the whole fix.
+    ...sessionUtm(),
   });
   return `https://${CHECKOUT_HOST}/checkout?${qs.toString()}`;
 }

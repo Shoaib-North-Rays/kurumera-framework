@@ -29,7 +29,7 @@ export * from "./types.js";
  * Storefront analytics. Browser-only and framework-agnostic — safe to import
  * from a Server Component file; every entry point no-ops without a `window`.
  */
-export { trackEvent, EVENT, resolveTenantSlug, analyticsIdentity } from "./analytics.js";
+export { trackEvent, EVENT, resolveTenantSlug, analyticsIdentity, sessionUtm } from "./analytics.js";
 export type { TrackOptions } from "./analytics.js";
 export { KurumeraError, DEFAULT_API_URL, collectAll } from "./http.js";
 export type { ClientConfig, Http } from "./http.js";
