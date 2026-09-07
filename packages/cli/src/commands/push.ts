@@ -102,7 +102,10 @@ export async function themePush(args: string[]): Promise<number> {
   const spin = startSpinner(["Building your theme", "Compiling components", "Bundling assets", "Optimising output", "Almost there"]);
   for (let i = 0; i < 200; i++) {
     await new Promise((r) => setTimeout(r, 3000));
-    let s: { status?: string; id?: string; error?: string } = {};
+    let s: {
+      status?: string; id?: string; error?: string;
+      marketplace?: { theme: string; listedVersion: string | null; pendingReview?: boolean };
+    } = {};
     try {
       const r = await fetch(`${PUSH_URL}/status?store=${encodeURIComponent(store || "")}`, {
         headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
@@ -112,6 +115,32 @@ export async function themePush(args: string[]): Promise<number> {
     if (s.status === "ready") {
       spin.stop(green(`✓ Built — version ${s.id || data.id} is ready.`));
       console.log(`  Make it live:  kurumera theme publish${store ? ` --store ${store}` : ""}`);
+      /*
+       * A push updates THIS STORE. It does not update the marketplace listing,
+       * which is a separate release — and until now nothing said so. A creator
+       * pushed a fix, published it, saw it live on their own store, and
+       * reasonably assumed the people who bought their theme had it too.
+       *
+       * Only shown when the store actually has a listing, so it is a reminder
+       * to the people it applies to rather than noise for everyone.
+       */
+      const mk = s.marketplace;
+      if (mk) {
+        console.log("");
+        if (mk.pendingReview) {
+          console.log(
+            `  ⓘ Marketplace listing "${mk.theme}" has an update awaiting review.` +
+            `\n    Buyers keep getting ${mk.listedVersion ?? "the approved version"} until it is cleared.`,
+          );
+        } else {
+          console.log(
+            `  ⓘ This build is NOT on the marketplace yet.` +
+            `\n    Listing "${mk.theme}" is still serving ${mk.listedVersion ?? "its published version"} to buyers.` +
+            `\n    Release it:  bump \`version\` in theme.config, then` +
+            `\n      kurumera marketplace publish${store ? ` --store ${store}` : ""}`,
+          );
+        }
+      }
       return 0;
     }
     if (s.status === "failed") {

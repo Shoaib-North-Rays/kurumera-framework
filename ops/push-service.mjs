@@ -1807,7 +1807,31 @@ const server = http.createServer((req, res) => {
     const s = u.searchParams.get("store") || "";
     verifyOwnership(req.headers["authorization"], s, "status").then((az) => {
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
-      return json(200, store(getState(), s).build);
+      /*
+       * The build status, plus whether this store has a MARKETPLACE listing.
+       *
+       * Pushing builds a new version of the store's own theme. It does not
+       * touch the listing — that is `marketplace publish`, a separate step, and
+       * deliberately so: a creator iterating on their own store should not be
+       * shipping each attempt to everyone who bought from them.
+       *
+       * But nothing ever said so. A creator with a listing pushed a fix, ran
+       * `theme publish`, saw it live on their own store, and reasonably assumed
+       * buyers had it. They did not, and there was no signal anywhere that the
+       * listing had fallen behind. The CLI prints this after a build.
+       */
+      const mk = getMarket().themes;
+      const owned = Object.entries(mk).find(([, e]) => slug(e.sourceStore || "") === s);
+      const listing = owned
+        ? {
+            theme: owned[0],
+            // What buyers get today. Not necessarily the newest push --
+            // an update waits for review (see approvedVersion).
+            listedVersion: servedVersion(owned[1]),
+            pendingReview: owned[1].status === "submitted",
+          }
+        : null;
+      return json(200, { ...store(getState(), s).build, ...(listing ? { marketplace: listing } : {}) });
     });
     return;
   }
