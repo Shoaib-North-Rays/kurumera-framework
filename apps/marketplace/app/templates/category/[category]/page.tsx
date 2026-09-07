@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { DiscoverySkeleton } from "@/components/DiscoverySkeleton";
 import { DiscoveryView } from "@/components/DiscoveryView";
 import { CATEGORIES, categoryLabel } from "@/lib/registry";
 import type { SP } from "@/lib/params";
@@ -40,5 +42,12 @@ export default async function CategoryPage({
 }) {
   const { category } = await params;
   if (!isKnown(category)) notFound();
-  return <DiscoveryView params={await searchParams} forced={{ category }} base={`/templates/category/${category}`} />;
+  return (
+    // Suspense HERE, not a route-level loading.tsx: a segment-wide
+    // boundary flushes before the page runs, which commits a 200 and
+    // makes any later notFound() a soft 404.
+    <Suspense fallback={<DiscoverySkeleton />}>
+      <DiscoveryView params={await searchParams} forced={{ category }} base={`/templates/category/${category}`} />
+    </Suspense>
+  );
 }

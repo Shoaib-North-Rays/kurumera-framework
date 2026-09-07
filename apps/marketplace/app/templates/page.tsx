@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
+import { DiscoverySkeleton } from "@/components/DiscoverySkeleton";
 import { DiscoveryView } from "@/components/DiscoveryView";
 import { categoryLabel } from "@/lib/registry";
 import { spGet, type SP } from "@/lib/params";
@@ -24,5 +26,12 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 }
 
 export default async function TemplatesPage({ searchParams }: { searchParams: Promise<SP> }) {
-  return <DiscoveryView params={await searchParams} />;
+  return (
+    // Suspense HERE, not a route-level loading.tsx: a segment-wide
+    // boundary flushes before the page runs, which commits a 200 and
+    // makes any later notFound() a soft 404.
+    <Suspense fallback={<DiscoverySkeleton />}>
+      <DiscoveryView params={await searchParams} />
+    </Suspense>
+  );
 }

@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { DiscoverySkeleton } from "@/components/DiscoverySkeleton";
 import { DiscoveryView } from "@/components/DiscoveryView";
 import type { SP } from "@/lib/params";
 
@@ -11,5 +13,12 @@ export const dynamic = "force-dynamic";
 export const metadata = { alternates: { canonical: "/templates/paid" }, title: "Premium website templates" };
 
 export default async function PaidTemplatesPage({ searchParams }: { searchParams: Promise<SP> }) {
-  return <DiscoveryView params={await searchParams} forced={{ price: "paid" }} base="/templates/paid" />;
+  return (
+    // Suspense HERE, not a route-level loading.tsx: a segment-wide
+    // boundary flushes before the page runs, which commits a 200 and
+    // makes any later notFound() a soft 404.
+    <Suspense fallback={<DiscoverySkeleton />}>
+      <DiscoveryView params={await searchParams} forced={{ price: "paid" }} base="/templates/paid" />
+    </Suspense>
+  );
 }
