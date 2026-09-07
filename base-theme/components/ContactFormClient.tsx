@@ -25,8 +25,24 @@ const HONEYPOT = "website";
 
 function initialValues(fields: FormFieldDef[]): Record<string, FormValue> {
   const v: Record<string, FormValue> = {};
-  for (const f of fields) v[f.key] = f.type === "checkbox" ? false : "";
+  for (const f of fields) {
+    v[f.key] = f.type === "checkbox" ? false : f.type === "multiselect" ? [] : "";
+  }
   return v;
+}
+
+/**
+ * What a field offers to choose from.
+ *
+ * `choices` is the normalised shape the definition endpoint returns for every
+ * kind of choice — the merchant's typed options (where value equals label) and
+ * `membership`, whose choices are the store's real plans, so the value is a
+ * plan id and the label is the plan's name. Falling back to `options` keeps a
+ * theme working against a backend that has not been updated yet.
+ */
+function choicesOf(f: FormFieldDef): { value: string; label: string }[] {
+  if (f.choices?.length) return f.choices;
+  return (f.options ?? []).map((o) => ({ value: o, label: o }));
 }
 
 export function ContactFormClient({
@@ -89,6 +105,15 @@ export function ContactFormClient({
       ) : null}
 
       {fields.map((f) => {
+        /*
+         * A membership field on a store with no active plans has nothing to
+         * choose from. An empty dropdown would be a required question the
+         * shopper cannot answer, so the field waits until the merchant has a
+         * plan. Every other choice type is the merchant's own wording and is
+         * always renderable.
+         */
+        if (f.type === "membership" && choicesOf(f).length === 0) return null;
+
         const id = `kf-${slug}-${f.key}`;
         const err = errors[f.key];
         const describedBy = [f.help ? `${id}-help` : null, err ? `${id}-err` : null]
@@ -120,7 +145,7 @@ export function ContactFormClient({
                 value={String(values[f.key] ?? "")}
                 onChange={(e) => set(f.key, e.target.value)}
               />
-            ) : f.type === "select" ? (
+            ) : f.type === "select" || f.type === "membership" ? (
               <select
                 {...common}
                 value={String(values[f.key] ?? "")}
@@ -129,26 +154,69 @@ export function ContactFormClient({
                 {/* An empty first option so a required select cannot be
                     satisfied by whatever happened to be listed first. */}
                 <option value="">{f.placeholder || "Choose…"}</option>
-                {(f.options ?? []).map((o) => (
-                  <option key={o} value={o}>{o}</option>
+                {choicesOf(f).map((c) => (
+                  <option key={c.value} value={c.value}>{c.label}</option>
                 ))}
               </select>
             ) : f.type === "radio" ? (
               <div className="kf__radios" role="radiogroup" aria-labelledby={`${id}-label`}>
-                {(f.options ?? []).map((o) => (
-                  <label className="kf__radio" key={o}>
+                {choicesOf(f).map((c) => (
+                  <label className="kf__radio" key={c.value}>
                     <input
                       type="radio"
                       name={f.key}
-                      value={o}
-                      checked={values[f.key] === o}
-                      onChange={() => set(f.key, o)}
+                      value={c.value}
+                      checked={values[f.key] === c.value}
+                      onChange={() => set(f.key, c.value)}
                       required={f.required}
                     />
-                    <span>{o}</span>
+                    <span>{c.label}</span>
                   </label>
                 ))}
               </div>
+            ) : f.type === "multiselect" ? (
+              /* Several answers to one question. A checkbox group rather than a
+                 multi-select listbox: few people know a listbox takes
+                 ctrl-click, and it is worse again on touch. */
+              <div className="kf__radios" role="group" aria-describedby={describedBy || undefined}>
+                {choicesOf(f).map((c) => {
+                  const chosen = Array.isArray(values[f.key]) ? (values[f.key] as string[]) : [];
+                  return (
+                    <label className="kf__radio" key={c.value}>
+                      <input
+                        type="checkbox"
+                        name={f.key}
+                        value={c.value}
+                        checked={chosen.includes(c.value)}
+                        onChange={(e) =>
+                          set(
+                            f.key,
+                            e.target.checked
+                              ? [...chosen, c.value]
+                              : chosen.filter((v) => v !== c.value),
+                          )
+                        }
+                      />
+                      <span>{c.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            ) : f.type === "coupon" ? (
+              /* Codes are stored and matched upper-cased, so the input shows
+                 what will actually be submitted rather than quietly changing it
+                 on send. Whether it is VALID is the server's call — the same
+                 check checkout makes — so nothing is guessed here. */
+              <input
+                {...common}
+                type="text"
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={f.placeholder || "Enter your code"}
+                value={String(values[f.key] ?? "")}
+                onChange={(e) => set(f.key, e.target.value.toUpperCase())}
+              />
             ) : f.type === "checkbox" ? (
               <label className="kf__checkbox" htmlFor={id}>
                 <input
@@ -167,7 +235,7 @@ export function ContactFormClient({
                 {...common}
                 // The merchant's type drives the keyboard and the browser's own
                 // validation: `phone` is `tel`, `number` is numeric, and so on.
-                type={f.type === "phone" ? "tel" : f.type}
+                type={f.type === "phone" ? "tel" : f.type === "url" ? "url" : f.type}
                 placeholder={f.placeholder}
                 value={String(values[f.key] ?? "")}
                 onChange={(e) => set(f.key, e.target.value)}

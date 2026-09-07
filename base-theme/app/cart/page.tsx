@@ -8,6 +8,7 @@ import {
 import { Price } from "@/components/Price";
 import { TrashIcon, ArrowRight } from "@/components/Icon";
 import { TrackCartView } from "@/components/Analytics";
+import { CouponField } from "@/components/CouponField";
 
 /** cart template — live cart backed by the storefront cart API. */
 export default function CartPage() {
@@ -89,6 +90,9 @@ export default function CartPage() {
           <span className="muted">Subtotal</span>
           <Price amount={String(subtotal)} />
         </div>
+        {/* Checked here rather than at checkout, so an expired code is found
+            before the shopper fills in an address and a card. */}
+        <CouponField subtotal={subtotal} />
         {/* BEGIN_CHECKOUT fires on the way out, not on arrival: this is the
             last thing that happens on the merchant's own storefront, and the
             only point at which the theme can observe intent to buy. The

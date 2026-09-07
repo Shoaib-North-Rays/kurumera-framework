@@ -22,13 +22,34 @@ export interface FormFieldDef {
   key: string;
   /** What to show the shopper. */
   label: string;
-  type: "text" | "email" | "phone" | "number" | "textarea" | "select" | "checkbox" | "radio" | "date";
+  type:
+    | "text" | "email" | "phone" | "number" | "textarea"
+    | "select" | "checkbox" | "radio" | "date"
+    | "url"
+    /** Answer is a list of strings. */
+    | "multiselect"
+    /** Checked against the store's real discount codes. */
+    | "coupon"
+    /** Choices are the store's real active plans; the answer is a plan id. */
+    | "membership";
   required: boolean;
   placeholder?: string;
   /** Hint text shown under the input. */
   help?: string;
-  /** Present for `select` and `radio`; the allowed values, in order. */
+  /** Present for `select`, `radio` and `multiselect`; the merchant's own words. */
   options?: string[];
+  /**
+   * Render from this, not `options`.
+   *
+   * Both kinds of choice arrive normalised here — the merchant's typed options
+   * (where value equals label) and `membership`, whose choices are the store's
+   * real plans resolved at request time, so the value is a plan id and the
+   * label is the plan's name. One shape to render instead of special-casing.
+   *
+   * A `membership` field on a store with no active plans has an empty array;
+   * there is nothing answerable, so don't render it.
+   */
+  choices?: { value: string; label: string }[];
 }
 
 export interface FormDefinition {
@@ -45,8 +66,11 @@ export interface FormSubmitResult {
   detail: string;
 }
 
-/** A submitted value. `checkbox` sends a boolean; everything else a string. */
-export type FormValue = string | number | boolean | null;
+/**
+ * A submitted value. `checkbox` sends a boolean, `multiselect` an array of the
+ * chosen values, everything else a string.
+ */
+export type FormValue = string | number | boolean | string[] | null;
 
 /**
  * Per-field validation messages from a rejected submission, keyed by field.

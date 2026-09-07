@@ -10,9 +10,11 @@
  * the proven Stripe checkout without re-implementing payments in the theme.
  */
 import { createKurumeraClient, trackEvent, EVENT, analyticsIdentity } from "@kurumera/storefront";
+import type { DiscountValidation } from "@kurumera/storefront";
 
 // The SDK defaults to the public storefront API (admin.kurumera.com/api/v1).
 const CART_KEY = "plantsmall_cart"; // shared with the platform checkout
+const COUPON_KEY = "kurumera_coupon"; // the code the shopper applied, carried to checkout
 const RESERVED = new Set(["www", "api", "admin", "app", "themekit", "cdn"]);
 
 /** The store slug the browser is on (subdomain of kurumera.com, or an injected tenant). */
@@ -82,6 +84,35 @@ export async function removeLine(lineId: string) {
   return cart;
 }
 
+/* ── Discount code ──────────────────────────────────────────────────────────
+ *
+ * A code used to be checkable only when the order was placed, so a shopper
+ * typed one into the cart, got no response, and found out it had expired after
+ * filling in an address and a card. These check it here.
+ *
+ * Nothing is applied locally. The saving shown is what the server calculated,
+ * and the code is re-validated for real against the server's own cart when the
+ * order is placed — this is an early answer, not a promise.
+ */
+
+/** Ask the platform whether a code is live, and what it would take off. */
+export async function validateCoupon(code: string, cartTotal: number): Promise<DiscountValidation> {
+  return client().discounts.validate(code, { cartTotal });
+}
+
+/** The code the shopper has applied, if any. */
+export function getCoupon(): string | null {
+  try { return localStorage.getItem(COUPON_KEY); } catch { return null; }
+}
+
+export function setCoupon(code: string | null) {
+  try {
+    if (code) localStorage.setItem(COUPON_KEY, code);
+    else localStorage.removeItem(COUPON_KEY);
+  } catch { /* private mode */ }
+  window.dispatchEvent(new Event("kurumera:cart"));
+}
+
 // The platform's own proven checkout, fixed regardless of which host the
 // storefront itself is on. It can't be derived from window.location.hostname
 // (swapping the first label works for a <slug>.kurumera.com subdomain, but a
@@ -112,9 +143,15 @@ export function checkoutHref(): string {
    * tracked separately — until then these are inert but correct.
    */
   const id = analyticsIdentity();
+  const coupon = getCoupon();
   const qs = new URLSearchParams({
     store: slug,
     ...(token ? { cart_token: token } : {}),
+    // The code the shopper already entered and had checked. Checkout has its
+    // own promo input, so this saves them typing it a second time — and a code
+    // retyped is a code mistyped. Applied server-side at order placement
+    // either way; this only carries it across the origin boundary.
+    ...(coupon ? { discount_code: coupon } : {}),
     kv: id.visitor_id,
     ks: id.session_id,
   });

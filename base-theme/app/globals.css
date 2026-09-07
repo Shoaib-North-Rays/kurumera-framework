@@ -328,8 +328,17 @@ img { max-width: 100%; display: block; }
 .kf__field { display: grid; gap: 6px; }
 .kf__label { font-size: 14px; font-weight: 600; color: var(--ink); }
 
-.kf input[type="text"], .kf input[type="email"], .kf input[type="tel"],
-.kf input[type="number"], .kf input[type="date"], .kf textarea, .kf select {
+/* Every text-like control, by EXCLUSION rather than by listing types.
+ *
+ * This enumerated text/email/tel/number/date, and the moment a `url` field
+ * type existed a merchant could add one and get a bare browser default sitting
+ * among the themed inputs. The fields here are chosen by the merchant, not by
+ * the theme author, so a selector that has to be extended for each new type is
+ * a selector that will be wrong again. Checkboxes and radios are the only
+ * controls that must keep their native box. */
+.kf input:not([type="checkbox"]):not([type="radio"]),
+.kf textarea,
+.kf select {
   width: 100%;
   padding: 11px 13px;
   font: inherit;
@@ -382,3 +391,40 @@ img { max-width: 100%; display: block; }
   border-radius: var(--radius);
 }
 .form-success p { margin: 0; }
+
+/* ── Discount code on the cart ─────────────────────────────────────────────── */
+.coupon { display: grid; gap: 6px; margin: 4px 0 14px; }
+.coupon__row { display: flex; gap: 8px; }
+.coupon__row input {
+  flex: 1; min-width: 0;
+  padding: 10px 12px; font: inherit;
+  letter-spacing: .04em; text-transform: uppercase;
+  border: 1px solid var(--line-strong); border-radius: calc(var(--radius) - 6px);
+  background: var(--bg); color: var(--ink);
+}
+.coupon__row input:focus-visible {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.coupon__row .btn { flex: 0 0 auto; }
+.coupon--applied {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px;
+  padding: 10px 12px;
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 6px);
+}
+.coupon__code {
+  font-weight: 700; letter-spacing: .06em;
+  padding: 2px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent-ink);
+}
+.coupon__saving { margin-left: 10px; font-weight: 600; }
+.coupon__remove {
+  border: 0; background: none; padding: 0;
+  font: inherit; color: var(--muted); text-decoration: underline; cursor: pointer;
+}
+.coupon__remove:hover { color: var(--ink); }
+/* Full-width under the row, so "Applied at checkout" reads as a note on the
+   whole thing rather than a caption on the Remove button. */
+.coupon__note { flex-basis: 100%; margin: 0; }

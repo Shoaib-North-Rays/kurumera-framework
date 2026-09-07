@@ -22,6 +22,7 @@ import { configResource } from "./resources/config.js";
 import { cartResource } from "./resources/cart.js";
 import { contentResource } from "./resources/content.js";
 import { formsResource } from "./resources/forms.js";
+import { discountsResource } from "./resources/discounts.js";
 
 export * from "./types.js";
 /**
@@ -38,6 +39,8 @@ export { formFieldErrors } from "./resources/forms.js";
 export type {
   FormDefinition, FormFieldDef, FormSubmitResult, FormValue,
 } from "./resources/forms.js";
+/** Discount codes — check one before checkout rather than at it. */
+export type { DiscountValidation } from "./resources/discounts.js";
 
 export interface KurumeraClient {
   products: ReturnType<typeof productsResource>;
@@ -51,6 +54,8 @@ export interface KurumeraClient {
   content: ReturnType<typeof contentResource>;
   /** Merchant-defined forms: fetch the field schema, submit the answers. */
   forms: ReturnType<typeof formsResource>;
+  /** Discount codes: validate one early, without applying it. */
+  discounts: ReturnType<typeof discountsResource>;
   /** Escape hatch: call any storefront endpoint the typed resources don't cover. */
   http: Http;
 }
@@ -67,6 +72,7 @@ export function createKurumeraClient(config: ClientConfig): KurumeraClient {
     cart: cartResource(http),
     content: contentResource(http),
     forms: formsResource(http),
+    discounts: discountsResource(http),
     http,
   };
 }
