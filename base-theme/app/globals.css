@@ -318,3 +318,67 @@ img { max-width: 100%; display: block; }
   .valueprops { padding: 18px; }
   .footer__top { grid-template-columns: 1fr; }
 }
+
+/* ── Merchant-defined forms (components/ContactForm) ────────────────────────
+   The fields come from the store's own form definition, so this styles field
+   TYPES rather than a known set of inputs — whatever the merchant adds has to
+   look right without anyone touching the theme. */
+.kf-section { max-width: 640px; }
+.kf { display: grid; gap: 18px; }
+.kf__field { display: grid; gap: 6px; }
+.kf__label { font-size: 14px; font-weight: 600; color: var(--ink); }
+
+.kf input[type="text"], .kf input[type="email"], .kf input[type="tel"],
+.kf input[type="number"], .kf input[type="date"], .kf textarea, .kf select {
+  width: 100%;
+  padding: 11px 13px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: calc(var(--radius) - 6px);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.kf textarea { resize: vertical; min-height: 120px; }
+.kf :is(input, textarea, select):focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+/* A rejected field is outlined, not only recoloured — colour alone is not a
+   signal for everyone who has to read it. */
+.kf :is(input, textarea, select)[aria-invalid="true"] {
+  border-color: #b42318;
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, .12);
+}
+
+.kf__radios { display: grid; gap: 8px; }
+.kf__radio, .kf__checkbox {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 15px; cursor: pointer;
+}
+.kf__radio input, .kf__checkbox input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+.kf__help { margin: 0; font-size: 13px; color: var(--muted); }
+.kf__error { margin: 0; font-size: 13px; color: #b42318; }
+.kf__error--form {
+  padding: 10px 12px;
+  background: #fef3f2;
+  border: 1px solid #fecdca;
+  border-radius: calc(var(--radius) - 6px);
+}
+
+/* Off-screen rather than display:none — some bots skip hidden inputs, and the
+   whole point of the trap is that they fill it in. */
+.kf__trap {
+  position: absolute; left: -9999px; width: 1px; height: 1px;
+  overflow: hidden; white-space: nowrap;
+}
+
+.form-success {
+  padding: 16px 18px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.form-success p { margin: 0; }

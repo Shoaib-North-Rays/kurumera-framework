@@ -21,6 +21,7 @@ import { navigationResource } from "./resources/navigation.js";
 import { configResource } from "./resources/config.js";
 import { cartResource } from "./resources/cart.js";
 import { contentResource } from "./resources/content.js";
+import { formsResource } from "./resources/forms.js";
 
 export * from "./types.js";
 /**
@@ -32,6 +33,11 @@ export type { TrackOptions } from "./analytics.js";
 export { KurumeraError, DEFAULT_API_URL, collectAll } from "./http.js";
 export type { ClientConfig, Http } from "./http.js";
 export type { NewLine } from "./resources/cart.js";
+/** Merchant-defined forms — the field schema a theme renders, and the submit. */
+export { formFieldErrors } from "./resources/forms.js";
+export type {
+  FormDefinition, FormFieldDef, FormSubmitResult, FormValue,
+} from "./resources/forms.js";
 
 export interface KurumeraClient {
   products: ReturnType<typeof productsResource>;
@@ -43,6 +49,8 @@ export interface KurumeraClient {
   cart: ReturnType<typeof cartResource>;
   /** Kurumera Editable Components — merchant-editable inline content. */
   content: ReturnType<typeof contentResource>;
+  /** Merchant-defined forms: fetch the field schema, submit the answers. */
+  forms: ReturnType<typeof formsResource>;
   /** Escape hatch: call any storefront endpoint the typed resources don't cover. */
   http: Http;
 }
@@ -58,6 +66,7 @@ export function createKurumeraClient(config: ClientConfig): KurumeraClient {
     config: configResource(http),
     cart: cartResource(http),
     content: contentResource(http),
+    forms: formsResource(http),
     http,
   };
 }
