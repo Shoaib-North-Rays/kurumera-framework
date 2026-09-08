@@ -16,7 +16,7 @@
 import { useState } from "react";
 import {
   createKurumeraClient, formFieldErrors,
-  type FormFieldDef, type FormValue,
+  type ContactSubmission, type FormFieldDef, type FormValue,
 } from "@kurumera/storefront";
 import { tenantSlug } from "@/lib/cart-client";
 
@@ -49,10 +49,24 @@ export function ContactFormClient({
   slug,
   fields,
   successMessage,
+  mode = "form",
 }: {
   slug: string;
   fields: FormFieldDef[];
   successMessage: string;
+  /**
+   * Where the answers go.
+   *
+   * `"form"` — a form the merchant BUILT, submitted to its own definition.
+   * `"contact"` — the store's built-in contact form, submitted to the
+   * platform's contact endpoint. Most stores have never built a form, so this
+   * is the one the majority of storefronts actually use; before it existed
+   * their contact page rendered nothing at all.
+   *
+   * Only the destination differs. Both render identically, from the same
+   * field shape, so there is one form component rather than two.
+   */
+  mode?: "form" | "contact";
 }) {
   const [values, setValues] = useState<Record<string, FormValue>>(() => initialValues(fields));
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -71,11 +85,25 @@ export function ContactFormClient({
     setErrors({});
     setFormError("");
     try {
-      await createKurumeraClient({ tenant: tenantSlug() }).forms.submit(
-        slug,
-        { ...values, [HONEYPOT]: trap },
-        { sourceUrl: window.location.pathname },
-      );
+      const kurumera = createKurumeraClient({ tenant: tenantSlug() });
+      if (mode === "contact") {
+        /*
+         * The built-in contact form. The keys here are the endpoint's own
+         * input names, and `message` in particular is NOT interchangeable with
+         * `body` however much the stored column suggests it — sending `body`
+         * is rejected outright, so every enquiry would fail.
+         */
+        await kurumera.contact.submit({
+          ...(values as unknown as ContactSubmission),
+          [HONEYPOT]: trap,
+        });
+      } else {
+        await kurumera.forms.submit(
+          slug,
+          { ...values, [HONEYPOT]: trap },
+          { sourceUrl: window.location.pathname },
+        );
+      }
       setDone(true);
     } catch (err) {
       // Field errors belong against their fields; anything else — network,

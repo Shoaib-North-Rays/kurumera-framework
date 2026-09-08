@@ -13,8 +13,21 @@
  * credential, so nothing about how the theme authenticates reaches the browser,
  * and the fields are in the HTML rather than appearing after a client fetch.
  */
+import { contactFields } from "@kurumera/storefront";
 import { getStore } from "@/lib/kurumera";
 import { ContactFormClient } from "./ContactFormClient";
+
+/**
+ * Is this the store's contact form, or some other form the theme asked for?
+ *
+ * Only the contact form has a platform-wide fallback to fall back TO. A missing
+ * "job-application" form still renders nothing, because there is no built-in
+ * equivalent and inventing one would put a form on the page that goes somewhere
+ * the merchant never agreed to.
+ */
+function isContactKey(key: string): boolean {
+  return key === "contact" || key === "contact-us" || key === "contact_us";
+}
 
 export async function ContactForm({
   formKey,
@@ -32,15 +45,37 @@ export async function ContactForm({
     definition = await kurumera.forms.getDefinition(formKey);
   } catch {
     /*
-     * No such form, or the merchant switched it off — the backend answers 404
-     * to both, deliberately, since "exists but disabled" is not a public fact.
+     * No form with this key — the merchant never built one, or switched it off.
+     * The backend answers 404 to both, deliberately, since "exists but
+     * disabled" is not a public fact.
      *
-     * Render nothing. A shopper should never meet a broken form or an error
-     * about one, and a half-rendered form with no fields is worse than an
-     * absent section. The merchant's own admin is where the form's existence
-     * is managed, and that is where its absence is visible.
+     * This used to `return null`, and that was the bug. Building a form is
+     * something almost no merchant does: of the live stores checked, every one
+     * had contact settings and only a hand-made test store had a definition.
+     * So the common case — a merchant who just wants people to be able to reach
+     * them — got a contact page with NO FORM ON IT, and nothing anywhere said
+     * why.
+     *
+     * Fall back to the contact form every store has: name, email and message,
+     * plus whichever of Subject / Phone / Company / Job title the merchant
+     * switched on in the admin, sent to the platform's own contact endpoint and
+     * landing in their admin inbox. A store gets a working contact page out of
+     * the box, and a merchant who does build a form still overrides it.
      */
-    return null;
+    if (!isContactKey(formKey)) return null;
+
+    const { rules } = await kurumera.contact.getConfig();
+    return (
+      <section className="section kf-section">
+        <h2 className="section__title">{title ?? "Contact us"}</h2>
+        <ContactFormClient
+          slug="contact"
+          mode="contact"
+          fields={contactFields(rules)}
+          successMessage="Thanks — your message has been received. We'll be in touch."
+        />
+      </section>
+    );
   }
 
   if (!definition.fields?.length) return null;

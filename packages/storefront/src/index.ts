@@ -23,6 +23,7 @@ import { cartResource } from "./resources/cart.js";
 import { contentResource } from "./resources/content.js";
 import { formsResource } from "./resources/forms.js";
 import { discountsResource } from "./resources/discounts.js";
+import { contactResource } from "./resources/contact.js";
 
 export * from "./types.js";
 /**
@@ -41,6 +42,16 @@ export type {
 } from "./resources/forms.js";
 /** Discount codes — check one before checkout rather than at it. */
 export type { DiscountValidation } from "./resources/discounts.js";
+/**
+ * The store's built-in contact form. `contactFields()` returns the merchant's
+ * admin settings in the same shape a built form uses, so one component renders
+ * either.
+ */
+export { contactFields, DEFAULT_CONTACT_CONFIG } from "./resources/contact.js";
+export type {
+  ContactConfig, ContactDetails, ContactFieldRule, ContactFormRules,
+  ContactSubmission, ContactSubmitResult,
+} from "./resources/contact.js";
 
 export interface KurumeraClient {
   products: ReturnType<typeof productsResource>;
@@ -56,6 +67,12 @@ export interface KurumeraClient {
   forms: ReturnType<typeof formsResource>;
   /** Discount codes: validate one early, without applying it. */
   discounts: ReturnType<typeof discountsResource>;
+  /**
+   * The contact form every store has, whether or not the merchant built one.
+   * Use `forms` for a merchant-defined form; this is the fallback and the
+   * platform's own endpoint behind it.
+   */
+  contact: ReturnType<typeof contactResource>;
   /** Escape hatch: call any storefront endpoint the typed resources don't cover. */
   http: Http;
 }
@@ -73,6 +90,7 @@ export function createKurumeraClient(config: ClientConfig): KurumeraClient {
     content: contentResource(http),
     forms: formsResource(http),
     discounts: discountsResource(http),
+    contact: contactResource(http),
     http,
   };
 }
