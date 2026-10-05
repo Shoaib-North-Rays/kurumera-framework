@@ -975,7 +975,18 @@ async function runThemeBuild(s, dir) {
     "--read-only", "--tmpfs", "/tmp:size=1g",
     "-e", "HOME=/app", "-e", "npm_config_cache=/app/.npm",
     "-v", `${dir}:/app`, "-w", "/app", "node:20-alpine",
-    "sh", "-c", "npm install --no-audit --no-fund && npx next build",
+    // `npm ci` when a lockfile is present, so a REBUILD resolves the exact
+    // versions the first build did. Themes depend on ranges ("^0.7.0") and ship
+    // no lockfile, so a plain `npm install` resolves whatever is newest on npm
+    // that day — meaning a rollback to a known-good version could rebuild
+    // against newer packages than the ones it was known good with.
+    //
+    // `|| npm install` is the deliberate fallback: `npm ci` refuses when the
+    // lock and package.json disagree, and a theme whose source predates the
+    // captured lock must still build rather than fail closed.
+    "sh", "-c",
+    "if [ -f package-lock.json ]; then npm ci --no-audit --no-fund || npm install --no-audit --no-fund; "
+    + "else npm install --no-audit --no-fund; fi && npx next build",
   ], { timeoutMs: BUILD_TIMEOUT_MS, killContainer: buildName });
   try { writeFileSync(join(storeDir(s), "build.log"), b.out); } catch { /* best-effort */ }
   return b;
@@ -1019,6 +1030,15 @@ async function buildVersion(s, buffer, actor) {
       const srcDir = join(SOURCES, s);
       mkdirSync(srcDir, { recursive: true });
       copyFileSync(tgz, join(srcDir, `${v}.tgz`));
+      // Keep the lockfile npm just resolved, NEXT TO the source rather than in
+      // it: the tarball is what `theme pull` hands a developer, and it should
+      // stay byte-identical to what they pushed. This copy is what makes a
+      // later rebuild reproduce this build instead of re-resolving ranges.
+      // A few hundred KB per version, same bargain as the source itself.
+      try {
+        const lock = join(dir, "package-lock.json");
+        if (existsSync(lock)) copyFileSync(lock, join(srcDir, `${v}.lock.json`));
+      } catch { /* best-effort — a rebuild just falls back to npm install */ }
       sourceUrl = `${MARKET_PUBLIC_URL}/_push/source?store=${encodeURIComponent(s)}&version=${encodeURIComponent(v)}`;
     } catch { /* best-effort */ }
 
@@ -1157,8 +1177,28 @@ async function rebuildAndActivate(s, version, actor) {
     const x = await sh("tar", ["-xzf", join(SOURCES, s, `${version}.tgz`), "-C", dir]);
     if (x.code !== 0) return fail(s, version, "unpack failed (retained source)");
 
+    // Put back the lockfile this version was built with, so the rebuild
+    // resolves the same dependency versions rather than today's newest. A
+    // version published before this was captured has none; it builds with
+    // `npm install` as it always did, and the lock is captured from then on.
+    try {
+      const kept = join(SOURCES, s, `${version}.lock.json`);
+      if (existsSync(kept)) copyFileSync(kept, join(dir, "package-lock.json"));
+    } catch { /* best-effort */ }
+
     const b = await runThemeBuild(s, dir);
     if (b.code !== 0) return fail(s, version, "rebuild failed", b.out.slice(-800));
+
+    // Freeze this version from here on. A theme published before lock capture
+    // existed has nothing to restore, so its FIRST rebuild still resolves
+    // ranges — that one drift is unavoidable, the original resolution was
+    // never recorded. Capturing it now means every rebuild after this one
+    // reproduces this build exactly.
+    try {
+      const lock = join(dir, "package-lock.json");
+      const keep = join(SOURCES, s, `${version}.lock.json`);
+      if (existsSync(lock) && !existsSync(keep)) copyFileSync(lock, keep);
+    } catch { /* best-effort */ }
 
     // Re-admit it to the hot set so goLive can mount it, and so it survives
     // the next prune the same way any other recent build would.
