@@ -46,10 +46,16 @@ const args = process.argv.slice(2);
 const WRITE = args.includes("--write");
 const ONLY = args.includes("--store") ? slug(args[args.indexOf("--store") + 1]) : "";
 
-// The CLI pushes with exactly these exclusions (packages/cli/src/commands/push.ts).
+// The CLI pushes with the first four exclusions (packages/cli/src/commands/push.ts).
 // Matching them means a backfilled tarball is what a push would have retained,
 // not a bigger thing that happens to contain it.
-const EXCLUDE = ["node_modules", ".next", ".git", "dist"];
+//
+// `.npm` is the extra one, and it is the whole reason a first run produced 197 MB
+// archives: a BUILT directory is not a pushed directory. The build runs with
+// HOME=/app and npm_config_cache=/app/.npm, so npm's cache lands inside the
+// version directory — 142 MB of it on woodora, against 20 MB of real theme
+// images. The CLI never sees it, so its exclusion list does not mention it.
+const EXCLUDE = ["node_modules", ".next", ".git", "dist", ".npm", ".cache"];
 
 /** A version directory is only worth archiving if it still looks like a theme. */
 function looksLikeATheme(dir) {
