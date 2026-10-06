@@ -12,6 +12,7 @@ import { dirname, join } from "node:path";
 import { login } from "./commands/login.js";
 import { logout } from "./commands/logout.js";
 import { themeInit } from "./commands/init.js";
+import { themeUpgrade } from "./commands/upgrade.js";
 import { themeDev } from "./commands/dev.js";
 import { themeCheck } from "./commands/check.js";
 import { themePush } from "./commands/push.js";
@@ -46,6 +47,7 @@ function help(): void {
   console.log("  stores list                          List the stores this connection can act on");
   console.log("  stores add <slug>                    Authorize an EXISTING connection for another store");
   console.log("  theme init <name>                    Scaffold the base Next.js theme");
+  console.log("  theme upgrade [--apply]              Bring base files up to this CLI's template");
   console.log("  theme dev --store <slug>             Run the theme against live store data");
   console.log("  theme check                          Validate the route contract + safety rules");
   console.log("  theme push                           Upload the theme; the platform builds it");
@@ -105,6 +107,7 @@ async function dispatch(): Promise<number> {
   if (a === "stores" && b === "list") return storesList();
   if (a === "stores" && b === "add") return storesAdd(rest[0]);
   if (a === "theme" && b === "init") return themeInit(rest[0]);
+  if (a === "theme" && b === "upgrade") return themeUpgrade(rest);
   if (a === "theme" && b === "check") return themeCheck();
   if (a === "theme" && b === "push") return themePush(rest);
   if (a === "theme" && b === "preview") return themePreview(rest);

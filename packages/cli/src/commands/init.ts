@@ -1,7 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { copyDir } from "../util/fs.js";
+import { cliVersion, hashTree, writeBaseline } from "../util/baseline.js";
 
 /** Locate the base theme template to clone from. */
 function baseThemeDir(): string {
@@ -42,6 +43,16 @@ export function themeInit(name?: string): number {
     writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
   } catch {
     /* leave the template package.json as-is */
+  }
+
+  // Record what the template looked like right now. `theme upgrade` reads this
+  // to tell a file the developer edited from one the template has moved on.
+  // Without it an upgrade can only guess, and guessing means either destroying
+  // somebody's work or delivering nothing.
+  try {
+    writeBaseline(dest, cliVersion(dirname(fileURLToPath(import.meta.url))), hashTree(src));
+  } catch {
+    /* best-effort: a missing baseline weakens upgrade, it must not fail init */
   }
 
   console.log(`✓ Created "${name}" from the Kurumera base theme.\n`);
