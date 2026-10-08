@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { flag } from "../util/fs.js";
 import { cliVersion, hashTree, readBaseline, sha256, walk, writeBaseline } from "../util/baseline.js";
+import { formatStat, unifiedDiff } from "../util/diff.js";
 
 const TTY = process.stdout.isTTY;
 const paint = (c: string, s: string) => (TTY ? `\x1b[${c}m${s}\x1b[0m` : s);
@@ -102,10 +103,29 @@ export function themeUpgrade(args: string[]): number {
     console.log(yellow("so every differing file is left alone and listed for you to review.\n"));
   }
 
+  const showDiff = args.includes("--diff");
+  const only = flag(args, "--diff");          // --diff <path> narrows to one file
+
+  const readIf = (p: string) => { try { return readFileSync(p, "utf8"); } catch { return ""; } };
+
   const list = (label: string, rs: Row[], colour = (s: string) => s) => {
     if (!rs.length) return;
     console.log(colour(`${label} (${rs.length})`));
-    rs.forEach((r) => console.log(`  ${r.rel}`));
+    for (const r of rs) {
+      const mine = readIf(join(dir, r.rel));
+      const theirs = readIf(join(src, r.rel));
+      // A stat on every line, so the list alone answers "is this a comment or a
+      // rewrite?" — the question that made a bare filename useless.
+      const stat = r.verdict === "deleted" ? "" : formatStat(mine, theirs);
+      console.log(`  ${r.rel}${stat ? `  ${stat}` : ""}`);
+      if (!showDiff || (only && only !== r.rel) || r.verdict === "deleted") continue;
+      const patch = unifiedDiff(mine, theirs, {
+        fromLabel: `${r.rel}  (yours)`,
+        toLabel: `${r.rel}  (template, CLI ${version})`,
+      });
+      // Indented two spaces so a patch reads as belonging to the file above it.
+      if (patch) console.log(patch.split("\n").map((l) => `  ${l}`).join("\n") + "\n");
+    }
     console.log("");
   };
 
@@ -129,8 +149,9 @@ export function themeUpgrade(args: string[]): number {
     console.log(`${writes} file(s) would change. Nothing has been written.`);
     console.log(`Run again with ${cyan("--apply")} to do it.`);
     if (yours.length || unknown.length) {
-      console.log(dim("The files left alone are yours to merge by hand; compare them against"));
-      console.log(dim(`the template at ${src}`));
+      console.log(dim("The files left alone are yours to merge by hand."));
+      console.log(dim("See exactly what changed:  kurumera theme upgrade --diff"));
+      console.log(dim("Or one file:               kurumera theme upgrade --diff app/layout.tsx"));
     }
     return 0;
   }
