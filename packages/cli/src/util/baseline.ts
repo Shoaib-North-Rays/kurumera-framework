@@ -94,3 +94,38 @@ export function cliVersion(here: string): string {
   }
   return "unknown";
 }
+
+/**
+ * Versions whose `theme upgrade` wrote the ENTIRE template into the baseline,
+ * including files it had deliberately not written to the theme.
+ *
+ * The consequence was a false accusation. A withheld file ended up recorded as
+ * scaffolded while absent from disk, and "in the baseline but gone" is exactly
+ * how a deliberate deletion looks — so the next run reported files the theme
+ * had never contained as ones the developer had deleted on purpose, and then
+ * refused to add them.
+ */
+const OVERSTAMPED = new Set(["0.15.0", "0.16.0", "0.17.0", "0.18.0", "0.19.0"]);
+
+/**
+ * Drop baseline entries that one of those versions cannot have earned: a file
+ * recorded as scaffolded that is not in the theme at all.
+ *
+ * Only for those versions. A baseline written correctly may legitimately
+ * record a file the developer has since deleted, and that entry is what stops
+ * an upgrade resurrecting it.
+ */
+export function repairBaseline(
+  themeDir: string,
+  baseline: Baseline | null,
+): { baseline: Baseline | null; dropped: string[] } {
+  if (!baseline || !OVERSTAMPED.has(baseline.cli)) return { baseline, dropped: [] };
+  const dropped: string[] = [];
+  const files: Record<string, string> = {};
+  for (const [rel, hash] of Object.entries(baseline.files)) {
+    if (existsSync(join(themeDir, rel))) files[rel] = hash;
+    else dropped.push(rel);
+  }
+  if (!dropped.length) return { baseline, dropped };
+  return { baseline: { ...baseline, files }, dropped: dropped.sort() };
+}

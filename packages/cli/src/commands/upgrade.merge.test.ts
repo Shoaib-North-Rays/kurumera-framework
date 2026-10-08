@@ -346,6 +346,42 @@ describe("theme upgrade --merge", () => {
     expect(said).toContain("--from auto");
   });
 
+  it("does not blame the developer for files an old CLI withheld", () => {
+    // Reported as "who deleted these?" — and nobody had. A 0.15-0.19 run
+    // withheld a file whose imports would not resolve, then recorded the whole
+    // template into the baseline anyway. "In the baseline but gone from disk"
+    // is how a deliberate deletion looks, so the next run reported files the
+    // theme had never contained as ones the developer deleted, and refused to
+    // add them. The false entries are dropped for those versions only.
+    const { v1, v2 } = versions();
+    write(v2, "components/New.tsx", "new\n");
+    const theme = scaffold(v1, "0.19.0");
+    // What the buggy write left behind: recorded, never on disk.
+    const bad = JSON.parse(read(theme, ".kurumera/baseline.json"));
+    bad.files["components/New.tsx"] = hashTree(v2)["components/New.tsx"];
+    write(theme, ".kurumera/baseline.json", JSON.stringify(bad, null, 2));
+
+    const said = spoken(() => upgrade(theme, v2));
+    expect(said).toContain("never had");
+    expect(said).not.toContain("you deleted them");
+    expect(said).toContain("New in the template");
+  });
+
+  it("keeps a genuine deletion recorded by a correct baseline", () => {
+    // The flip side: a baseline from a version that wrote them correctly may
+    // legitimately record a file the developer has since deleted, and that
+    // entry is what stops an upgrade resurrecting it.
+    const { v1, v2 } = versions();
+    write(v1, "components/Gone.tsx", "x\n");
+    write(v2, "components/Gone.tsx", "x\n");
+    const theme = scaffold(v1, "0.20.0");          // not an over-stamping version
+    rmSync(join(theme, "components", "Gone.tsx"));
+
+    const said = spoken(() => upgrade(theme, v2, "--apply"));
+    expect(said).toContain("you deleted them");
+    expect(existsSync(join(theme, "components", "Gone.tsx"))).toBe(false);
+  });
+
   it("does not record a file as current when it was left behind", () => {
     // The bug this guards: the run stamped today's template over the WHOLE
     // baseline, including the 21 files it had left alone. The next upgrade then

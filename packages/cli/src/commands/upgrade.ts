@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { flag } from "../util/fs.js";
-import { cliVersion, hashTree, readBaseline, sha256, writeBaseline } from "../util/baseline.js";
+import { cliVersion, hashTree, readBaseline, repairBaseline, sha256, writeBaseline } from "../util/baseline.js";
 import { formatStat, unifiedDiff } from "../util/diff.js";
 import { dependsOn, packageImports } from "../util/imports.js";
 import { baseTemplateFor, detectBaseVersion } from "../util/baseTemplate.js";
@@ -85,7 +85,11 @@ export function themeUpgrade(args: string[]): number {
   }
 
   const template = hashTree(src);
-  const baseline = readBaseline(dir);
+  // Baselines written by 0.15–0.19 record files those runs never put in the
+  // theme, which the report then blames on the developer. Dropped before
+  // anything is judged.
+  const repair = repairBaseline(dir, readBaseline(dir));
+  const baseline = repair.baseline;
 
   const rows: Row[] = [];
   for (const rel of Object.keys(template).sort()) {
@@ -114,6 +118,14 @@ export function themeUpgrade(args: string[]): number {
   console.log(baseline
     ? dim(`Baseline: scaffolded with CLI ${baseline.cli} on ${baseline.at.slice(0, 10)}\n`)
     : yellow("Baseline: none — this theme predates upgrade tracking.\n"));
+
+  if (repair.dropped.length) {
+    console.log(yellow(`A baseline written by CLI ${readBaseline(dir)?.cli} recorded ${repair.dropped.length} file(s) this theme never had.`));
+    console.log(dim("Earlier runs withheld them and then recorded them anyway, so they were being"));
+    console.log(dim("reported as files you had deleted. Ignoring those entries:\n"));
+    repair.dropped.forEach((r) => console.log(dim(`  ${r}`)));
+    console.log(dim(`\n  ${apply ? "The corrected baseline is being written now." : "Run with --apply to correct the baseline."}\n`));
+  }
 
   if (!baseline && unknown.length) {
     console.log(yellow("Without a baseline I cannot tell your edits from template changes,"));
