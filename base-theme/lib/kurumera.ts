@@ -59,6 +59,31 @@ export const getStoreConfig = cache(async (): Promise<Record<string, unknown>> =
   }
 });
 
+let warnedNoTenant = false;
+
+/**
+ * On `localhost` nothing injects the tenant headers that the proxy sets in
+ * production, so the slug resolves to "" — and everything keyed on it goes
+ * quiet, analytics included. Silence there is indistinguishable from a broken
+ * feature or a mis-wired theme, which costs an afternoon to tell apart.
+ *
+ * So in development only, fall back to KURUMERA_TENANT (the variable themes
+ * already set in `.env.local` for `theme dev`), and say once what happened
+ * when there is nothing to fall back to. Never in production: there the slug
+ * must come from the request, or one store would render as another.
+ */
+function devTenantSlug(): string {
+  if (process.env.NODE_ENV === "production") return "";
+  const slug = process.env.KURUMERA_TENANT || "";
+  if (!warnedNoTenant) {
+    warnedNoTenant = true;
+    console.warn(slug
+      ? `[kurumera] no tenant header; using KURUMERA_TENANT=${slug} (development only)`
+      : "[kurumera] no tenant resolved — analytics and client-side commerce are disabled. Set KURUMERA_TENANT in .env.local.");
+  }
+  return slug;
+}
+
 /**
  * The tenant slug for THIS request, for the BROWSER (`window.__TENANT__`,
  * injected by the root layout). Client-side commerce (cart, account) calls the
@@ -74,7 +99,7 @@ export async function getTenantSlug(): Promise<string> {
   const h = await headers();
   const direct = h.get("x-kurumera-tenant");
   if (direct) return direct;
-  if (!h.get("x-kurumera-domain")) return "";
+  if (!h.get("x-kurumera-domain")) return devTenantSlug();
   const cfg = await getStoreConfig();
   const tenant = (cfg?.tenant && typeof cfg.tenant === "object" ? cfg.tenant : {}) as Record<string, unknown>;
   return typeof tenant.slug === "string" ? tenant.slug : "";

@@ -21,9 +21,9 @@ const dim = (s: string) => paint("2", s);
 const bold = (s: string) => paint("1", s);
 
 /** Above this, the quadratic table costs more than the diff is worth to read. */
-const MAX_LINES = 4000;
+export const MAX_LINES = 4000;
 
-type Op = { tag: "same" | "add" | "del"; line: string };
+export type Op = { tag: "same" | "add" | "del"; line: string };
 
 /**
  * Longest common subsequence over LINES.
@@ -32,7 +32,7 @@ type Op = { tag: "same" | "add" | "del"; line: string };
  * the table is built once per file, and the simpler algorithm is the one a
  * maintainer can still follow in a year.
  */
-function lcs(a: string[], b: string[]): Op[] {
+export function lcs(a: string[], b: string[]): Op[] {
   const n = a.length, m = b.length;
   // table[i][j] = length of the LCS of a[i:] and b[j:]
   const table: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
