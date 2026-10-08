@@ -15,7 +15,7 @@
  */
 import { useState } from "react";
 import {
-  createKurumeraClient, formFieldErrors,
+  createKurumeraClient, formFieldErrors, trackEvent, EVENT,
   type ContactSubmission, type FormFieldDef, type FormValue,
 } from "@kurumera/storefront";
 import { tenantSlug } from "@/lib/cart-client";
@@ -104,6 +104,12 @@ export function ContactFormClient({
           { sourceUrl: window.location.pathname },
         );
       }
+      // Counted on SUCCESS, not on click. A submission that was rejected as
+      // spam, throttled or invalid is not an enquiry, and counting it would
+      // tell a merchant they had leads they never received.
+      trackEvent(EVENT.CONTACT_CLICK, {
+        data: { form: mode === "contact" ? "contact" : slug, path: window.location.pathname },
+      });
       setDone(true);
     } catch (err) {
       // Field errors belong against their fields; anything else — network,
