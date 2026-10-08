@@ -6,7 +6,7 @@ import { cliVersion, hashTree, readBaseline, repairBaseline, sha256, writeBaseli
 import { formatStat, unifiedDiff } from "../util/diff.js";
 import { dependsOn, packageImports } from "../util/imports.js";
 import { baseTemplateFor, detectBaseVersion } from "../util/baseTemplate.js";
-import { merge3 } from "../util/merge.js";
+import { merge3, tooDiverged } from "../util/merge.js";
 
 const TTY = process.stdout.isTTY;
 const paint = (c: string, s: string) => (TTY ? `\x1b[${c}m${s}\x1b[0m` : s);
@@ -326,6 +326,8 @@ export function themeUpgrade(args: string[]): number {
   const mergeSkipped: string[] = [];
   const mergedNoop: string[] = [];
   const mergeNothingToDo: string[] = [];
+  const mergeTooDiverged: string[] = [];
+  const originals = new Map<string, string>();
 
   // `--take <path>` replaces one of the developer's files with the template's,
   // wholesale. It exists because a merge is powerless when the template has
@@ -368,6 +370,7 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
           continue;
         }
         const mine = readFileSync(join(dir, rel), "utf8");
+        originals.set(rel, mine);                 // so a merge can be rolled back
         const baseText = readFileSync(basePath, "utf8");
         const theirText = readFileSync(join(src, rel), "utf8");
 
@@ -380,6 +383,14 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
         if (baseText.replace(/\r\n/g, "\n") === theirText.replace(/\r\n/g, "\n")) {
           if (mine.replace(/\r\n/g, "\n") !== theirText.replace(/\r\n/g, "\n")) mergeNothingToDo.push(rel);
           else mergedNoop.push(rel);
+          continue;
+        }
+        // Refused before it is attempted when the file has been rewritten
+        // rather than edited: the base no longer provides real anchors, so the
+        // template's hunks would land in positions that only look plausible.
+        const drift = tooDiverged(baseText, mine);
+        if (drift.too) {
+          mergeTooDiverged.push(`${rel}  ${dim(`(you have rewritten ${Math.round(drift.pct * 100)}% of it)`)}`);
           continue;
         }
         const result = merge3(baseText, mine, theirText);
@@ -407,6 +418,28 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
   const landed = new Set([...mergedClean, ...mergedConflicted]);
   const adds = partitionAdds(add, src, template, staleAfter(landed), stalePackages());
   const { willAdd } = adds;
+
+  // A merge can carry across an import of a file this same run refused to add
+  // — reported as "CouponField withheld, then referenced anyway". The two
+  // decisions contradict, and the result does not build, so the merge is
+  // rolled back for that file and the conflict is handed to a human.
+  const withheld = new Set(add.filter((r) => !willAdd.includes(r)).map((r) => r.rel));
+  const rolledBack: string[] = [];
+  if (withheld.size) {
+    const known = new Set(Object.keys(template));
+    for (const rel of [...mergedClean, ...mergedConflicted]) {
+      const refs = dependsOn(readIf(join(dir, rel)), rel, known).filter((d) => withheld.has(d));
+      if (!refs.length) continue;
+      writeFileSync(join(dir, rel), originals.get(rel) as string);
+      rolledBack.push(`${rel}  ${dim(`referenced ${refs.join(", ")}, which was not added`)}`);
+    }
+    for (const r of rolledBack) {
+      const rel = r.split(" ")[0];
+      const i = mergedClean.indexOf(rel); if (i >= 0) mergedClean.splice(i, 1);
+      const j = mergedConflicted.indexOf(rel); if (j >= 0) mergedConflicted.splice(j, 1);
+      landed.delete(rel);
+    }
+  }
   for (const { rel } of [...willAdd, ...update]) {
     const to = join(dir, rel);
     if (process.env.KURUMERA_DEBUG_MERGE) console.error(`DBG copy ${rel}`);
@@ -426,6 +459,7 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
   const delivered = mergedClean.length + mergedConflicted.length + taken.length;
   const nothingCame = mergedNoop.length + mergeNothingToDo.length;
   const allNoop = wantsMerge && mergeable.length > 0 && delivered === 0 && nothingCame > 0;
+  const notMerged = mergeTooDiverged.length + mergeSkipped.length + rolledBack.length;
 
   if (!allNoop) {
     // The baseline records, per file, the template version that file is in sync
@@ -499,8 +533,28 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
 ${yellow("Conflicts — both you and the template changed the same lines:")}`);
     mergedConflicted.forEach((r) => console.log(`  ${r}`));
     console.log(dim("  Each file carries <<<<<<< yours / ======= / >>>>>>> template markers."));
-    console.log(dim("  Keep one side of each, delete the markers, then: kurumera theme check"));
+    // "Keep one side" was wrong advice and was reported as such: most of these
+    // conflicts are two sides of an import block, both of them in use, and
+    // dropping either deletes imports the file needs.
+    console.log(dim("  These are usually two halves of an import block, both still needed —"));
+    console.log(dim("  so keep BOTH sides unless they genuinely contradict, then delete the"));
+    console.log(dim("  three marker lines. Never drop an import the file still uses."));
+    console.log(dim("  Then: npx tsc --noEmit && kurumera theme check"));
     console.log(dim("  Or start over on a file:  git checkout -- <file>"));
+  }
+  if (rolledBack.length) {
+    console.log(`\n${yellow("Merge undone — it would have referenced a file this run did not add:")}`);
+    rolledBack.forEach((r) => console.log(`  ${r}`));
+    console.log(dim("  Your versions are back as they were. Bring the missing files in first:"));
+    console.log(dim(`  ${remedy(true, true)}`));
+  }
+  if (mergeTooDiverged.length) {
+    console.log(`\n${yellow("Not merged — these are your files now, not edited copies of the template:")}`);
+    mergeTooDiverged.forEach((r) => console.log(`  ${r}`));
+    console.log(dim("  A line-by-line merge into a rewritten file lands the template's additions"));
+    console.log(dim("  in places that compile but mean nothing. It is refused rather than guessed."));
+    console.log(dim(`    read the change, port it by hand:  kurumera theme upgrade --diff ${mergeTooDiverged[0].split(" ")[0]}`));
+    console.log(dim(`    or give up your version entirely:  kurumera theme upgrade --take ${mergeTooDiverged[0].split(" ")[0]} --apply`));
   }
   if (mergeSkipped.length) {
     console.log(`\n${yellow("Could not merge, left alone:")}`);

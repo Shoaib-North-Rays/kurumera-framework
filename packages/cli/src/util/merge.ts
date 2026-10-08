@@ -24,7 +24,7 @@
  * degrades to a conflict rather than writing plausible-looking broken code —
  * which is the one outcome worse than leaving the file alone.
  */
-import { lcs, MAX_LINES } from "./diff.js";
+import { diffStat, lcs, MAX_LINES } from "./diff.js";
 
 /** One contiguous edit against the base: base[start, end) becomes `lines`. */
 interface Region {
@@ -211,4 +211,46 @@ export function merge3(rawBase: string, rawOurs: string, rawTheirs: string): Mer
 /** Whether merged text still needs a human. */
 export function hasConflicts(text: string): boolean {
   return text.includes(CONFLICT_START);
+}
+
+/**
+ * How far `ours` has moved from `base`, as a fraction of the file.
+ *
+ * This is the number that decides whether a three-way merge is trustworthy at
+ * all. A line merge works by finding unchanged lines in the base and attaching
+ * the other side's hunks between them. When the developer has rewritten the
+ * file, the only lines still matching the base are the structural ones — a
+ * blank line, a `}`, a `  );` — and a hunk anchored to one of those lands in a
+ * position that has nothing to do with where it belongs.
+ *
+ * That is not a theoretical risk. It shipped: `<PageViews />` placed outside
+ * the component it was meant to mount in, in a file that compiled and built
+ * cleanly and rendered no analytics at all. Reported as "merged, no conflict".
+ */
+export function divergence(base: string, ours: string): number {
+  if (base === ours) return 0;
+  const { added, removed } = diffStat(base, ours);
+  const lines = Math.max(base.split("\n").length, ours.split("\n").length, 1);
+  return (added + removed) / lines;
+}
+
+/**
+ * Above this, a merge is guesswork and is refused. Chosen from the real case:
+ * the files that merged wrongly had rewritten 100% to 500% of their lines,
+ * while a genuine small customisation sits in the low single digits.
+ */
+export const MAX_DIVERGENCE = 0.25;
+
+/**
+ * A ratio alone is unusable on a short file — one changed line out of six is
+ * 33% and merges perfectly well. So a file is only called rewritten when it
+ * has moved by a large SHARE and a meaningful NUMBER of lines.
+ */
+export const MIN_DIVERGED_LINES = 20;
+
+export function tooDiverged(base: string, ours: string): { too: boolean; pct: number } {
+  const { added, removed } = diffStat(base, ours);
+  const changed = added + removed;
+  const pct = divergence(base, ours);
+  return { too: pct > MAX_DIVERGENCE && changed >= MIN_DIVERGED_LINES, pct };
 }

@@ -346,6 +346,67 @@ describe("theme upgrade --merge", () => {
     expect(said).toContain("--from auto");
   });
 
+  it("refuses to merge into a file the developer has rewritten", () => {
+    // The defect this closes, reported from production: a line merge into a
+    // rewritten file attached the template's additions to whatever structural
+    // line still matched — a blank line, a closing brace — so `<PageViews />`
+    // landed outside the component. The file compiled, built, shipped, and
+    // rendered no analytics, reported as "merged, no conflict".
+    const base = Array.from({ length: 60 }, (_, i) => `  const base${i} = ${i};`).join("\n");
+    const v1 = tmp(), v2 = tmp();
+    write(v1, "package.json", `{"name":"base"}\n`);
+    write(v2, "package.json", `{"name":"base"}\n`);
+    write(v1, "app/page.tsx", `export default function P() {\n${base}\n  return null;\n}\n`);
+    write(v2, "app/page.tsx", `export default function P() {\n${base}\n  return <Tracker />;\n}\n`);
+
+    const theme = scaffold(v1);
+    // Their own page: same job, almost none of the same lines.
+    const mine = Array.from({ length: 60 }, (_, i) => `  const mine${i} = ${i * 2};`).join("\n");
+    write(theme, "app/page.tsx", `export default function P() {\n${mine}\n  return <MyOwnThing />;\n}\n`);
+    publishBase("0.0.0-test", v1);
+
+    const said = spoken(() => upgrade(theme, v2, "--merge", "--apply"));
+    expect(said).toContain("Not merged");
+    expect(said).toContain("rewritten");
+    expect(read(theme, "app/page.tsx")).toContain("MyOwnThing");   // untouched
+    expect(read(theme, "app/page.tsx")).not.toContain("Tracker");  // nothing smuggled in
+    expect(said).toContain("--take app/page.tsx");
+  });
+
+  it("undoes a merge that would reference a file the run did not add", () => {
+    // Reported: CouponField.tsx was withheld to protect the build, and in the
+    // same run an import and a usage of it were merged into the cart page.
+    const v1 = tmp(), v2 = tmp();
+    write(v1, "package.json", `{"name":"base","dependencies":{"sdk":"^1.0.0"}}\n`);
+    write(v2, "package.json", `{"name":"base","dependencies":{"sdk":"^2.0.0"}}\n`);
+    write(v1, "app/cart.tsx", `// cart\nexport default function C() {\n  return null;\n}\n`);
+    // The template's new cart imports a component that CANNOT be added: Coupon
+    // needs sdk ^2, and without --deps the theme stays on ^1.
+    write(v2, "app/cart.tsx", `import { Coupon } from "@/components/Coupon";\n// cart\nexport default function C() {\n  return null;\n}\n`);
+    write(v2, "components/Coupon.tsx", `import { validateCoupon } from "sdk";\nexport const Coupon = () => validateCoupon();\n`);
+
+    const theme = scaffold(v1);
+    write(theme, "app/cart.tsx", `// cart, mine\nexport default function C() {\n  return null;\n}\n`);
+    publishBase("0.0.0-test", v1);
+
+    const said = spoken(() => upgrade(theme, v2, "--merge", "--apply"));
+    expect(said).toContain("Merge undone");
+    expect(read(theme, "app/cart.tsx")).not.toContain("Coupon");       // rolled back
+    expect(existsSync(join(theme, "components", "Coupon.tsx"))).toBe(false);
+  });
+
+  it("does not tell the developer to drop one side of an import conflict", () => {
+    const { v1, v2 } = versions();
+    write(v2, "app/layout.tsx", NEW_LAYOUT.replace("./Header", "./layout/Header"));
+    const theme = scaffold(v1);
+    write(theme, "app/layout.tsx", BASE_LAYOUT.replace("./Header", "./MyHeader"));
+    publishBase("0.0.0-test", v1);
+
+    const said = spoken(() => upgrade(theme, v2, "--merge", "--apply"));
+    expect(said).toContain("keep BOTH sides");
+    expect(said).not.toContain("Keep one side of each");
+  });
+
   it("does not blame the developer for files an old CLI withheld", () => {
     // Reported as "who deleted these?" — and nobody had. A 0.15-0.19 run
     // withheld a file whose imports would not resolve, then recorded the whole
