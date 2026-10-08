@@ -141,7 +141,19 @@ export function themeUpgrade(args: string[]): number {
       return 1;
     }
     baseVersion = guess.version;
-    console.log(`\n${green(`✓ Scaffolded with CLI ${baseVersion}`)} ${dim(`(${guess.matched} of ${guess.total} files still match it)`)}\n`);
+    const fit = guess.matched / Math.max(guess.total, 1);
+    console.log("");
+    // Stated as a confidence, not a fact. A heavily customised theme matches
+    // its own scaffold poorly, and a weak best-of-a-bad-lot answer presented
+    // as "✓ Scaffolded with" sends somebody debugging the merge instead of
+    // the base.
+    if (fit >= 0.6) {
+      console.log(`${green(`✓ Scaffolded with CLI ${baseVersion}`)} ${dim(`(${guess.matched} of ${guess.total} template files still match)`)}\n`);
+    } else {
+      console.log(yellow(`Best guess: CLI ${baseVersion} — but only ${guess.matched} of ${guess.total} template files match it.`));
+      console.log(dim("That is a weak fit, so treat the merge below as a first pass rather than the truth."));
+      console.log(dim("If you know the real version, pass it: --from <cli version>.\n"));
+    }
   }
   const mergeable = from ? [...yours, ...unknown] : yours;
   const showDiff = args.includes("--diff");
@@ -301,6 +313,28 @@ export function themeUpgrade(args: string[]): number {
   const mergedConflicted: string[] = [];
   const mergeSkipped: string[] = [];
   const mergedNoop: string[] = [];
+  const mergeNothingToDo: string[] = [];
+
+  // `--take <path>` replaces one of the developer's files with the template's,
+  // wholesale. It exists because a merge is powerless when the template has
+  // not changed the file since the base: the only two possible answers are
+  // "keep yours" and "take the template's", and the second has to be askable.
+  // Repeatable, never implied, and never applied to a file the theme owns.
+  const takes = args
+    .flatMap((a, i) => (a === "--take" && args[i + 1] && !args[i + 1].startsWith("--") ? [args[i + 1]] : []))
+    .map((p) => p.replace(/\\/g, "/"));
+  const taken: string[] = [];
+  const takeFailed: string[] = [];
+  if (apply) {
+    for (const rel of takes) {
+      if (NEVER_WRITE.has(rel)) { takeFailed.push(`${rel}  ${dim("(the theme owns this file)")}`); continue; }
+      if (!template[rel]) { takeFailed.push(`${rel}  ${dim("(not in this CLI's template)")}`); continue; }
+      const to = join(dir, rel);
+      mkdirSync(dirname(to), { recursive: true });
+      copyFileSync(join(src, rel), to);
+      taken.push(rel);
+    }
+  }
   if (wantsMerge && mergeable.length) {
     const base = baseVersion ? baseTemplateFor(baseVersion) : null;
     if (!base) {
@@ -322,7 +356,21 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
           continue;
         }
         const mine = readFileSync(join(dir, rel), "utf8");
-        const result = merge3(readFileSync(basePath, "utf8"), mine, readFileSync(join(src, rel), "utf8"));
+        const baseText = readFileSync(basePath, "utf8");
+        const theirText = readFileSync(join(src, rel), "utf8");
+
+        // The template has not touched this file since the base, so there is
+        // nothing for a merge to carry across — any difference is the
+        // developer's own edit. Reporting this as "already matched the
+        // template" was wrong and read as a contradiction against the same
+        // run's "+25 -54". It is called out separately, because the remedy is
+        // not a better merge: it is --take, or nothing.
+        if (baseText.replace(/\r\n/g, "\n") === theirText.replace(/\r\n/g, "\n")) {
+          if (mine.replace(/\r\n/g, "\n") !== theirText.replace(/\r\n/g, "\n")) mergeNothingToDo.push(rel);
+          else mergedNoop.push(rel);
+          continue;
+        }
+        const result = merge3(baseText, mine, theirText);
         if (!result.ok) {
           mergeSkipped.push(`${rel}  ${dim("(too large to merge safely)")}`);
           continue;
@@ -359,9 +407,13 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
   // wrong — most likely a --from that named a template too new to differ from
   // this one. Recording a baseline on top of that would claim the theme is
   // current when nothing was delivered, so it is refused outright.
-  const allNoop = wantsMerge && mergeable.length > 0
-    && mergedNoop.length === mergeable.length - mergeSkipped.length
-    && mergedNoop.length > 0;
+  // Counts both "identical already" and "the template never changed it": from
+  // the developer's side those are the same outcome — the merge delivered
+  // nothing — and a baseline written on top of either would claim the theme is
+  // current when it is not.
+  const delivered = mergedClean.length + mergedConflicted.length + taken.length;
+  const nothingCame = mergedNoop.length + mergeNothingToDo.length;
+  const allNoop = wantsMerge && mergeable.length > 0 && delivered === 0 && nothingCame > 0;
 
   if (!allNoop) {
     // Record the template as it is NOW, including the files left alone: the next
@@ -378,15 +430,33 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
     mergedClean.forEach((r) => console.log(`  ${r}`));
   }
   if (allNoop) {
-    console.log(`\n${yellow(`Nothing was merged: all ${mergedNoop.length} file(s) came out unchanged.`)}`);
+    console.log(`\n${yellow(`Nothing was merged: all ${nothingCame} file(s) came out unchanged.`)}`);
     console.log(dim(`  Against CLI ${baseVersion} your files already look final, so there was nothing`));
     console.log(dim("  to bring forward. That almost always means the base version is wrong."));
     console.log(dim("  No baseline was recorded, so nothing now claims this theme is current."));
     console.log(dim("\n  Let me work the right one out:"));
     console.log(dim("  kurumera theme upgrade --merge --from auto --apply"));
   } else if (mergedNoop.length) {
-    console.log(dim(`\n${mergedNoop.length} file(s) already matched the template — nothing to merge:`));
+    console.log(dim(`\n${mergedNoop.length} file(s) already identical to the template:`));
     mergedNoop.forEach((r) => console.log(dim(`  ${r}`)));
+  }
+  if (taken.length) {
+    console.log(green(`\n✓ Replaced ${taken.length} file(s) with the template's version:`));
+    taken.forEach((r) => console.log(`  ${r}`));
+    console.log(dim("  Your version is in git, not here — `git diff` to see what went."));
+  }
+  if (takeFailed.length) {
+    console.log(`\n${yellow("Could not --take:")}`);
+    takeFailed.forEach((r) => console.log(`  ${r}`));
+  }
+  if (mergeNothingToDo.length) {
+    console.log(`\n${yellow("A merge cannot help with these:")}`);
+    mergeNothingToDo.forEach((r) => console.log(`  ${r}`));
+    console.log(dim(`  The template has not changed them since CLI ${baseVersion}, so there is nothing`));
+    console.log(dim("  to carry across — they differ because you edited them. Your two options:"));
+    console.log(dim(`    see what you are missing:  kurumera theme upgrade --diff ${mergeNothingToDo[0]}`));
+    console.log(dim(`    take the template's copy:   kurumera theme upgrade --take ${mergeNothingToDo[0]} --apply`));
+    console.log(dim("  --take overwrites your file, so commit first."));
   }
   if (from && from !== "auto" && !allNoop) {
     console.log(dim(`\nBaseline recorded as CLI ${version}, merged against CLI ${baseVersion} (from --from).`));

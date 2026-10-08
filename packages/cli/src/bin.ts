@@ -49,6 +49,7 @@ function help(): void {
   console.log("  theme init <name>                    Scaffold the base Next.js theme");
   console.log("  theme upgrade [--diff] [--apply]     Bring base files up to this CLI's template");
   console.log("                [--merge [--from auto|<cli>]] [--deps]  Merge your edits, move dep ranges");
+  console.log("                [--take <path>]          Replace ONE of your files with the template's");
   console.log("                                       --diff shows what changed, like git");
   console.log("  theme dev --store <slug>             Run the theme against live store data");
   console.log("  theme check                          Validate the route contract + safety rules");

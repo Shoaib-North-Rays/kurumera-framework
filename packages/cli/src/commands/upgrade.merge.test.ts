@@ -290,6 +290,51 @@ describe("theme upgrade --merge", () => {
     expect(existsSync(join(theme, ".kurumera", "baseline.json"))).toBe(false);
   });
 
+  it("says a merge cannot help when the template never changed the file", () => {
+    // Reported from the field as a contradiction: one run listed app/layout.tsx
+    // as differing by +25 -54 AND as "already matched the template". Both were
+    // true of different things — the template had not changed that file since
+    // the base, so the merge had nothing to carry, while the file still
+    // differed because the developer had edited it. No merge can fix that.
+    const { v1, v2 } = versions();
+    write(v2, "components/Extra.tsx", "new file\n");     // so the run still does something
+    write(v1, "components/Extra.tsx", "new file\n");
+    const theme = scaffold(v1);
+    write(theme, "app/layout.tsx", MY_LAYOUT);
+    write(v2, "app/layout.tsx", read(v1, "app/layout.tsx"));   // template unchanged since base
+    publishBase("0.0.0-test", v1);
+
+    const said = spoken(() => upgrade(theme, v2, "--merge", "--apply"));
+    expect(said).toContain("A merge cannot help");
+    expect(said).toContain("app/layout.tsx");
+    expect(said).not.toContain("already identical to the template");
+    expect(said).toContain("--take app/layout.tsx");
+    expect(read(theme, "app/layout.tsx")).toBe(MY_LAYOUT);     // still untouched
+  });
+
+  it("--take replaces one file with the template's version", () => {
+    const { v1, v2 } = versions();
+    const theme = scaffold(v1);
+    write(theme, "app/layout.tsx", MY_LAYOUT);
+    publishBase("0.0.0-test", v1);
+
+    upgrade(theme, v2, "--take", "app/layout.tsx", "--apply");
+    expect(read(theme, "app/layout.tsx")).toBe(read(v2, "app/layout.tsx"));
+  });
+
+  it("--take refuses a file the theme owns, and one not in the template", () => {
+    const { v1, v2 } = versions();
+    const theme = scaffold(v1);
+    write(theme, "package.json", `{"name":"mine"}\n`);
+    publishBase("0.0.0-test", v1);
+
+    const said = spoken(() => upgrade(theme, v2, "--take", "package.json", "--take", "nope.tsx", "--apply"));
+    expect(read(theme, "package.json")).toBe(`{"name":"mine"}\n`);
+    expect(said).toContain("Could not --take");
+    expect(said).toContain("the theme owns this file");
+    expect(said).toContain("not in this CLI's template");
+  });
+
   it("says which base a --from merge used, so a wrong one is visible", () => {
     const { v1, v2 } = versions();
     const theme = legacy(v1);

@@ -114,7 +114,6 @@ export function detectBaseVersion(
     return ka.length === kb.length && ka.every((k) => a[k] === b[k]);
   };
 
-  const total = Object.keys(themeHashes).length;
   let best: BaseGuess | null = null;
   for (const version of versions) {
     opts.onProgress?.(version);
@@ -124,7 +123,10 @@ export function detectBaseVersion(
     if (same(t, current)) continue;                  // identical to today: a guaranteed no-op
     let matched = 0;
     for (const [rel, hash] of Object.entries(t)) if (themeHashes[rel] === hash) matched++;
-    if (!best || matched > best.matched) best = { version, matched, total };
+    // The denominator is that TEMPLATE's file count, not the theme's. A theme
+    // with 308 files of its own is not a worse match for having them, and
+    // "11 of 308" read as a broken detector when it was 11 of 34.
+    if (!best || matched > best.matched) best = { version, matched, total: Object.keys(t).length };
   }
   return best;
 }
