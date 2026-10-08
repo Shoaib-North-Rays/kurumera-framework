@@ -346,6 +346,33 @@ describe("theme upgrade --merge", () => {
     expect(said).toContain("--from auto");
   });
 
+  it("does not record a file as current when it was left behind", () => {
+    // The bug this guards: the run stamped today's template over the WHOLE
+    // baseline, including the 21 files it had left alone. The next upgrade then
+    // compared those against a baseline claiming they were already current and
+    // found nothing to offer — the pending change vanished from the report.
+    const { v1, v2 } = versions();
+    write(v1, "components/Untouched.tsx", "v1\n");
+    write(v2, "components/Untouched.tsx", "v2\n");          // template moved it on
+    const theme = scaffold(v1);
+    write(theme, "app/layout.tsx", MY_LAYOUT);              // edited: will be left alone
+    publishBase("0.0.0-test", v1);
+
+    upgrade(theme, v2, "--apply");                          // no --merge: layout is skipped
+    const after = JSON.parse(read(theme, ".kurumera/baseline.json"));
+
+    // Untouched.tsx was written, so it is current.
+    expect(after.files["components/Untouched.tsx"]).toBeDefined();
+    // layout.tsx was NOT, so it must still read as the version it actually has.
+    expect(after.files["app/layout.tsx"]).not.toBe(hashTree(v2)["app/layout.tsx"]);
+    // And the recorded CLI stays put, so it is still a usable merge base.
+    expect(after.cli).toBe("0.0.0-test");
+
+    // The proof that matters: the pending change is still reported next run.
+    const said = spoken(() => upgrade(theme, v2, "--apply"));
+    expect(said).toContain("app/layout.tsx");
+  });
+
   it("is idempotent — a second merge changes nothing", () => {
     const { v1, v2 } = versions();
     const theme = scaffold(v1);

@@ -416,10 +416,30 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
   const allNoop = wantsMerge && mergeable.length > 0 && delivered === 0 && nothingCame > 0;
 
   if (!allNoop) {
-    // Record the template as it is NOW, including the files left alone: the next
-    // upgrade should compare against this template, not the original scaffold,
-    // or it would offer the same changes again forever.
-    writeBaseline(dir, version, template);
+    // The baseline records, per file, the template version that file is in sync
+    // with — so only the files this run actually brought forward get today's
+    // hash. Stamping the whole template (which is what 0.16–0.19 did) claims a
+    // theme is current while 21 files sit at an older template, and then the
+    // next upgrade finds nothing to offer for exactly those files.
+    const synced = new Set([...willAdd, ...update].map((r) => r.rel));
+    mergedClean.forEach((r) => synced.add(r));
+    mergedNoop.forEach((r) => synced.add(r));
+    taken.forEach((r) => synced.add(r));
+
+    const files: Record<string, string> = {};
+    for (const rel of Object.keys(template)) {
+      if (synced.has(rel)) { files[rel] = template[rel]; continue; }
+      // Left behind: keep whatever the old baseline knew. Without an entry the
+      // file stays `unknown` next time, which is the honest verdict — better
+      // than `same`, which would hide a real pending change.
+      const was = baseline?.files[rel];
+      if (was) files[rel] = was;
+    }
+    // Only advance the recorded version once nothing is left behind; otherwise
+    // keep the old one, because it is still the right merge base for the files
+    // that did not move.
+    const behind = Object.keys(template).some((rel) => !synced.has(rel) && !NEVER_WRITE.has(rel));
+    writeBaseline(dir, behind ? baseline?.cli || version : version, files);
   }
 
   console.log(green(`✓ Updated ${written} file(s) to CLI ${version}.`));
