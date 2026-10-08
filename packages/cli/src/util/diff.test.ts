@@ -36,9 +36,19 @@ describe("unifiedDiff", () => {
     expect(out).toContain("+c");
   });
 
-  it("refuses to print an enormous file inline", () => {
+  it("still diffs an enormous file when the change is small", () => {
+    // The shared head and tail are peeled off before the quadratic part, so
+    // size alone no longer makes a file undiffable — only real divergence does.
     const huge = Array.from({ length: 5000 }, (_, i) => `l${i}`).join("\n");
-    expect(plain(unifiedDiff(huge, huge + "\nextra"))).toContain("too large to show inline");
+    const out = plain(unifiedDiff(huge, huge + "\nextra"));
+    expect(out).toContain("+extra");
+    expect(out).not.toContain("too large to show inline");
+  });
+
+  it("refuses to print a file that differs from end to end", () => {
+    const a = Array.from({ length: 5000 }, (_, i) => `a${i}`).join("\n");
+    const b = Array.from({ length: 5000 }, (_, i) => `b${i}`).join("\n");
+    expect(plain(unifiedDiff(a, b))).toContain("too large to show inline");
   });
 });
 

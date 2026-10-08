@@ -39,6 +39,16 @@ export interface Baseline {
   at: string;
   /** Relative POSIX path -> sha256 of the file as the template shipped it. */
   files: Record<string, string>;
+  /**
+   * Relative path -> the CLI version THAT FILE was last brought forward from.
+   *
+   * A single `cli` cannot describe a theme where some files were merged and
+   * others were left behind, and pretending it can is why an unresolved
+   * conflict was re-raised from scratch on every later run: the merge base was
+   * the whole theme's version rather than the file's. Absent for a file means
+   * fall back to `cli`.
+   */
+  syncedFrom?: Record<string, string>;
 }
 
 export function sha256(buf: Buffer | string): string {
@@ -76,10 +86,16 @@ export function readBaseline(themeDir: string): Baseline | null {
   }
 }
 
-export function writeBaseline(themeDir: string, cli: string, files: Record<string, string>): void {
+export function writeBaseline(
+  themeDir: string,
+  cli: string,
+  files: Record<string, string>,
+  syncedFrom?: Record<string, string>,
+): void {
   const dir = join(themeDir, BASELINE_DIR);
   mkdirSync(dir, { recursive: true });
   const body: Baseline = { cli, at: new Date().toISOString(), files };
+  if (syncedFrom && Object.keys(syncedFrom).length) body.syncedFrom = syncedFrom;
   writeFileSync(join(dir, BASELINE_FILE), JSON.stringify(body, null, 2) + "\n");
 }
 

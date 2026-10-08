@@ -33,6 +33,44 @@ export type Op = { tag: "same" | "add" | "del"; line: string };
  * maintainer can still follow in a year.
  */
 export function lcs(a: string[], b: string[]): Op[] {
+  // Identical head and tail are peeled off before the quadratic part. Two
+  // versions of a real file usually share almost all of it, so this is what
+  // lets an 8,000-line stylesheet with a 30-line edit be diffed and merged at
+  // all — previously it hit MAX_LINES and was reported as "too large", which
+  // meant a lightly edited big file could never be upgraded.
+  let head = 0;
+  while (head < a.length && head < b.length && a[head] === b[head]) head++;
+  let tail = 0;
+  while (
+    tail < a.length - head
+    && tail < b.length - head
+    && a[a.length - 1 - tail] === b[b.length - 1 - tail]
+  ) tail++;
+
+  if (head === 0 && tail === 0) return lcsCore(a, b);
+  const mid = lcsCore(a.slice(head, a.length - tail), b.slice(head, b.length - tail));
+  const same = (line: string): Op => ({ tag: "same", line });
+  return [
+    ...a.slice(0, head).map(same),
+    ...mid,
+    ...a.slice(a.length - tail).map(same),
+  ];
+}
+
+/** The lines left once the shared head and tail are removed — the real cost. */
+export function diffSize(a: string[], b: string[]): number {
+  let head = 0;
+  while (head < a.length && head < b.length && a[head] === b[head]) head++;
+  let tail = 0;
+  while (
+    tail < a.length - head
+    && tail < b.length - head
+    && a[a.length - 1 - tail] === b[b.length - 1 - tail]
+  ) tail++;
+  return Math.max(a.length - head - tail, b.length - head - tail);
+}
+
+function lcsCore(a: string[], b: string[]): Op[] {
   const n = a.length, m = b.length;
   // table[i][j] = length of the LCS of a[i:] and b[j:]
   const table: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
@@ -72,7 +110,7 @@ export function unifiedDiff(from: string, to: string, opts: DiffOptions = {}): s
   const a = from.split("\n");
   const b = to.split("\n");
 
-  if (a.length > MAX_LINES || b.length > MAX_LINES) {
+  if (diffSize(a, b) > MAX_LINES) {
     return dim(`  (${a.length} lines vs ${b.length} — too large to show inline; `
       + `compare the files directly)`);
   }
@@ -122,7 +160,7 @@ export function diffStat(from: string, to: string): { added: number; removed: nu
   if (from === to) return { added: 0, removed: 0 };
   const a = from.split("\n");
   const b = to.split("\n");
-  if (a.length > MAX_LINES || b.length > MAX_LINES) {
+  if (diffSize(a, b) > MAX_LINES) {
     return { added: Math.max(0, b.length - a.length), removed: Math.max(0, a.length - b.length) };
   }
   let added = 0, removed = 0;

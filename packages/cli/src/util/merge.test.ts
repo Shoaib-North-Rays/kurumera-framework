@@ -84,9 +84,23 @@ describe("merge3", () => {
     expect(r.merged).toContain("my own markup");      // and the developer keeps theirs
   });
 
+  it("merges an enormous file when the edits are small", () => {
+    // An 8,000-line stylesheet with a three-line change used to come back
+    // "too large to merge safely", which meant a big lightly edited file could
+    // never be upgraded at all. Only the differing middle is quadratic now.
+    const huge = Array.from({ length: 8000 }, (_, i) => `l${i}`).join("\n");
+    const r = merge3(huge, `${huge}\nmine`, `prepended\n${huge}`);
+    expect(r.ok).toBe(true);
+    expect(r.merged).toContain("mine");
+    expect(r.merged).toContain("prepended");
+  });
+
   it("reports when the files are too large to merge safely", () => {
-    const huge = Array.from({ length: 5000 }, (_, i) => `l${i}`).join("\n");
-    const r = merge3(huge, huge + "\nmine", huge + "\ntheirs");
+    // Genuinely divergent AND large: nothing to peel off, so it is refused.
+    const a = Array.from({ length: 5000 }, (_, i) => `a${i}`).join("\n");
+    const x = Array.from({ length: 5000 }, (_, i) => `x${i}`).join("\n");
+    const y = Array.from({ length: 5000 }, (_, i) => `y${i}`).join("\n");
+    const r = merge3(a, `${x}\nmine`, `${y}\ntheirs`);
     expect(r.ok).toBe(false);
     expect(r.merged).toContain("mine");               // falls back to ours, never to theirs
   });

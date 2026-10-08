@@ -6,7 +6,7 @@ import { cliVersion, hashTree, readBaseline, repairBaseline, sha256, writeBaseli
 import { formatStat, unifiedDiff } from "../util/diff.js";
 import { dependsOn, packageImports } from "../util/imports.js";
 import { baseTemplateFor, detectBaseVersion } from "../util/baseTemplate.js";
-import { merge3, tooDiverged } from "../util/merge.js";
+import { hasConflicts, merge3, tooDiverged } from "../util/merge.js";
 
 const TTY = process.stdout.isTTY;
 const paint = (c: string, s: string) => (TTY ? `\x1b[${c}m${s}\x1b[0m` : s);
@@ -327,6 +327,7 @@ export function themeUpgrade(args: string[]): number {
   const mergedNoop: string[] = [];
   const mergeNothingToDo: string[] = [];
   const mergeTooDiverged: string[] = [];
+  const unresolved: string[] = [];
   const originals = new Map<string, string>();
 
   // `--take <path>` replaces one of the developer's files with the template's,
@@ -362,7 +363,18 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
         : "  Let me work it out:  kurumera theme upgrade --merge --from auto --apply"));
     } else {
       for (const { rel } of mergeable) {
-        const basePath = join(base, rel);
+        // A file still carrying markers from a previous run is not in either
+        // side's shape, so merging into it would nest one conflict inside
+        // another. It is also already breaking the build, so say so loudly.
+        if (hasConflicts(readIf(join(dir, rel)))) { unresolved.push(rel); continue; }
+
+        // Each file is merged from the version IT was last brought forward
+        // from, which is what stops an already-delivered change being offered
+        // again on every later run.
+        const per = baseline?.syncedFrom?.[rel];
+        const basePath = per && per !== baseVersion
+          ? join(baseTemplateFor(per) || base, rel)
+          : join(base, rel);
         // Absent from the old template means there is no common ancestor, so a
         // merge would be a guess dressed up as a result. Say so instead.
         if (!existsSync(basePath)) {
@@ -485,7 +497,16 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
     // keep the old one, because it is still the right merge base for the files
     // that did not move.
     const behind = Object.keys(template).some((rel) => !synced.has(rel) && !NEVER_WRITE.has(rel));
-    writeBaseline(dir, behind ? baseline?.cli || version : version, files);
+
+    // Per-file: a conflicted file HAS received the template's change (it is in
+    // the file, behind the markers), so the next run must merge it from this
+    // version and not re-raise the same conflict. Anything carried forward
+    // keeps whatever version it was already recorded against.
+    const syncedFrom: Record<string, string> = { ...(baseline?.syncedFrom || {}) };
+    [...synced, ...mergedConflicted].forEach((rel) => { syncedFrom[rel] = version; });
+    for (const rel of Object.keys(syncedFrom)) if (!template[rel]) delete syncedFrom[rel];
+
+    writeBaseline(dir, behind ? baseline?.cli || version : version, files, syncedFrom);
   }
 
   console.log(green(`✓ Updated ${written} file(s) to CLI ${version}.`));
@@ -541,6 +562,13 @@ ${yellow("Conflicts — both you and the template changed the same lines:")}`);
     console.log(dim("  three marker lines. Never drop an import the file still uses."));
     console.log(dim("  Then: npx tsc --noEmit && kurumera theme check"));
     console.log(dim("  Or start over on a file:  git checkout -- <file>"));
+  }
+  if (unresolved.length) {
+    console.log(`\n${yellow("Still carrying conflict markers from an earlier run — skipped:")}`);
+    unresolved.forEach((r) => console.log(`  ${r}`));
+    console.log(dim("  These do not compile as they stand, and merging into them would nest"));
+    console.log(dim("  one conflict inside another. Resolve them first, or start over:"));
+    console.log(dim(`    git checkout -- ${unresolved.join(" ")}`));
   }
   if (rolledBack.length) {
     console.log(`\n${yellow("Merge undone — it would have referenced a file this run did not add:")}`);

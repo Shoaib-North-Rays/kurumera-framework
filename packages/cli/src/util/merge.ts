@@ -24,7 +24,7 @@
  * degrades to a conflict rather than writing plausible-looking broken code —
  * which is the one outcome worse than leaving the file alone.
  */
-import { diffStat, lcs, MAX_LINES } from "./diff.js";
+import { diffSize, diffStat, lcs, MAX_LINES } from "./diff.js";
 
 /** One contiguous edit against the base: base[start, end) becomes `lines`. */
 interface Region {
@@ -134,7 +134,9 @@ export function merge3(rawBase: string, rawOurs: string, rawTheirs: string): Mer
   const b = base.split("\n");
   const o = ours.split("\n");
   const t = theirs.split("\n");
-  if (b.length > MAX_LINES || o.length > MAX_LINES || t.length > MAX_LINES) {
+  // Measured on the differing middles, not whole files: a big file with a
+  // small edit is cheap, and refusing it was the "too large to merge" report.
+  if (Math.max(diffSize(b, o), diffSize(b, t)) > MAX_LINES) {
     return { merged: out(ours), conflicts: 0, ok: false };
   }
 

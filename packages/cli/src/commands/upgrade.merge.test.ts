@@ -346,6 +346,42 @@ describe("theme upgrade --merge", () => {
     expect(said).toContain("--from auto");
   });
 
+  it("will not merge into a file that still has markers in it", () => {
+    const { v1, v2 } = versions();
+    const theme = scaffold(v1);
+    write(theme, "app/layout.tsx", [
+      "<<<<<<< yours", "mine", "=======", "theirs", ">>>>>>> template",
+    ].join("\n"));
+    publishBase("0.0.0-test", v1);
+
+    const before = read(theme, "app/layout.tsx");
+    const said = spoken(() => upgrade(theme, v2, "--merge", "--apply"));
+    expect(said).toContain("Still carrying conflict markers");
+    expect(read(theme, "app/layout.tsx")).toBe(before);   // not nested, not touched
+  });
+
+  it("does not re-raise a conflict it already delivered", () => {
+    // Reported as issue 7: the baseline omitted the conflicted files, so the
+    // next run compared them against the whole theme's version and offered the
+    // same conflict from scratch, for ever. The template's change is already
+    // in the file behind the markers, so that file's merge base moves on.
+    const { v1, v2 } = versions();
+    write(v2, "app/layout.tsx", NEW_LAYOUT.replace("./Header", "./layout/Header"));
+    const theme = scaffold(v1);
+    write(theme, "app/layout.tsx", BASE_LAYOUT.replace("./Header", "./MyHeader"));
+    publishBase("0.0.0-test", v1);
+
+    upgrade(theme, v2, "--merge", "--apply");            // produces a conflict
+    const b = JSON.parse(read(theme, ".kurumera/baseline.json"));
+    expect(b.syncedFrom["app/layout.tsx"]).toBe(THIS_CLI);
+
+    // Developer resolves it by keeping their side plus the template's import.
+    write(theme, "app/layout.tsx", `${NEW_LAYOUT}// resolved\n`);
+    const said = spoken(() => upgrade(theme, v2, "--merge", "--apply"));
+    expect(said).not.toContain("Conflicts");
+    expect(read(theme, "app/layout.tsx")).toContain("// resolved");
+  });
+
   it("refuses to merge into a file the developer has rewritten", () => {
     // The defect this closes, reported from production: a line merge into a
     // rewritten file attached the template's additions to whatever structural
