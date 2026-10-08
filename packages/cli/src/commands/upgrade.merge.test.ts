@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -256,6 +256,49 @@ describe("theme upgrade --merge", () => {
 
     upgrade(theme, v2, "--deps", "--apply");
     expect(JSON.parse(read(theme, "package.json")).dependencies.zod).toBe("^3.0.0");
+  });
+
+  it("refuses --from naming this CLI's own version", () => {
+    // Reported from the field: --from <current> makes the base identical to the
+    // template, so every merge is a no-op that reports success and then writes
+    // a baseline claiming the theme is current. 22 files, nothing delivered.
+    const { v1, v2 } = versions();
+    const theme = legacy(v1);
+    write(theme, "app/layout.tsx", MY_LAYOUT);
+    publishBase(THIS_CLI, v2);
+
+    const code = upgrade(theme, v2, "--merge", "--from", THIS_CLI, "--apply");
+    expect(code).toBe(1);
+    expect(read(theme, "app/layout.tsx")).toBe(MY_LAYOUT);
+    expect(existsSync(join(theme, ".kurumera", "baseline.json"))).toBe(false);
+  });
+
+  it("reports a merge that delivered nothing, and records no baseline", () => {
+    // The same trap reached by a wrong-but-not-current --from: the base is a
+    // version whose template already equals what the theme has, so nothing
+    // moves. Silence here is what made the fixes look delivered.
+    const { v1, v2 } = versions();
+    const theme = legacy(v1);
+    write(theme, "app/layout.tsx", MY_LAYOUT);
+    // Base == the template: nothing to bring forward.
+    publishBase("0.9.0", v2);
+
+    const said = spoken(() => upgrade(theme, v2, "--merge", "--from", "0.9.0", "--apply"));
+    expect(said).toContain("Nothing was merged");
+    expect(said).not.toContain("✓ Merged 1 file");
+    expect(said).toContain("--from auto");
+    expect(existsSync(join(theme, ".kurumera", "baseline.json"))).toBe(false);
+  });
+
+  it("says which base a --from merge used, so a wrong one is visible", () => {
+    const { v1, v2 } = versions();
+    const theme = legacy(v1);
+    write(theme, "app/layout.tsx", MY_LAYOUT);
+    publishBase("0.9.0", v1);
+
+    const said = spoken(() => upgrade(theme, v2, "--merge", "--from", "0.9.0", "--apply"));
+    expect(said).toContain("merged against CLI 0.9.0");
+    expect(said).toContain("--from auto");
   });
 
   it("is idempotent — a second merge changes nothing", () => {

@@ -48,7 +48,7 @@ function help(): void {
   console.log("  stores add <slug>                    Authorize an EXISTING connection for another store");
   console.log("  theme init <name>                    Scaffold the base Next.js theme");
   console.log("  theme upgrade [--diff] [--apply]     Bring base files up to this CLI's template");
-  console.log("                [--merge [--from <cli>]] [--deps]  Merge your edits, move dep ranges");
+  console.log("                [--merge [--from auto|<cli>]] [--deps]  Merge your edits, move dep ranges");
   console.log("                                       --diff shows what changed, like git");
   console.log("  theme dev --store <slug>             Run the theme against live store data");
   console.log("  theme check                          Validate the route contract + safety rules");

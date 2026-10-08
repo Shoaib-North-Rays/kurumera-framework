@@ -5,7 +5,7 @@ import { flag } from "../util/fs.js";
 import { cliVersion, hashTree, readBaseline, sha256, writeBaseline } from "../util/baseline.js";
 import { formatStat, unifiedDiff } from "../util/diff.js";
 import { dependsOn, packageImports } from "../util/imports.js";
-import { baseTemplateFor } from "../util/baseTemplate.js";
+import { baseTemplateFor, detectBaseVersion } from "../util/baseTemplate.js";
 import { merge3 } from "../util/merge.js";
 
 const TTY = process.stdout.isTTY;
@@ -73,6 +73,17 @@ export function themeUpgrade(args: string[]): number {
   }
 
   const version = cliVersion(dirname(fileURLToPath(import.meta.url)));
+
+  // Validated before any work or output: `--from <this version>` names the
+  // template itself as the starting point, so every merge finds nothing to
+  // apply and reports success. Refuse it rather than let it look like it worked.
+  if (flag(args, "--from") === version) {
+    console.error(`--from ${version} is this CLI's own template, so there would be nothing to merge.`);
+    console.error("Pass the version that SCAFFOLDED the theme, or let me work it out:");
+    console.error("  kurumera theme upgrade --merge --from auto --apply");
+    return 1;
+  }
+
   const template = hashTree(src);
   const baseline = readBaseline(dir);
 
@@ -115,7 +126,23 @@ export function themeUpgrade(args: string[]): number {
   // how its developer names it. Naming it is also consent, which is why --from
   // unlocks the `unknown` files a bare --merge deliberately leaves alone.
   const from = flag(args, "--from");
-  const baseVersion = from || baseline?.cli || "";
+
+  let baseVersion = from || baseline?.cli || "";
+  if (from === "auto") {
+    process.stdout.write(dim("Working out which CLI scaffolded this theme… "));
+    const guess = detectBaseVersion(hashTree(dir), template, {
+      exclude: version,
+      onProgress: (v) => process.stdout.write(dim(`${v} `)),
+    });
+    if (!guess || !guess.matched) {
+      console.log("");
+      console.error("Could not work it out — no published template matches this theme's files.");
+      console.error("Name it yourself with --from <cli version>, or merge by hand with --diff.");
+      return 1;
+    }
+    baseVersion = guess.version;
+    console.log(`\n${green(`✓ Scaffolded with CLI ${baseVersion}`)} ${dim(`(${guess.matched} of ${guess.total} files still match it)`)}\n`);
+  }
   const mergeable = from ? [...yours, ...unknown] : yours;
   const showDiff = args.includes("--diff");
   const only = flag(args, "--diff");          // --diff <path> narrows to one file
@@ -151,7 +178,7 @@ export function themeUpgrade(args: string[]): number {
   /** The exact command that would unblock the withheld files. */
   const remedy = (needsMerge: boolean, needsDeps: boolean) => [
     "kurumera theme upgrade",
-    needsMerge ? `--merge${baseline ? "" : " --from <cli version>"}` : "",
+    needsMerge ? `--merge${baseline ? "" : " --from auto"}` : "",
     needsDeps ? "--deps" : "",
     "--apply",
   ].filter(Boolean).join(" ");
@@ -273,6 +300,7 @@ export function themeUpgrade(args: string[]): number {
   const mergedClean: string[] = [];
   const mergedConflicted: string[] = [];
   const mergeSkipped: string[] = [];
+  const mergedNoop: string[] = [];
   if (wantsMerge && mergeable.length) {
     const base = baseVersion ? baseTemplateFor(baseVersion) : null;
     if (!base) {
@@ -283,7 +311,7 @@ Could not fetch the template for CLI ${baseVersion} to merge against.`
 Cannot merge: no baseline, so I do not know which template this theme started from.`));
       console.log(dim(baseVersion
         ? "  Your edited files were left alone. Check the network, or merge by hand with --diff."
-        : "  Name it yourself:  kurumera theme upgrade --merge --from 0.9.0 --apply"));
+        : "  Let me work it out:  kurumera theme upgrade --merge --from auto --apply"));
     } else {
       for (const { rel } of mergeable) {
         const basePath = join(base, rel);
@@ -293,11 +321,8 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
           mergeSkipped.push(`${rel}  ${dim(`(did not exist in CLI ${baseVersion})`)}`);
           continue;
         }
-        const result = merge3(
-          readFileSync(basePath, "utf8"),
-          readFileSync(join(dir, rel), "utf8"),
-          readFileSync(join(src, rel), "utf8"),
-        );
+        const mine = readFileSync(join(dir, rel), "utf8");
+        const result = merge3(readFileSync(basePath, "utf8"), mine, readFileSync(join(src, rel), "utf8"));
         if (!result.ok) {
           mergeSkipped.push(`${rel}  ${dim("(too large to merge safely)")}`);
           continue;
@@ -305,6 +330,10 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
         if (process.env.KURUMERA_DEBUG_MERGE) {
           console.error(`DBG merge ${rel} base=${basePath} out=${result.merged.split("\n").length} conflicts=${result.conflicts}`);
         }
+        // A merge that changed nothing is not a merge, and counting it as one
+        // is how a wrong base reported "✓ Merged 22 file(s)" having delivered
+        // nothing at all. Tracked separately so the summary can say so.
+        if (result.merged === mine) { mergedNoop.push(rel); continue; }
         writeFileSync(join(dir, rel), result.merged);
         (result.conflicts ? mergedConflicted : mergedClean).push(rel);
       }
@@ -326,10 +355,20 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
   }
   const written = willAdd.length + update.length;
 
-  // Record the template as it is NOW, including the files left alone: the next
-  // upgrade should compare against this template, not the original scaffold,
-  // or it would offer the same changes again forever.
-  writeBaseline(dir, version, template);
+  // A merge where every single file came out unchanged means the base was
+  // wrong — most likely a --from that named a template too new to differ from
+  // this one. Recording a baseline on top of that would claim the theme is
+  // current when nothing was delivered, so it is refused outright.
+  const allNoop = wantsMerge && mergeable.length > 0
+    && mergedNoop.length === mergeable.length - mergeSkipped.length
+    && mergedNoop.length > 0;
+
+  if (!allNoop) {
+    // Record the template as it is NOW, including the files left alone: the next
+    // upgrade should compare against this template, not the original scaffold,
+    // or it would offer the same changes again forever.
+    writeBaseline(dir, version, template);
+  }
 
   console.log(green(`✓ Updated ${written} file(s) to CLI ${version}.`));
   reportBlocked(adds, "what they import would");
@@ -337,6 +376,21 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
   if (mergedClean.length) {
     console.log(green(`✓ Merged ${mergedClean.length} file(s) you had edited, with no conflict.`));
     mergedClean.forEach((r) => console.log(`  ${r}`));
+  }
+  if (allNoop) {
+    console.log(`\n${yellow(`Nothing was merged: all ${mergedNoop.length} file(s) came out unchanged.`)}`);
+    console.log(dim(`  Against CLI ${baseVersion} your files already look final, so there was nothing`));
+    console.log(dim("  to bring forward. That almost always means the base version is wrong."));
+    console.log(dim("  No baseline was recorded, so nothing now claims this theme is current."));
+    console.log(dim("\n  Let me work the right one out:"));
+    console.log(dim("  kurumera theme upgrade --merge --from auto --apply"));
+  } else if (mergedNoop.length) {
+    console.log(dim(`\n${mergedNoop.length} file(s) already matched the template — nothing to merge:`));
+    mergedNoop.forEach((r) => console.log(dim(`  ${r}`)));
+  }
+  if (from && from !== "auto" && !allNoop) {
+    console.log(dim(`\nBaseline recorded as CLI ${version}, merged against CLI ${baseVersion} (from --from).`));
+    console.log(dim("If that base was wrong, revert and re-run with --from auto."));
   }
   if (mergedConflicted.length) {
     console.log(`
@@ -358,7 +412,7 @@ ${yellow("Conflicts — both you and the template changed the same lines:")}`);
   if (untouched) {
     console.log(`\n${yellow("Left alone:")} ${untouched} file(s) you have edited.`);
     console.log(dim("See what the template changed:  kurumera theme upgrade --diff"));
-    console.log(dim(`Or let me merge them:           kurumera theme upgrade --merge${baseline ? "" : " --from <cli version>"} --apply`));
+    console.log(dim(`Or let me merge them:           kurumera theme upgrade --merge${baseline ? "" : " --from auto"} --apply`));
   }
   console.log(`\n  ${dim("Then:")}  npm install && kurumera theme check`);
   return 0;
