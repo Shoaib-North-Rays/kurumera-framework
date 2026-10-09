@@ -47,13 +47,12 @@ export default async function SearchPage({
         </div>
       )}
       {/* SEARCH_CLICK by delegation — which result was actually chosen. */}
-      <SearchResultClicks query={q}>
-        <div className="grid">
-          {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
-      </SearchResultClicks>
+      <SearchResultClicks query={q} />
+      <div className="grid">
+        {products.map((p) => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </div>
     </section>
   );
 }

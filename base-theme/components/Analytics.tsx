@@ -16,7 +16,7 @@
  * Every component renders `null`. They are placed in a page for their effect,
  * not their output.
  */
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import {
   trackEvent, EVENT,
@@ -128,33 +128,36 @@ export function searchClick(
 /**
  * SEARCH_CLICK for a whole result list, by delegation.
  *
- * Wrap the results in this and every product link inside is tracked — no
- * change to the card component, and it keeps working when the card is a Server
- * Component (an onClick prop could not be passed to one). The handle comes
- * from the href and the rank from the link's position in the list, so a theme
- * does not have to thread an index through its markup.
+ * Renders nothing and listens on the document, so it can be dropped into any
+ * search page without touching its markup. The alternatives were both worse:
+ * an onClick prop cannot be passed to a Server Component card, and a wrapper
+ * element changes the grid it wraps — a retrofit into somebody's own layout
+ * must not move their CSS around.
+ *
+ * The handle comes from the href and the rank from the link's position among
+ * the matched links, so a theme does not thread an index through its markup.
+ * `within` narrows the scope when a page has product links that are not
+ * results (a nav, a "related" rail).
  */
-export function SearchResultClicks({ query, children }: { query: string; children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-
+export function SearchResultClicks({ query, within }: { query: string; within?: string }) {
   useEffect(() => {
-    const root = ref.current;
-    if (!root || !query) return;
+    if (!query || typeof document === "undefined") return;
+    const SELECTOR = "a[href*='/products/']";
     const onClick = (e: MouseEvent) => {
-      const link = (e.target as Element | null)?.closest?.("a[href*='/products/']");
+      const link = (e.target as Element | null)?.closest?.(SELECTOR);
       if (!link) return;
-      const href = link.getAttribute("href") || "";
-      const handle = href.match(/\/products\/([^/?#]+)/)?.[1];
+      const root = within ? document.querySelector(within) : document;
+      if (!root || !root.contains(link)) return;
+      const handle = (link.getAttribute("href") || "").match(/\/products\/([^/?#]+)/)?.[1];
       if (!handle) return;
-      // Rank as the shopper sees it: 1-indexed position among the result links.
-      const links = [...root.querySelectorAll("a[href*='/products/']")];
+      // Rank as the shopper sees it: 1-indexed among the result links.
+      const links = [...root.querySelectorAll(SELECTOR)];
       trackSearchClick(query, { handle, position: links.indexOf(link) + 1 });
     };
-    root.addEventListener("click", onClick);
-    return () => root.removeEventListener("click", onClick);
-  }, [query]);
-
-  return <div ref={ref}>{children}</div>;
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [query, within]);
+  return null;
 }
 
 /**
