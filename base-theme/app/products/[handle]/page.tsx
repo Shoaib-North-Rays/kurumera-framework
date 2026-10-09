@@ -3,7 +3,7 @@ import { KurumeraError } from "@kurumera/storefront";
 import { getStore } from "@/lib/kurumera";
 import { Price } from "@/components/Price";
 import { AddToCart } from "@/components/AddToCart";
-import { TrackProductView } from "@/components/Analytics";
+import { TrackOutOfStock, TrackProductView } from "@/components/Analytics";
 import { TruckIcon, RefreshIcon, ShieldIcon } from "@/components/Icon";
 
 /** product template */
@@ -56,6 +56,11 @@ export default async function ProductPage({
         {product.body_html ? (
           <div className="pdp__body" dangerouslySetInnerHTML={{ __html: product.body_html }} />
         ) : null}
+        {/* OUT_OF_STOCK_VIEW — demand on something that cannot be bought.
+            Rendered only when it is actually unavailable. */}
+        {product.available ? null : (
+          <TrackOutOfStock productId={String(product.id)} handle={product.handle} variantId={defaultVariantId} />
+        )}
         <AddToCart variantId={defaultVariantId} available={!!product.available} />
         {hasVariants && (
           <p className="pdp__variant-note">

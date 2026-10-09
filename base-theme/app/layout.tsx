@@ -5,7 +5,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { getSettings, themeCssVars } from "@/lib/settings";
 import { getTenantSlug } from "@/lib/kurumera";
-import { PageViews } from "@/components/Analytics";
+import { PageViews, SessionTracking } from "@/components/Analytics";
 import { EditableProvider } from "@kurumera/editable/client";
 import { resolveEditableContent } from "@kurumera/editable/server";
 
@@ -73,6 +73,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           {/* PAGE_VIEW on load and on every client-side navigation. Renders
               nothing; mounted here so a route change anywhere is counted. */}
           <PageViews />
+          {/* SESSION_START / SESSION_END — a visit's duration and bounce.
+              Mounted once here, like PageViews. */}
+          <SessionTracking />
           <main className="site-main">{children}</main>
           <Footer />
         </EditableProvider>

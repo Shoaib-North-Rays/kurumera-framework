@@ -318,4 +318,103 @@ export const EVENT = {
   SEARCH_NO_RESULTS: "SEARCH_NO_RESULTS",
   IDENTIFY: "IDENTIFY",
   CONTACT_CLICK: "CONTACT_CLICK",
+  SESSION_START: "SESSION_START",
+  SESSION_END: "SESSION_END",
+  SEARCH_CLICK: "SEARCH_CLICK",
+  OUT_OF_STOCK_VIEW: "OUT_OF_STOCK_VIEW",
 } as const;
+
+/* ── Session lifecycle ─────────────────────────────────────────────────────── */
+
+/**
+ * SESSION_START once per session, SESSION_END when the tab goes away.
+ *
+ * The tracker already mints a `session_id`, but without these two events a
+ * session has no duration and no bounce: the backend can see the events inside
+ * a visit and not the visit itself. Themes should not have to hand-roll this —
+ * every one would get the unload semantics subtly different — so it lives here
+ * and a theme calls it once.
+ *
+ * SESSION_END rides on `pagehide` plus `visibilitychange`, not `beforeunload`:
+ * mobile Safari and Chrome on Android commonly freeze a backgrounded tab and
+ * never fire `beforeunload` at all, so a phone session would never close. Both
+ * can fire for one departure, hence the once-only guard.
+ */
+export function startSessionTracking(): () => void {
+  const w = win();
+  if (!w) return () => {};
+
+  const STARTED_KEY = "kurumera.session_started";
+  try {
+    if (!w.sessionStorage.getItem(STARTED_KEY)) {
+      w.sessionStorage.setItem(STARTED_KEY, "1");
+      trackEvent(EVENT.SESSION_START, {
+        data: { landing_path: w.location.pathname, ...sessionUtmInternal() },
+      });
+    }
+  } catch {
+    // Blocked storage: a start event every load is worse than none, because it
+    // would read as a new session per page. Skip it and keep the end event.
+  }
+
+  let ended = false;
+  const end = () => {
+    if (ended) return;
+    ended = true;
+    trackEvent(EVENT.SESSION_END, { data: { exit_path: w.location.pathname } });
+  };
+  const onHidden = () => { if (w.document.visibilityState === "hidden") end(); };
+
+  w.addEventListener("pagehide", end);
+  w.document.addEventListener("visibilitychange", onHidden);
+  return () => {
+    w.removeEventListener("pagehide", end);
+    w.document.removeEventListener("visibilitychange", onHidden);
+  };
+}
+
+/* ── Discrete signals ──────────────────────────────────────────────────────── */
+
+/**
+ * SEARCH_CLICK — which result a shopper actually chose.
+ *
+ * The one signal that makes search quality measurable: SEARCH says somebody
+ * looked, this says whether what they found was any use. `position` is
+ * 1-indexed because that is how a ranking report reads.
+ */
+export function trackSearchClick(
+  query: string,
+  opts: { productId?: string; handle?: string; position?: number } = {},
+): void {
+  trackEvent(EVENT.SEARCH_CLICK, {
+    data: {
+      search_query: query,
+      ...(opts.productId ? { product_id: opts.productId } : {}),
+      ...(opts.handle ? { handle: opts.handle } : {}),
+      ...(typeof opts.position === "number" ? { position: opts.position } : {}),
+    },
+    // Deduped on the result, not the query: clicking two results for one search
+    // is two real signals, clicking the same one twice is not.
+    dedupeKey: `${query}:${opts.productId ?? opts.handle ?? ""}`,
+  });
+}
+
+/**
+ * OUT_OF_STOCK_VIEW — demand arriving at something that cannot be bought.
+ *
+ * Deduped per product so a shopper refreshing a sold-out page does not read as
+ * repeated demand.
+ */
+export function trackOutOfStockView(
+  productId: string,
+  opts: { handle?: string; variantId?: string } = {},
+): void {
+  trackEvent(EVENT.OUT_OF_STOCK_VIEW, {
+    data: {
+      product_id: productId,
+      ...(opts.handle ? { handle: opts.handle } : {}),
+      ...(opts.variantId ? { variant_id: opts.variantId } : {}),
+    },
+    dedupeKey: `${productId}:${opts.variantId ?? ""}`,
+  });
+}

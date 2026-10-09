@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getStore } from "@/lib/kurumera";
 import { ProductCard } from "@/components/ProductCard";
-import { TrackSearch } from "@/components/Analytics";
+import { SearchResultClicks, TrackSearch } from "@/components/Analytics";
 import type { SearchResults } from "@kurumera/storefront";
 
 /** search template */
@@ -46,11 +46,14 @@ export default async function SearchPage({
           ))}
         </div>
       )}
-      <div className="grid">
-        {products.map((p) => (
-          <ProductCard key={p.id} product={p} />
-        ))}
-      </div>
+      {/* SEARCH_CLICK by delegation — which result was actually chosen. */}
+      <SearchResultClicks query={q}>
+        <div className="grid">
+          {products.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </div>
+      </SearchResultClicks>
     </section>
   );
 }
