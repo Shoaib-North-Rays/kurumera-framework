@@ -136,6 +136,37 @@ export function checkTheme(dir: string): CheckResult {
     if (/^\s*['"]use server['"]/m.test(src)) add("error", "security", "no-server-actions", `"use server" isn't allowed.`, { file: rel });
     if (/\beval\s*\(|\bnew\s+Function\s*\(/.test(src)) add("error", "security", "no-eval", "eval / new Function isn't allowed.", { file: rel });
 
+    // A raw call to the platform API, and whether it understands the
+    // platform's refusals.
+    //
+    // The endpoint path usually lives in a config module while the fetch()
+    // lives elsewhere, so the per-file signal is the API base, not the path.
+    //
+    // It matters most for forms. Since October 2026 every store blocks senders
+    // by address or email, and a blocked sender gets 403 with the reason nested
+    // under `error.code` / `error.message`. Code that reads the body's TOP
+    // level finds nothing there and shows its own "please try again" — hiding
+    // the refusal and spending another of the sender's hourly tries. A real
+    // person on a shared office or mobile network can land there.
+    const platformCall = /\bfetch\s*\(/.test(src)
+      && /KURUMERA_PUBLIC_API_BASE|KURUMERA_API_URL|admin\.kurumera\.com|\/storefront\//.test(src);
+    if (platformCall) {
+      add("warning", "security", "raw-platform-fetch",
+        "Calls the platform API with fetch() instead of @kurumera/storefront.",
+        { file: rel, fix: "Use the SDK — it throws KurumeraError with the response's code and message." });
+
+      // Satisfied by naming the code, by delegating to a helper named for it,
+      // or by going through the SDK's KurumeraError — all three mean somebody
+      // has thought about the refusal.
+      const handlesBlocked = /sender_blocked|isSenderBlocked|readFormError|KurumeraError/.test(src);
+      const posts = /method:\s*['"]POST['"]/i.test(src);
+      if (posts && !handlesBlocked) {
+        add("warning", "security", "form-error-handling",
+          "POSTs to the platform with fetch() but never checks for \"sender_blocked\".",
+          { file: rel, fix: "Read error.code from the body; on sender_blocked show error.message, never a success state and never a retry." });
+      }
+    }
+
     const seen = new Set<string>();
     for (const em of src.match(/process\.env\.([A-Z0-9_]+)/g) ?? []) {
       const name = em.split(".").pop()!;
