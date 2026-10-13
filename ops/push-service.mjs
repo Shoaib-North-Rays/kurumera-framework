@@ -2861,7 +2861,20 @@ const server = http.createServer((req, res) => {
 
   // ── PREVIEW proxy (store+version scoped, wake-on-request) ──────────────────
   const s = qStore || slug(cookieStore(req));
-  if (!s) { res.writeHead(400, { "Content-Type": "text/html" }); return res.end("<h1>Add ?store=&lt;slug&gt;, or browse the <a href='/marketplace'>theme marketplace</a>.</h1>"); }
+  if (!s) {
+    // No store to preview. The root is the framework's front door — serve the
+    // landing page rather than the 400 dead end this used to be. Any other
+    // path still answers 400, because it was asking for a store's page.
+    if (p === "/") {
+      try {
+        const html = readFileSync(join(import.meta.dirname, "landing.html"), "utf8");
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" });
+        return res.end(html);
+      } catch { /* fall through to the text answer below */ }
+    }
+    res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
+    return res.end("<h1>Add ?store=&lt;slug&gt;, or start at <a href='/'>the framework home</a>.</h1>");
+  }
   // `woke` distinguishes the two failures that were previously identical: a
   // container that is booting (true) from a store that was never built (false).
   wakePreview(s).catch(() => false).then((woke) => {

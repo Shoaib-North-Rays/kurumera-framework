@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en" data-theme-root>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kurumera Theme Framework</title>
+<meta name="description" content="Write a real Next.js storefront, run it against live store data, and publish it per store. The front door to the Kurumera theme framework, its CLI, the visual builder and the theme marketplace.">
+<style>
+  /* Same tokens as /guide and /api-reference — these pages are one system. */
+  :root{
+    --paper:#F5F7F6; --surface:#FFFFFF; --raised:#FBFCFC;
+    --ink:#16211E; --muted:#586964; --faint:#8A9994;
+    --line:#E1E7E4; --line-strong:#CBD4D0;
+    --accent:#0E9184; --accent-ink:#0B6F65; --accent-soft:rgba(14,145,132,.10);
+    --term-bg:#0E1512; --term-fg:#D7E0DC; --term-dim:#7E8F89; --term-prompt:#37D3BE;
+    --ok:#2E7D5B; --warn:#9A6410;
+    --measure:68ch;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0D1211; --surface:#131A18; --raised:#171F1D;
+      --ink:#E8EEEB; --muted:#9BABA5; --faint:#71817C;
+      --line:#222C29; --line-strong:#2E3A36;
+      --accent:#37D3BE; --accent-ink:#8CE8DA; --accent-soft:rgba(55,211,190,.12);
+      --term-bg:#080C0B; --ok:#5FBE92; --warn:#D2A258;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0D1211; --surface:#131A18; --raised:#171F1D;
+    --ink:#E8EEEB; --muted:#9BABA5; --faint:#71817C;
+    --line:#222C29; --line-strong:#2E3A36;
+    --accent:#37D3BE; --accent-ink:#8CE8DA; --accent-soft:rgba(55,211,190,.12);
+    --term-bg:#080C0B; --ok:#5FBE92; --warn:#D2A258;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:16px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent-ink); text-decoration:none}
+  a:hover{text-decoration:underline}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:3px}
+  code{font-family:var(--mono); font-size:.9em}
+  h1,h2,h3{text-wrap:balance; margin:0}
+  p{margin:0}
+
+  .wrap{max-width:1020px; margin:0 auto; padding:0 16px}
+
+  /* ── masthead ─────────────────────────────────────────────────────────── */
+  .mast{border-bottom:1px solid var(--line); background:var(--surface)}
+  .mast .wrap{padding-top:22px; padding-bottom:34px; display:flex; flex-direction:column; gap:26px}
+  .brandrow{display:flex; align-items:center; gap:10px; justify-content:space-between; flex-wrap:wrap}
+  .brand{display:flex; align-items:center; gap:10px; min-width:0}
+  .glyph{
+    width:26px; height:26px; flex:none; border-radius:6px;
+    background:var(--accent); color:#06231F;
+    font:700 15px/26px var(--sans); text-align:center; letter-spacing:-.02em;
+  }
+  .brand b{font-size:12px; letter-spacing:.14em; color:var(--muted); font-weight:600; white-space:nowrap}
+  nav.top{display:flex; gap:18px; flex-wrap:wrap; font-size:14px}
+  nav.top a{color:var(--muted)}
+  nav.top a:hover{color:var(--accent-ink)}
+
+  .eyebrow{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--accent-ink); font-weight:650}
+  /* The headline gets the full column — it is a title, not running text, and
+     the reading measure that suits a paragraph makes it wrap three times. */
+  .hero{display:flex; flex-direction:column; gap:14px}
+  .hero h1{font-size:clamp(28px,4.6vw,44px); line-height:1.12; letter-spacing:-.022em; max-width:18ch}
+  .lead{font-size:clamp(16px,1.6vw,18.5px); color:var(--muted); max-width:var(--measure)}
+  .cta{display:flex; gap:10px; flex-wrap:wrap; margin-top:6px}
+  .btn{
+    display:inline-block; padding:9px 16px; border-radius:7px; font-size:14.5px; font-weight:600;
+    border:1px solid var(--accent); background:var(--accent); color:#06231F;
+  }
+  .btn:hover{text-decoration:none; filter:brightness(1.06)}
+  .btn.ghost{background:transparent; color:var(--accent-ink); border-color:var(--line-strong)}
+
+  /* ── the note that answers "why am I seeing a store?" ─────────────────── */
+  .notice{
+    margin:26px auto 0; max-width:1020px;
+    border:1px solid var(--line-strong); border-left:3px solid var(--accent);
+    background:var(--raised); border-radius:8px; padding:16px 18px;
+  }
+  .notice h2{font-size:15px; letter-spacing:-.01em; margin-bottom:6px}
+  .notice p{font-size:14.5px; color:var(--muted); max-width:var(--measure)}
+  .notice p + p{margin-top:8px}
+
+  section{padding:46px 0}
+  section + section{border-top:1px solid var(--line)}
+  .sechead{display:flex; flex-direction:column; gap:8px; margin-bottom:26px; max-width:var(--measure)}
+  .sechead h2{font-size:clamp(21px,2.5vw,27px); letter-spacing:-.018em}
+  .sechead p{color:var(--muted); font-size:15.5px}
+
+  .grid{display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  /* Four cards: two rows of two, so the last one is not left orphaned beside
+     two empty columns the way an auto-fit three-up leaves it. */
+  .grid.pairs{grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr))}
+  @media (min-width:820px){ .grid.pairs{grid-template-columns:1fr 1fr} }
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:9px;
+    padding:18px 18px 20px; display:flex; flex-direction:column; gap:9px;
+  }
+  .card h3{font-size:16.5px; letter-spacing:-.012em}
+  .card p{font-size:14.5px; color:var(--muted)}
+  .card .kicker{font-size:11px; letter-spacing:.13em; text-transform:uppercase; color:var(--faint); font-weight:650}
+  .card a.more{font-size:14px; font-weight:600; margin-top:auto}
+  a.card:hover{border-color:var(--accent); text-decoration:none}
+
+  /* ── terminal ─────────────────────────────────────────────────────────── */
+  .term{
+    background:var(--term-bg); color:var(--term-fg); border-radius:9px;
+    padding:16px 18px; overflow-x:auto;
+    font-family:var(--mono); font-size:13.5px; line-height:1.75;
+    border:1px solid var(--line-strong);
+  }
+  .term .l{display:block; white-space:pre}
+  .term .p{color:var(--term-prompt)}
+  .term .c{color:var(--term-dim)}
+  .term .o{color:var(--term-dim)}
+  .term .ok{color:var(--ok)}
+
+  .steps{counter-reset:s; display:grid; gap:18px; margin-top:4px}
+  .step{display:grid; grid-template-columns:28px 1fr; gap:12px; align-items:start}
+  .step .n{
+    counter-increment:s; width:28px; height:28px; border-radius:50%;
+    border:1px solid var(--line-strong); background:var(--raised); color:var(--muted);
+    font:650 13px/26px var(--mono); text-align:center;
+  }
+  .step .n::before{content:counter(s)}
+  .step h3{font-size:15.5px; margin-bottom:3px}
+  .step p{font-size:14.5px; color:var(--muted); max-width:var(--measure)}
+  .step code{background:var(--accent-soft); color:var(--accent-ink); padding:1px 5px; border-radius:4px}
+
+  table.facts{border-collapse:collapse; width:100%; font-size:14.5px}
+  table.facts th,table.facts td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+  table.facts th{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); font-weight:650}
+  table.facts td:first-child{font-family:var(--mono); font-size:13px; white-space:nowrap; color:var(--accent-ink)}
+  .scroll{overflow-x:auto}
+
+  footer{border-top:1px solid var(--line); background:var(--surface); padding:26px 0 34px}
+  footer .wrap{display:flex; gap:14px; justify-content:space-between; flex-wrap:wrap; align-items:center}
+  footer p{font-size:13.5px; color:var(--faint)}
+  footer nav{display:flex; gap:16px; flex-wrap:wrap; font-size:13.5px}
+
+  @media (max-width:560px){
+    .mast .wrap{padding-bottom:28px}
+    section{padding:34px 0}
+  }
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="wrap">
+    <div class="brandrow">
+      <div class="brand"><span class="glyph">K</span><b>KURUMERA · THEME FRAMEWORK</b></div>
+      <nav class="top">
+        <a href="/guide">Developer guide</a>
+        <a href="/api-reference">API reference</a>
+        <a href="/checkout-guide">Checkout</a>
+        <a href="/marketplace">Marketplace</a>
+      </nav>
+    </div>
+    <div class="hero">
+      <span class="eyebrow">Storefronts as code</span>
+      <h1>Write a real Next.js storefront. Publish it per&#8209;store.</h1>
+      <p class="lead">
+        A Kurumera theme is an ordinary Next.js app you keep in git. Run it against a live
+        store's products and cart, push it, and the platform builds and serves it on that
+        store's domain. Routing, checkout, payments and analytics are already handled.
+      </p>
+      <div class="cta">
+        <a class="btn" href="/guide">Read the developer guide</a>
+        <a class="btn ghost" href="/marketplace">Browse themes</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- The question this page exists to answer: people land here expecting docs
+     and get somebody's shop, because this host is the preview renderer. -->
+<div class="notice wrap">
+  <h2>Looking for a store preview?</h2>
+  <p>
+    This host renders a theme's build against a real store, so a preview needs to know
+    which one: add <code>?store=&lt;slug&gt;</code> to the URL, or open it with
+    <code>kurumera theme preview --store &lt;slug&gt;</code>. Without a store it shows this page.
+  </p>
+  <p>
+    A marketplace demo works the same way and is linked from each listing on the
+    <a href="/marketplace">marketplace</a>.
+  </p>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="sechead">
+      <h2>Two ways to build a storefront</h2>
+      <p>Both publish to the same place and serve the same store data. Pick by how much control you want over the markup.</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <span class="kicker">For developers</span>
+        <h3>A code theme, in your editor</h3>
+        <p>
+          A Next.js App Router project with a fixed route contract — home, product,
+          collection, cart, search, page. You own every component. Read store data through
+          <code>@kurumera/storefront</code>, run it locally against live products, and ship
+          with the CLI.
+        </p>
+        <a class="more" href="/guide">The developer journey →</a>
+      </div>
+      <div class="card">
+        <span class="kicker">For merchants</span>
+        <h3>The visual builder</h3>
+        <p>
+          Drag sections onto a page, edit text and images in place, and publish — no local
+          setup. Each store's admin has it built in, and a code theme can be set live
+          instead at any time without losing the other.
+        </p>
+        <a class="more" href="https://kurumera.com">Open your store admin →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sechead">
+      <h2>From nothing to a live storefront</h2>
+      <p>Seven commands. The only prerequisite is Node and an account with a store on it.</p>
+    </div>
+    <div class="term" role="group" aria-label="Quickstart commands">
+<span class="l"><span class="c"># install the CLI and sign in (opens a browser; use --device on a remote box)</span></span>
+<span class="l"><span class="p">$</span> npm i -g @kurumera/cli</span>
+<span class="l"><span class="p">$</span> kurumera login</span>
+<span class="l"> </span>
+<span class="l"><span class="c"># scaffold a theme and see which stores you can act on</span></span>
+<span class="l"><span class="p">$</span> kurumera theme init my-store</span>
+<span class="l"><span class="p">$</span> cd my-store &amp;&amp; kurumera stores list</span>
+<span class="l"> </span>
+<span class="l"><span class="c"># run it against a live store's real products, at localhost:3000</span></span>
+<span class="l"><span class="p">$</span> kurumera theme dev --store my-store</span>
+<span class="l"> </span>
+<span class="l"><span class="c"># validate, upload (the platform builds it), then make it live</span></span>
+<span class="l"><span class="p">$</span> kurumera theme check</span>
+<span class="l"><span class="o">  </span><span class="ok">✓ theme check passed — no issues.</span></span>
+<span class="l"><span class="p">$</span> kurumera theme push</span>
+<span class="l"><span class="p">$</span> kurumera theme publish --store my-store</span>
+<span class="l"><span class="o">  </span><span class="ok">✓ Live and serving — https://my-store.kurumera.com</span></span>
+    </div>
+    <div class="steps" style="margin-top:28px">
+      <div class="step"><div class="n"></div><div>
+        <h3>Keep it in git</h3>
+        <p>A theme is just files. Commit before an upgrade so <code>git diff</code> tells you exactly what changed.</p>
+      </div></div>
+      <div class="step"><div class="n"></div><div>
+        <h3>Upgrade without losing your work</h3>
+        <p><code>kurumera theme upgrade</code> reports first and writes nothing. <code>--merge --from auto</code> works out which CLI scaffolded the theme and three-way merges the template's changes into the files you edited; anything it cannot merge safely it names instead of guessing.</p>
+      </div></div>
+      <div class="step"><div class="n"></div><div>
+        <h3>Roll back by version</h3>
+        <p>Every push is retained. <code>theme versions</code> lists them, <code>theme rollback</code> restores the previous one, and <code>theme pull --version</code> downloads an exact version's original source.</p>
+      </div></div>
+      <div class="step"><div class="n"></div><div>
+        <h3>Sell it, or buy one</h3>
+        <p><code>marketplace publish</code> lists your theme for other stores; <code>marketplace clone</code> downloads one to edit as your own.</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sechead">
+      <h2>What the platform already does</h2>
+      <p>So a theme stays presentation and never grows a backend.</p>
+    </div>
+    <div class="scroll">
+      <table class="facts">
+        <thead><tr><th>Area</th><th>What you get</th></tr></thead>
+        <tbody>
+          <tr><td>store data</td><td>Products, collections, search, cart and customer accounts over the storefront API, read through <code>@kurumera/storefront</code>. A theme needs no server of its own — custom API routes are rejected by <code>theme check</code>.</td></tr>
+          <tr><td>checkout</td><td>Hosted and PCI-handled, with Stripe and cash-on-delivery. The cart hands off cleanly; the pages are yours to style. See the <a href="/checkout-guide">checkout guide</a>.</td></tr>
+          <tr><td>analytics</td><td>Page, product, collection, search, cart, checkout and session events, with first-touch UTM and a durable visitor id. The tracker lives in the SDK so every theme reports identically.</td></tr>
+          <tr><td>forms</td><td>A contact endpoint and custom forms per store, with spam protection and sender blocking. Show the server's message rather than your own — <code>theme check</code> flags a form that swallows it.</td></tr>
+          <tr><td>hosting</td><td>Per-store builds, a wake-on-request preview, custom domains with TLS, and retained versions you can activate or roll back to.</td></tr>
+          <tr><td>multi-tenancy</td><td>One theme serves many stores. The store is resolved per request, so the same build renders each one's own catalogue and branding.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sechead"><h2>Where to go next</h2></div>
+    <div class="grid pairs">
+      <a class="card" href="/guide">
+        <span class="kicker">Start here</span>
+        <h3>Developer guide</h3>
+        <p>The route contract, the anatomy of a theme, reading live store data in dev, and every command explained.</p>
+        <span class="more">Open the guide →</span>
+      </a>
+      <a class="card" href="/api-reference">
+        <span class="kicker">Reference</span>
+        <h3>API reference</h3>
+        <p>Every resource the SDK exposes — products, collections, cart, search, customers, forms — with its fields.</p>
+        <span class="more">Open the reference →</span>
+      </a>
+      <a class="card" href="/checkout-guide">
+        <span class="kicker">Merchants</span>
+        <h3>Customising checkout</h3>
+        <p>What the hosted checkout handles, what you can restyle, and how the cart hands off to it.</p>
+        <span class="more">Open the checkout guide →</span>
+      </a>
+      <a class="card" href="/marketplace">
+        <span class="kicker">Themes</span>
+        <h3>Theme marketplace</h3>
+        <p>Install a published theme into a store, or list your own for other merchants to buy.</p>
+        <span class="more">Browse the marketplace →</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Kurumera · theme framework</p>
+    <nav>
+      <a href="/guide">Guide</a>
+      <a href="/api-reference">API</a>
+      <a href="/checkout-guide">Checkout</a>
+      <a href="/marketplace">Marketplace</a>
+      <a href="https://kurumera.com">Store admin</a>
+    </nav>
+  </div>
+</footer>
+
+</body>
+</html>
