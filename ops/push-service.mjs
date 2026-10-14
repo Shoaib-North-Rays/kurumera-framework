@@ -1780,37 +1780,26 @@ function cookieMarket(req) {
 // A theme preview's /_next/* asset requests carry no ?market, but their Referer
 // is the previewing page (…/?market=<theme>) — a cookie-free stickiness signal.
 /**
- * The framework's landing page, with a "you were previewing X" line when this
- * browser still holds a preview cookie.
+ * The framework's landing page.
  *
  * `no-store`: the page now differs per visitor, and more importantly a
  * cached copy would be served for "/" INSIDE a preview too — the browser does
  * not know that a click on the store's Home link should reach the store. The
  * page is 17 KB; not caching it costs nothing worth having.
  */
-function serveLanding(res, remembered) {
+function serveLanding(res) {
   let html;
   try {
     html = readFileSync(join(import.meta.dirname, "landing.html"), "utf8");
   } catch {
     return false;
   }
-  // slug() has already reduced both to [a-z0-9-], so they are safe in HTML and
-  // in a URL as they stand.
-  const { store, market } = remembered;
-  const resume = store
-    ? `<div class="resume wrap"><p>This browser is still previewing <code>${store}</code>.</p>`
-      + `<a class="btn" href="/?store=${store}">Continue that preview</a></div>`
-    : market
-      ? `<div class="resume wrap"><p>This browser is still previewing the <code>${market}</code> theme.</p>`
-        + `<a class="btn" href="/?market=${market}">Continue that preview</a></div>`
-      : "";
   res.writeHead(200, {
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "no-store",
     "Vary": "Cookie, Sec-Fetch-Site",
   });
-  res.end(html.replace("<!--RESUME-->", resume));
+  res.end(html);
   return true;
 }
 
@@ -2862,11 +2851,10 @@ const server = http.createServer((req, res) => {
   // is a navigation from a page on this host — the store's own Home link
   // inside a preview — and must keep reaching the store. Anything else (typed,
   // bookmarked, linked from elsewhere, or a client too old to send the header)
-  // is someone arriving at the front door, and gets the landing page, told
-  // which preview they still have open.
+  // is someone arriving at the front door, and gets the landing page.
   if (p === "/" && !qStore && !qMarket && (req.method === "GET" || req.method === "HEAD")
       && req.headers["sec-fetch-site"] !== "same-origin") {
-    if (serveLanding(res, { store: slug(cookieStore(req)), market: slug(cookieMarket(req)) })) return;
+    if (serveLanding(res)) return;
   }
   const mkt = qMarket || (!qStore && (cookieMarket(req) || marketFromReferer(req)));
 
@@ -2918,7 +2906,7 @@ const server = http.createServer((req, res) => {
     // No store to preview. The root is the framework's front door — serve the
     // landing page rather than the 400 dead end this used to be. Any other
     // path still answers 400, because it was asking for a store's page.
-    if (p === "/" && serveLanding(res, { store: "", market: "" })) return;
+    if (p === "/" && serveLanding(res)) return;
     res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
     return res.end("<h1>Add ?store=&lt;slug&gt;, or start at <a href='/'>the framework home</a>.</h1>");
   }
