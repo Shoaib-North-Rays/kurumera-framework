@@ -86,6 +86,13 @@
     border:1px solid var(--line-strong); border-left:3px solid var(--accent);
     background:var(--raised); border-radius:8px; padding:16px 18px;
   }
+  .resume{
+    margin:26px auto 0; max-width:1020px; display:flex; align-items:center; gap:14px;
+    justify-content:space-between; flex-wrap:wrap;
+    border:1px solid var(--accent); background:var(--accent-soft); border-radius:8px; padding:14px 18px;
+  }
+  .resume p{font-size:14.5px; color:var(--ink)}
+  .resume code{background:var(--surface); padding:1px 6px; border-radius:4px; border:1px solid var(--line)}
   .notice h2{font-size:15px; letter-spacing:-.01em; margin-bottom:6px}
   .notice p{font-size:14.5px; color:var(--muted); max-width:var(--measure)}
   .notice p + p{margin-top:8px}
@@ -181,6 +188,10 @@
     </div>
   </div>
 </header>
+
+<!-- Filled in by push-service.mjs when this browser still has a preview open.
+     The root used to silently become that store; now it says so instead. -->
+<!--RESUME-->
 
 <!-- The question this page exists to answer: people land here expecting docs
      and get somebody's shop, because this host is the preview renderer. -->
