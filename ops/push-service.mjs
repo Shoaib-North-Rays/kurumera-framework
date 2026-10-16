@@ -1296,8 +1296,15 @@ async function reconcile() {
     for (const s of Object.keys(st.stores)) {
       const rec = st.stores[s];
       report.stores++;
-      // 1. self-heal the live container
-      if (rec.live && !(await containerRunning(liveName(s)))) {
+      // 1. self-heal the live container -- only one that is GONE (or dead).
+      //    A stopped ("exited") container is how scale-to-zero leaves an idle
+      //    store (reap(), below), and wakeStore() starts it on the next request.
+      //    Healing those here re-created ~32 stores every ten minutes on the
+      //    builder (15 Oct 2026: rm -f + chown -R + a new container each), and
+      //    the restart never touch()ed them, so reap() stopped them again 30
+      //    minutes later: a loop that undid scale-to-zero all day.
+      const liveState = rec.live ? await containerExists(liveName(s)) : "running";
+      if (rec.live && (liveState === null || liveState === "dead")) {
         const ok = await goLive(s, rec.live);
         report.healed.push({ store: s, restarted: ok });
       }
