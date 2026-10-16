@@ -40,6 +40,14 @@ export const resolveEditableContent = cache(async (): Promise<EditableResolution
       domain: domain || undefined,
       apiUrl,
       editSessionToken: editToken || undefined,
+      // The visitor, as received — same reason as getStore() in the theme.
+      // This runs from the root layout on EVERY page, and the never-throws
+      // rule above means a throttled call here does not fail the page: it
+      // silently renders without the merchant's edited content instead.
+      forwardHeaders: {
+        "x-forwarded-for": h.get("x-forwarded-for"),
+        "cf-connecting-ip": h.get("cf-connecting-ip"),
+      },
     });
     const res = await client.content.getAll();
     const mode: EditMode = !res.editable ? "off" : modeParam === "preview" ? "preview" : "edit";

@@ -36,7 +36,7 @@ export {
 } from "./analytics.js";
 export type { TrackOptions } from "./analytics.js";
 export { KurumeraError, DEFAULT_API_URL, collectAll } from "./http.js";
-export type { ClientConfig, Http } from "./http.js";
+export type { ClientConfig, ForwardHeaders, Http } from "./http.js";
 export type { NewLine } from "./resources/cart.js";
 /** Merchant-defined forms — the field schema a theme renders, and the submit. */
 export { formFieldErrors } from "./resources/forms.js";

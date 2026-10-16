@@ -1,6 +1,6 @@
 {
   "name": "@kurumera/storefront",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Typed Storefront SDK for Kurumera Next.js themes.",
   "type": "module",
   "main": "dist/index.js",
@@ -13,7 +13,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "publishConfig": {
     "access": "public"
@@ -21,7 +22,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "test": "vitest run"
   },
   "license": "UNLICENSED"
 }
