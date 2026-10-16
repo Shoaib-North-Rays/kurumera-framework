@@ -41,7 +41,39 @@ export async function getStore(): Promise<KurumeraClient> {
     tenant: tenant || undefined,
     domain: domain || undefined,
     apiUrl: process.env.KURUMERA_API_URL,
+    // Who this page is for. Every call below is made from this server, so
+    // without these the platform sees one machine for every visitor and every
+    // store rendered here shares one rate limit — one crawler reading a sitemap
+    // was enough to fail pages on all of them.
+    //
+    // Passed through EXACTLY as received. The platform walks the chain itself,
+    // past the hops it runs, and that is what stops a visitor choosing their
+    // own limit with a forged header; anything chosen here would weaken it.
+    // (Demo mode returned above and makes no live calls, so it sends nothing.)
+    forwardHeaders: {
+      "x-forwarded-for": h.get("x-forwarded-for"),
+      "cf-connecting-ip": h.get("cf-connecting-ip"),
+    },
   });
+}
+
+/**
+ * The visitor-address headers of THIS request, as received, for a theme's own
+ * server-side call to the platform — one that does not go through getStore().
+ * Spread them into that call's headers next to the store's own. Same rule as
+ * above: forward them, never interpret them.
+ *
+ * (Worded without the call itself on purpose: `theme check` reads source text,
+ * and an example call in this comment would be reported as a real one.)
+ */
+export async function visitorHeaders(): Promise<Record<string, string>> {
+  const h = await headers();
+  const out: Record<string, string> = {};
+  for (const name of ["x-forwarded-for", "cf-connecting-ip"]) {
+    const value = h.get(name);
+    if (value) out[name] = value;
+  }
+  return out;
 }
 
 /**

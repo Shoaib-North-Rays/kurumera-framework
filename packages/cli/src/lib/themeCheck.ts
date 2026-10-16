@@ -52,6 +52,9 @@ const FORBIDDEN_DEPS = [
 
 const SKIP_DIRS = new Set(["node_modules", ".next", "dist", ".git", ".turbo", "public"]);
 
+/** A file that passes the visitor's address on, by any of the accepted routes. */
+const FORWARDS_VISITOR = /x-forwarded-for|visitorHeaders|forwardHeaders/i;
+
 function escapeRe(s: string): string { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
 
 function* walk(dir: string): Generator<string> {
@@ -165,6 +168,26 @@ export function checkTheme(dir: string): CheckResult {
           "POSTs to the platform with fetch() but never checks for \"sender_blocked\".",
           { file: rel, fix: "Read error.code from the body; on sender_blocked show error.message, never a success state and never a retry." });
       }
+
+      // A server-side call that does not say whose page it is for. Only flagged
+      // where the file reads next/headers — that is what makes it certainly
+      // server code; a module a client component imports runs in the browser,
+      // which already carries the visitor's address and needs nothing.
+      if (/from\s+["']next\/headers["']/.test(src) && !FORWARDS_VISITOR.test(src)) {
+        add("warning", "security", "visitor-not-forwarded",
+          "Calls the platform from the server without forwarding the visitor's address.",
+          { file: rel, fix: "Add the request's x-forwarded-for and cf-connecting-ip, as received — `...(await visitorHeaders())` from lib/kurumera.ts." });
+      }
+    }
+
+    // The theme's own SDK client. Every server-rendered page goes through it, so
+    // this is the one place that decides whether the platform can tell visitors
+    // apart — and with it, whether one crawler can rate-limit every store
+    // rendered on the same server.
+    if (rel === "lib/kurumera.ts" && /createKurumeraClient\s*\(/.test(src) && !/forwardHeaders/.test(src)) {
+      add("warning", "security", "visitor-not-forwarded",
+        "getStore() does not forward the visitor's address, so every visitor shares one rate limit.",
+        { file: rel, fix: "Pass forwardHeaders: { \"x-forwarded-for\": h.get(\"x-forwarded-for\"), \"cf-connecting-ip\": h.get(\"cf-connecting-ip\") } — or run `kurumera theme upgrade --merge --apply`." });
     }
 
     const seen = new Set<string>();
