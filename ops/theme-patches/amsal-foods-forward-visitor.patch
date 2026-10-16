@@ -1,0 +1,58 @@
+diff --git a/lib/kurumera.ts b/lib/kurumera.ts
+index 0ba3a26..1e66129 100644
+--- a/lib/kurumera.ts
++++ b/lib/kurumera.ts
+@@ -41,9 +41,38 @@ export async function getStore(): Promise<KurumeraClient> {
+     tenant: tenant || undefined,
+     domain: domain || undefined,
+     apiUrl: process.env.KURUMERA_API_URL,
++    // Who this page is for. Every call below is made from this server, so
++    // without these the platform sees one machine for every visitor and every
++    // store rendered here shares one rate limit — one crawler reading a sitemap
++    // was enough to fail pages on all of them.
++    //
++    // Passed through EXACTLY as received. The platform walks the chain itself,
++    // past the hops it runs, and that is what stops a visitor choosing their
++    // own limit with a forged header; anything chosen here would weaken it.
++    // (Demo mode returned above and makes no live calls, so it sends nothing.)
++    forwardHeaders: {
++      "x-forwarded-for": h.get("x-forwarded-for"),
++      "cf-connecting-ip": h.get("cf-connecting-ip"),
++    },
+   });
+ }
+ 
++/**
++ * The visitor-address headers of THIS request, as received, for a theme's own
++ * server-side call to the platform — one that does not go through getStore().
++ * Spread them into that call's headers next to the store's own. Same rule as
++ * above: forward them, never interpret them.
++ */
++export async function visitorHeaders(): Promise<Record<string, string>> {
++  const h = await headers();
++  const out: Record<string, string> = {};
++  for (const name of ["x-forwarded-for", "cf-connecting-ip"]) {
++    const value = h.get(name);
++    if (value) out[name] = value;
++  }
++  return out;
++}
++
+ /**
+  * This store's `/storefront/tenant-config/` response (branding + resolved
+  * tenant identity) — fetched once per request via React's `cache()` and shared
+diff --git a/package.json b/package.json
+index fff2d7b..55e4708 100644
+--- a/package.json
++++ b/package.json
+@@ -10,8 +10,8 @@
+     "typecheck": "tsc --noEmit"
+   },
+   "dependencies": {
+-    "@kurumera/editable": "^0.4.0",
+-    "@kurumera/storefront": "^0.7.0",
++    "@kurumera/editable": "^0.5.0",
++    "@kurumera/storefront": "^0.9.0",
+     "@kurumera/theme": "^0.1.0",
+     "html-react-parser": "^6.1.8",
+     "lucide-react": "^1.52.0",
