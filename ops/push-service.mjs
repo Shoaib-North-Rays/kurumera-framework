@@ -1262,6 +1262,40 @@ async function rollbackStore(s, actor, version) {
   };
 }
 
+// A store deleted for good on the platform: take its site down and remove
+// everything this service holds for it — the live and preview containers, its
+// state.json record, every built version, its retained sources and its
+// checkpoint. Marketplace listings (_market, _shots, _designs) are keyed by
+// THEME, not store, and belong to the theme's developer, so they stay.
+//
+// Only the backend calls this (service key; see the /_push/forget route), in
+// the middle of deleting the store, so there is deliberately no control() call
+// back to it: the store is going, and an "unpublish" event written now would
+// be deleted with it a moment later. The backend's own deletion log line is
+// the record, and it names what this returned.
+async function forgetStore(s, actor) {
+  s = slug(s);
+  if (!s) return { ok: false, status: 400, error: "store is required" };
+  if (building.has(s)) return { ok: false, status: 409, error: "a build is in progress for this store; try again in a few minutes" };
+  const st = getState();
+  const rec = st.stores[s];
+  const removed = [];
+  for (const name of [liveName(s), previewName(s)]) {
+    if (await containerExists(name)) { await sh("docker", ["rm", "-f", name]); removed.push(`container ${name}`); }
+  }
+  for (const path of [storeDir(s), join(SOURCES, s), join(CHECKPOINTS, `${s}.tgz`)]) {
+    if (existsSync(path)) { rmSync(path, { recursive: true, force: true }); removed.push(path.slice(ROOT.length + 1)); }
+  }
+  if (rec) {
+    const fresh = getState();
+    delete fresh.stores[s];
+    setState(fresh);
+    removed.push("state.json record");
+  }
+  console.log(`forgot store ${s} (by ${actor || "service"}): ${removed.join(", ") || "nothing held"}`);
+  return { ok: true, was_live: rec?.live || null, removed };
+}
+
 async function unpublishStore(s, actor) {
   s = slug(s);
   const st = getState();
@@ -2807,6 +2841,18 @@ const server = http.createServer((req, res) => {
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       if (building.has(s)) return json(409, { error: "a build is already in progress for this store" });
       readBody().then((buf) => { json(200, { id: "queued", status: "building" }); buildVersion(s, buf, az.actor); });
+    });
+    return;
+  }
+
+  // Backend only (the service key, never a CLI session): the store is being
+  // deleted for good. See forgetStore().
+  if (p.endsWith("/_push/forget") && req.method === "POST") {
+    if (!SERVICE_KEY || req.headers["x-kurumera-service"] !== SERVICE_KEY) return json(403, { error: "service key required" });
+    readBody().then(async (buf) => {
+      let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
+      const r = await forgetStore(body.store, body.actor_email);
+      json(r.status || (r.ok === false ? 400 : 200), { store: slug(body.store), ...r });
     });
     return;
   }
