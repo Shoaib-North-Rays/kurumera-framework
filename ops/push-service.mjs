@@ -29,7 +29,7 @@
  */
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync, readFileSync, renameSync, rmSync, existsSync, appendFileSync, copyFileSync, createReadStream, readdirSync, statSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, renameSync, rmSync, existsSync, appendFileSync, copyFileSync, createReadStream, readdirSync, statSync, chmodSync } from "node:fs";
 import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 
@@ -66,6 +66,22 @@ const DESIGNS = join(ROOT, "_designs");          // builder-design packages (typ
 // version forever is cheap, unlike the full build-output dirs under versionDir.
 // This is what `theme pull --version` serves.
 const SOURCES = join(ROOT, "_sources");
+// A theme's own secrets: the .env files Next.js loads, at the theme root.
+// Developers put their integrations' keys there (a chat widget, an email
+// service, a payment API), and a push carries them up so the build and the
+// running store can use them. They belong to THAT store only, so they are
+// kept apart from everything that is ever handed back out: the retained
+// source (`theme pull`, the dashboard download), a marketplace listing, a
+// buyer's install, a clone. Stored next to the source as `<v>.env.tar.gz` —
+// not `.tgz`, so no version listing or source download can ever name it.
+// `.env.example` and friends are documentation and stay with the source.
+const ENV_FILES = [
+  ".env", ".env.local", ".env.production", ".env.production.local",
+  ".env.development", ".env.development.local", ".env.test", ".env.test.local",
+];
+const envBundle = (s, v) => join(SOURCES, slug(s), `${v}.env.tar.gz`);
+function rootEnvFiles(dir) { return ENV_FILES.filter((f) => existsSync(join(dir, f))); }
+function stripEnvFiles(dir) { for (const f of rootEnvFiles(dir)) rmSync(join(dir, f), { force: true }); }
 // Background auto-save of a LOCAL, in-progress `theme dev` working directory —
 // one file per store, OVERWRITTEN each checkpoint (this is "most recent
 // snapshot for disaster recovery," not a version history; theme push +
@@ -997,6 +1013,8 @@ async function buildVersion(s, buffer, actor) {
   building.add(s);
   const v = "v" + Date.now();
   const tgz = join(storeDir(s), `${v}.tgz`);   // temp upload — always cleaned up in `finally` below
+  const srcTgz = join(storeDir(s), `${v}.src.tgz`);   // the upload minus its .env files (only when it has any)
+  const envTgz = join(storeDir(s), `${v}.env.tar.gz`); // just those .env files
   try {
     const st = getState();
     store(st, s).build = { status: "building", id: v };
@@ -1008,6 +1026,16 @@ async function buildVersion(s, buffer, actor) {
     writeFileSync(tgz, buffer);
     const x = await sh("tar", ["-xzf", tgz, "-C", dir]);
     if (x.code !== 0) return fail(s, v, "unpack failed");
+
+    // Split the store's secrets from the source now, while the tree is still
+    // exactly what was uploaded (the build adds node_modules and .next). The
+    // env files stay in `dir`: the build and the running store need them.
+    const envFiles = rootEnvFiles(dir);
+    if (envFiles.length) {
+      const src = await sh("tar", ["-czf", srcTgz, ...envFiles.map((f) => `--exclude=./${f}`), "-C", dir, "."]);
+      const env = await sh("tar", ["-czf", envTgz, "-C", dir, ...envFiles.map((f) => `./${f}`)]);
+      if (src.code !== 0 || env.code !== 0) return fail(s, v, "could not separate the theme's .env files");
+    }
 
     const b = await runThemeBuild(s, dir);
     if (b.code !== 0) return fail(s, v, "build failed", b.out.slice(-800));
@@ -1029,7 +1057,16 @@ async function buildVersion(s, buffer, actor) {
     try {
       const srcDir = join(SOURCES, s);
       mkdirSync(srcDir, { recursive: true });
-      copyFileSync(tgz, join(srcDir, `${v}.tgz`));
+      // Without .env files when it had any (see ENV_FILES): this is the archive
+      // `theme pull` and the dashboard download hand out. The secrets go beside
+      // it, owner-only, for a rebuild of this version and nothing else.
+      if (existsSync(srcTgz)) {
+        copyFileSync(srcTgz, join(srcDir, `${v}.tgz`));
+        copyFileSync(envTgz, envBundle(s, v));
+        chmodSync(envBundle(s, v), 0o600);
+      } else {
+        copyFileSync(tgz, join(srcDir, `${v}.tgz`));
+      }
       // Keep the lockfile npm just resolved, NEXT TO the source rather than in
       // it: the tarball is what `theme pull` hands a developer, and it should
       // stay byte-identical to what they pushed. This copy is what makes a
@@ -1055,6 +1092,8 @@ async function buildVersion(s, buffer, actor) {
     await control("preview", { store: s, theme_slug: themeSlug, version: semver, actor_email: actor });
   } finally {
     rmSync(tgz, { force: true });
+    rmSync(srcTgz, { force: true });
+    rmSync(envTgz, { force: true });
     building.delete(s);
   }
 }
@@ -1176,6 +1215,11 @@ async function rebuildAndActivate(s, version, actor) {
     mkdirSync(dir, { recursive: true });
     const x = await sh("tar", ["-xzf", join(SOURCES, s, `${version}.tgz`), "-C", dir]);
     if (x.code !== 0) return fail(s, version, "unpack failed (retained source)");
+    // This version's own .env files, kept out of the source (see ENV_FILES).
+    if (existsSync(envBundle(s, version))) {
+      const e = await sh("tar", ["-xzf", envBundle(s, version), "-C", dir]);
+      if (e.code !== 0) return fail(s, version, "unpack failed (retained .env files)");
+    }
 
     // Put back the lockfile this version was built with, so the rebuild
     // resolves the same dependency versions rather than today's newest. A
@@ -1556,6 +1600,9 @@ async function publishToMarket(s, meta) {
 
   const c = await copyDir(versionDir(s, latest), dest);
   if (c.code !== 0) return { ok: false, error: "failed to stage artifact", log: c.out.slice(-400) };
+  // The creator's secrets stay with the creator's store. This copy is what
+  // every buyer installs and every clone downloads (see ENV_FILES).
+  stripEnvFiles(dest);
 
   const md = readMarketMeta(versionDir(s, latest));   // richer listing meta from the artifact's theme.config
   entry.sourceStore = s;   // who owns this listing → gates creator-dashboard edits
@@ -1637,6 +1684,9 @@ async function installFromMarket(s, theme, version, actor, license) {
   const dest = versionDir(s, newV);
   const c = await copyDir(src, dest);
   if (c.code !== 0) return { ok: false, error: "failed to copy artifact", log: c.out.slice(-400) };
+  // A listing staged before .env files were kept out of listings may still
+  // carry its creator's; never run a buyer's store with them.
+  stripEnvFiles(dest);
 
   const st = getState();
   const rec = store(st, s);
@@ -2772,7 +2822,8 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "application/gzip", "Content-Disposition": `attachment; filename="${t}-${ver}.tar.gz"` });
     const tar = spawn("tar", ["-czf", "-", "-C", dir,
       "--exclude=node_modules", "--exclude=.next", "--exclude=.git", "--exclude=dist",
-      "--exclude=.turbo", "--exclude=.npm", "--exclude=.cache", "."],
+      "--exclude=.turbo", "--exclude=.npm", "--exclude=.cache",
+      ...ENV_FILES.map((f) => `--exclude=./${f}`), "."],
       { stdio: ["ignore", "pipe", "ignore"] });
     tar.stdout.pipe(res);
     tar.on("error", () => { try { res.end(); } catch { /* */ } });
