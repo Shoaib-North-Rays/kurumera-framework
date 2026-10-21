@@ -253,20 +253,52 @@ resolved for this request."* — this is expected, not a bug.
 
 ### 4. `kurumera theme check`
 
-Run this before every push — it's the exact ruleset the server re-validates,
-so failing locally means the push will be rejected anyway. Categories:
+Run this before every push — `theme push` runs it too and refuses to upload
+on an error. Categories:
 **contract** (the six required routes above, a custom 404), **config**
 (`theme.config.ts` present with `name`/`version`/`framework: "nextjs"`),
-**dependencies** (`@kurumera/storefront` must be present; server/native
-packages — `express`, `pg`, `stripe`, `puppeteer`, `bcrypt`,
-`jsonwebtoken`, etc. — are forbidden, themes are client-safe only),
-**security** (no `app/api/` routes, no Node built-ins like `fs`/`child_process`/
-`net`/`http` imported anywhere, no `"use server"`, no `eval`/`new Function`),
+**dependencies** (`@kurumera/storefront` must be present; a server framework,
+`next-auth`, database drivers and native packages — `express`, `pg`,
+`mongoose`, `puppeteer`, `sharp`, `bcrypt`, etc. — are forbidden; integration
+SDKs such as `stripe`, `nodemailer`, `jsonwebtoken` and the AWS SDK are fine),
+**security** (no Node built-ins like `fs`/`child_process`/`net`/`http`
+imported anywhere, no `eval`/`new Function`),
 **commerce** (the PDP should show a price and an add-to-cart control),
-**seo** (root layout should export `metadata`), **env** (only
-`process.env.KURUMERA_*` and `NODE_ENV` are available at runtime — anything
-else you read will be `undefined` in production; the check just warns, it
-doesn't block).
+**seo** (root layout should export `metadata`), **env** (warns when code
+reads a variable no deployed `.env` file sets, when a `"use client"` file
+reads a non-`NEXT_PUBLIC_` variable, and when a `NEXT_PUBLIC_` name looks like
+a secret; warnings only).
+
+### Connecting your own services (chat widgets, email, payments, …)
+
+A widget that only needs a script tag (Tawk.to, Crisp, Intercom, …) works as a
+`next/script` in a component, with its public site ID in a `NEXT_PUBLIC_`
+variable.
+
+When a service needs a secret key, put it in `.env.production` (or `.env`) at
+the theme root and read it in server code — a route handler under `app/api/`,
+a server action (`"use server"`), or a server component:
+
+```ts
+// app/api/chat/route.ts
+export async function POST(req: Request) {
+  const r = await fetch("https://api.example-chat.com/v1/reply", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.CHAT_API_KEY}` },
+    body: await req.text(),
+  });
+  return new Response(r.body, { status: r.status });
+}
+```
+
+`theme push` uploads the `.env` files Next.js loads in production (`.env`,
+`.env.production`, `.env.local`, `.env.production.local`); the platform
+builds and runs this store with them. They are never part of the source that
+`theme pull` or a dashboard download returns, never copied into a marketplace
+listing, and never given to a buyer's store. Anything named `NEXT_PUBLIC_…` is
+built into the JavaScript every visitor downloads — never give a secret that
+prefix. `.env.local` is uploaded too (Next.js loads it in production), so keep
+local-only values in `.env.development.local` instead.
 
 Only `✗` errors block a push; `⚠` warnings are advisory. Fix errors, then
 re-run until it prints "✓ theme check passed."
@@ -329,9 +361,12 @@ the Kurumera marketplace for other merchants to install
 - Don't hand-roll `fetch()` calls to the platform API — always go through
   `getStore()`'s SDK client, or `theme check` will flag the raw import and
   you'll lose the auth/tenant-resolution handling it does for you.
-- Don't add a database, server framework, or secrets-requiring package —
-  `theme check`'s forbidden-dependency list exists because themes run as
-  client-safe, sandboxed code; there is no server runtime to put them in.
+- Don't add a database or a server framework — a theme has no storage of its
+  own and Next.js is already the server; `theme check`'s forbidden-dependency
+  list catches them. Services you call over HTTP are fine (see "Connecting
+  your own services").
+- Don't put a secret in a `NEXT_PUBLIC_` variable, or in source code — keep
+  it in `.env.production` and read it only in server code.
 - Don't skip `theme check` "to save time" — a failing push wastes a full
   build cycle finding out the same thing the local check would have told you
   in seconds.

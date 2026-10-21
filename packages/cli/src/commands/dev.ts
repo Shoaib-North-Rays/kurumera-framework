@@ -8,7 +8,11 @@ import { resolveAuthToken } from "../util/resolveAuthToken.js";
 
 const DEFAULT_API_URL = "https://admin.kurumera.com/api/v1";
 const PUSH_URL = (process.env.KURUMERA_PUSH_URL || "https://themekit.kurumera.com/_push").replace(/\/+$/, "");
-const CHECKPOINT_INTERVAL_MS = Math.max(30_000, Number(process.env.KURUMERA_CHECKPOINT_INTERVAL_MS) || 180_000);
+const CHECKPOINT_ENV_EXCLUDES = [
+  ".env", ".env.local", ".env.production", ".env.production.local",
+  ".env.development", ".env.development.local", ".env.test", ".env.test.local",
+].map((f) => `--exclude=${f}`);
+const CHECKPOINT_INTERVAL_MS =Math.max(30_000, Number(process.env.KURUMERA_CHECKPOINT_INTERVAL_MS) || 180_000);
 
 /**
  * Background auto-save for `theme dev`: periodically tars the working
@@ -35,9 +39,12 @@ function startCheckpointing(dir: string, store: string | undefined): () => void 
       if (!warned) { console.log("· (not signed in — auto-save checkpoints are off for this session; `kurumera login` to enable)"); warned = true; }
       return;
     }
+    // No .env files: a checkpoint is never built or run, and anyone who can
+    // restore this store's checkpoint would otherwise receive the keys in them.
     const tar = spawnSync(
       "tar",
-      ["-czf", "-", "--exclude=node_modules", "--exclude=.next", "--exclude=.git", "--exclude=dist", "."],
+      ["-czf", "-", "--exclude=node_modules", "--exclude=.next", "--exclude=.git", "--exclude=dist",
+        ...CHECKPOINT_ENV_EXCLUDES, "."],
       { cwd: dir, maxBuffer: 100 * 1024 * 1024 },
     );
     if (tar.status !== 0 || !tar.stdout || !tar.stdout.length) return;   // silent — a checkpoint miss isn't fatal, there'll be another in a few minutes

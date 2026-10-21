@@ -43,12 +43,38 @@ const FORBIDDEN_MODULES = [
   "http", "node:http", "https", "node:https", "dns", "node:dns",
 ];
 
-// Deps that signal server code / native modules — not allowed in a client-safe theme.
+// Deps a theme cannot use where it runs: its own server framework (Next.js is
+// the server), its own sign-in (the platform owns customer accounts), a
+// database (a theme has no persistent storage of its own), and native or
+// browser-driving packages the sandbox cannot run.
+//
+// Integration SDKs — stripe, nodemailer, jsonwebtoken, the AWS SDK — are NOT
+// here. A theme may run server code (route handlers, server actions) with its
+// own keys from .env, so a developer can connect their own services.
 const FORBIDDEN_DEPS = [
   "express", "koa", "fastify", "next-auth", "mongoose", "mongodb", "pg", "mysql",
-  "mysql2", "sqlite3", "redis", "ioredis", "nodemailer", "aws-sdk", "@aws-sdk/client-s3",
-  "puppeteer", "playwright", "sharp", "bcrypt", "jsonwebtoken", "stripe",
+  "mysql2", "sqlite3", "redis", "ioredis", "puppeteer", "playwright", "sharp", "bcrypt",
 ];
+
+// The .env files Next.js loads in production. `theme push` uploads them; the
+// platform builds and runs this store with them and keeps them out of every
+// copy of the source it hands back out (pull, download, marketplace).
+const DEPLOYED_ENV_FILES = [".env", ".env.production", ".env.local", ".env.production.local"];
+
+/** Names a theme's deployed .env files define. */
+function deployedEnvNames(dir: string): Set<string> {
+  const names = new Set<string>();
+  for (const f of DEPLOYED_ENV_FILES) {
+    for (const line of read(dir, f).split(/\r?\n/)) {
+      const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/.exec(line);
+      if (m) names.add(m[1]);
+    }
+  }
+  return names;
+}
+
+/** A NEXT_PUBLIC_ name that reads like a secret — those are built into the browser bundle. */
+const SECRET_LOOKING = /SECRET|PRIVATE|PASSWORD|PASSWD/i;
 
 const SKIP_DIRS = new Set(["node_modules", ".next", "dist", ".git", ".turbo", "public"]);
 
@@ -120,9 +146,16 @@ export function checkTheme(dir: string): CheckResult {
   }
 
   // ── security (source scan) ─────────────────────────────────────────────────
-  if (existsSync(join(dir, "app", "api"))) {
-    add("error", "security", "no-server-routes", "Custom API routes (app/api/) aren't allowed.",
-      { fix: "Remove app/api/ — read data through @kurumera/storefront." });
+  // Route handlers (app/api/) and server actions are allowed: they are how a
+  // theme connects its own services. They run in the same sandbox as every
+  // page the theme renders, which is the boundary that matters.
+  const envNames = deployedEnvNames(dir);
+  for (const name of envNames) {
+    if (name.startsWith("NEXT_PUBLIC_") && SECRET_LOOKING.test(name)) {
+      add("warning", "env", "public-secret",
+        `${name} is built into the JavaScript every visitor downloads.`,
+        { fix: `Drop the NEXT_PUBLIC_ prefix and read it only in server code (a route handler, a server action or a server component).` });
+    }
   }
   for (const file of walk(dir)) {
     if (!/\.(ts|tsx|js|jsx|mjs)$/.test(file)) continue;
@@ -136,7 +169,6 @@ export function checkTheme(dir: string): CheckResult {
         break;
       }
     }
-    if (/^\s*['"]use server['"]/m.test(src)) add("error", "security", "no-server-actions", `"use server" isn't allowed.`, { file: rel });
     if (/\beval\s*\(|\bnew\s+Function\s*\(/.test(src)) add("error", "security", "no-eval", "eval / new Function isn't allowed.", { file: rel });
 
     // A raw call to the platform API, and whether it understands the
@@ -190,12 +222,24 @@ export function checkTheme(dir: string): CheckResult {
         { file: rel, fix: "Pass forwardHeaders: { \"x-forwarded-for\": h.get(\"x-forwarded-for\"), \"cf-connecting-ip\": h.get(\"cf-connecting-ip\") } — or run `kurumera theme upgrade --merge --apply`." });
     }
 
+    // Environment variables. The platform provides KURUMERA_* and NODE_ENV;
+    // everything else comes from the theme's own .env files. In the browser
+    // only NEXT_PUBLIC_* exist — Next.js inlines those at build time.
+    const clientFile = /^\s*['"]use client['"]/m.test(src);
     const seen = new Set<string>();
-    for (const em of src.match(/process\.env\.([A-Z0-9_]+)/g) ?? []) {
+    for (const em of src.match(/process\.env\.([A-Za-z0-9_]+)/g) ?? []) {
       const name = em.split(".").pop()!;
       if (name.startsWith("KURUMERA_") || name === "NODE_ENV" || seen.has(name)) continue;
       seen.add(name);
-      add("warning", "env", "env-access", `Reads process.env.${name} — only KURUMERA_* is available at runtime.`, { file: rel });
+      if (clientFile && !name.startsWith("NEXT_PUBLIC_")) {
+        add("warning", "env", "env-in-browser",
+          `Reads process.env.${name} in a "use client" file — it is undefined in the browser.`,
+          { file: rel, fix: `Read it in server code and pass the value down, or rename it NEXT_PUBLIC_${name} if it is safe for every visitor to see.` });
+      } else if (!envNames.has(name)) {
+        add("warning", "env", "env-access",
+          `Reads process.env.${name}, which no deployed .env file sets — it will be undefined on the store.`,
+          { file: rel, fix: `Add ${name}=… to .env.production (or .env), then push.` });
+      }
     }
   }
 

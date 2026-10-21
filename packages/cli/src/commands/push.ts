@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { readConfig } from "../util/config.js";
 import { resolveAuthToken } from "../util/resolveAuthToken.js";
@@ -46,6 +46,15 @@ export async function themePush(args: string[]): Promise<number> {
     console.error("Failed to bundle the theme (is `tar` available on your PATH?).");
     if (tar.stderr) console.error(tar.stderr.toString().trim());
     return 1;
+  }
+  // The theme's own keys for its integrations. Uploaded with the source so the
+  // platform can build and run THIS store with them; it keeps them out of
+  // every copy it hands back out (theme pull, downloads, the marketplace).
+  const envFiles = DEPLOYED_ENV_FILES.filter((f) => existsSync(join(dir, f)));
+  if (envFiles.length) {
+    const count = envFiles.reduce((n, f) => n + countEnvValues(join(dir, f)), 0);
+    console.log(`▸ Environment: ${envFiles.join(", ")} (${count} value${count === 1 ? "" : "s"}) — used to build and run this store only.`);
+    console.log("  Never included in `theme pull`, source downloads or marketplace listings.");
   }
   console.log(`▸ Uploading theme (${(tar.stdout.length / 1024).toFixed(0)} KB)…`);
 
@@ -150,6 +159,18 @@ export async function themePush(args: string[]): Promise<number> {
   }
   spin.stop(`… still building — track it with \`kurumera theme preview${store ? ` --store ${store}` : ""}\`, then publish.`);
   return 0;
+}
+
+/** The .env files Next.js loads in production (and so the ones a store runs with). */
+const DEPLOYED_ENV_FILES = [".env", ".env.production", ".env.local", ".env.production.local"];
+
+function countEnvValues(file: string): number {
+  try {
+    return readFileSync(file, "utf8").split(/\r?\n/)
+      .filter((l) => /^\s*(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=/.test(l)).length;
+  } catch {
+    return 0;
+  }
 }
 
 function flag(args: string[], name: string): string | undefined {
