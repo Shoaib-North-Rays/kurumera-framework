@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { flag } from "../util/fs.js";
 import { cliVersion, hashTree, readBaseline, repairBaseline, sha256, writeBaseline } from "../util/baseline.js";
 import { formatStat, unifiedDiff } from "../util/diff.js";
-import { dependsOn, packageImports } from "../util/imports.js";
+import { dependsOn, isPostcssConfig, packageImports, postcssPlugins } from "../util/imports.js";
 import { baseTemplateFor, detectBaseVersion } from "../util/baseTemplate.js";
 import { hasConflicts, merge3, tooDiverged } from "../util/merge.js";
 
@@ -237,6 +237,32 @@ export function themeUpgrade(args: string[]): number {
     return out;
   };
 
+  /**
+   * A file the developer never touched is normally just replaced — but its
+   * newer template version can import a file this same run withheld: the root
+   * layout importing app/tailwind.css while the Tailwind packages are not
+   * installed. Replacing it would break the build on a file nobody edited, so
+   * it waits for the file it needs.
+   */
+  const holdUpdates = (withheld: Set<string>) => {
+    const known = new Set(Object.keys(template));
+    const held: string[] = [];
+    const willUpdate = update.filter(({ rel }) => {
+      const refs = dependsOn(readIf(join(src, rel)), rel, known).filter((d) => withheld.has(d));
+      if (!refs.length) return true;
+      held.push(`  ${rel}\n    ${dim(`imports ${refs.join(", ")}, which was not added`)}`);
+      return false;
+    });
+    return { willUpdate, held };
+  };
+  const withheldOf = (willAdd: Row[]) => new Set(add.filter((r) => !willAdd.includes(r)).map((r) => r.rel));
+  const reportHeldUpdates = (held: string[], b: Blocked) => {
+    if (!held.length) return;
+    console.log(`\n${yellow("Not updated — the template's version imports a file that was not added:")}`);
+    held.forEach((line) => console.log(line));
+    console.log(dim(`  They come with it:  ${remedy(b.needsMerge, b.needsDeps)}`));
+  };
+
   // Reported per NEW file, because the question a developer has is "I just got
   // Analytics.tsx — why is nothing happening?", and the answer is the list of
   // their own files that have to mount it.
@@ -298,9 +324,11 @@ export function themeUpgrade(args: string[]): number {
     const wouldMerge = new Set(wantsMerge && baseVersion ? mergeable.map((r) => r.rel) : []);
     const prediction = partitionAdds(add, src, template, staleAfter(wouldMerge), stalePackages());
     const { willAdd } = prediction;
-    const would = willAdd.length + update.length;
+    const predictedUpdates = holdUpdates(withheldOf(willAdd));
+    const would = willAdd.length + predictedUpdates.willUpdate.length;
     console.log(`${would} file(s) would change. Nothing has been written.`);
     reportBlocked(prediction, "what they import would");
+    reportHeldUpdates(predictedUpdates.held, prediction);
     reportWiring(willAdd, wouldMerge);
     // Only offer the plain --apply when it would actually do something; after a
     // blocked report it is the wrong command and the remedy above is the right one.
@@ -435,7 +463,7 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
   // — reported as "CouponField withheld, then referenced anyway". The two
   // decisions contradict, and the result does not build, so the merge is
   // rolled back for that file and the conflict is handed to a human.
-  const withheld = new Set(add.filter((r) => !willAdd.includes(r)).map((r) => r.rel));
+  const withheld = withheldOf(willAdd);
   const rolledBack: string[] = [];
   if (withheld.size) {
     const known = new Set(Object.keys(template));
@@ -452,13 +480,14 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
       landed.delete(rel);
     }
   }
-  for (const { rel } of [...willAdd, ...update]) {
+  const { willUpdate, held: heldUpdates } = holdUpdates(withheld);
+  for (const { rel } of [...willAdd, ...willUpdate]) {
     const to = join(dir, rel);
     if (process.env.KURUMERA_DEBUG_MERGE) console.error(`DBG copy ${rel}`);
     mkdirSync(dirname(to), { recursive: true });
     copyFileSync(join(src, rel), to);
   }
-  const written = willAdd.length + update.length;
+  const written = willAdd.length + willUpdate.length;
 
   // A merge where every single file came out unchanged means the base was
   // wrong — most likely a --from that named a template too new to differ from
@@ -479,7 +508,7 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
     // hash. Stamping the whole template (which is what 0.16–0.19 did) claims a
     // theme is current while 21 files sit at an older template, and then the
     // next upgrade finds nothing to offer for exactly those files.
-    const synced = new Set([...willAdd, ...update].map((r) => r.rel));
+    const synced = new Set([...willAdd, ...willUpdate].map((r) => r.rel));
     mergedClean.forEach((r) => synced.add(r));
     mergedNoop.forEach((r) => synced.add(r));
     taken.forEach((r) => synced.add(r));
@@ -570,6 +599,7 @@ ${yellow("Conflicts — both you and the template changed the same lines:")}`);
     console.log(dim("  one conflict inside another. Resolve them first, or start over:"));
     console.log(dim(`    git checkout -- ${unresolved.join(" ")}`));
   }
+  reportHeldUpdates(heldUpdates, adds);
   if (rolledBack.length) {
     console.log(`\n${yellow("Merge undone — it would have referenced a file this run did not add:")}`);
     rolledBack.forEach((r) => console.log(`  ${r}`));
@@ -621,7 +651,8 @@ function partitionAdds(
   for (const { rel } of add) {
     let body = "";
     try { body = readFileSync(join(src, rel), "utf8"); } catch { /* reported below */ }
-    const pkgs = packageImports(body).filter((p) => stalePackages.has(p));
+    const pkgs = [...packageImports(body), ...(isPostcssConfig(rel) ? postcssPlugins(body) : [])]
+      .filter((p) => stalePackages.has(p));
     needs.set(rel, [...dependsOn(body, rel, known), ...pkgs]);
   }
 

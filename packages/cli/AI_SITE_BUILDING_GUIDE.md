@@ -251,6 +251,27 @@ theme (`theme pull`, or a dashboard download), you must set
 `KURUMERA_TENANT=<slug>` in `.env.local` yourself, or you'll hit: *"No store
 resolved for this request."* — this is expected, not a bug.
 
+**Styling: Tailwind CSS is built in.** Use utilities in any `className`
+(`grid md:grid-cols-3 gap-6 p-8`). The theme's own design lives in
+`app/globals.css`; `app/tailwind.css` is imported after it, so a utility wins
+over the theme's class on the same element (`className="card p-10"`).
+Prefer the store's own design names over fixed colours — they follow what the
+merchant sets in the admin customizer:
+
+| Tailwind class | Reads |
+|---|---|
+| `bg-accent`, `text-accent-ink` | the store's accent colour |
+| `text-ink`, `text-muted`, `text-faint`, `text-sale` | text colours |
+| `bg-bg`, `bg-paper`, `border-line`, `border-line-strong` | surfaces and borders |
+| `font-sans`, `font-display` | the store's body and heading fonts |
+| `rounded-store`, `shadow-store`, `shadow-store-lg`, `max-w-store` | corner radius, shadows, page width |
+
+Tailwind's reset (preflight) is off so the base theme's look is unchanged;
+add `@import "tailwindcss/preflight.css" layer(base);` as the first line of
+`app/tailwind.css` only if you are styling everything from scratch. A theme
+created before Tailwind was added gets it with
+`kurumera theme upgrade --merge --deps --apply`, then `npm install`.
+
 ### 4. `kurumera theme check`
 
 Run this before every push — `theme push` runs it too and refuses to upload

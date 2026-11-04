@@ -1,0 +1,47 @@
+/*
+ * Tailwind CSS, on top of this theme's own styles in globals.css.
+ *
+ * Use any utility in className — "grid md:grid-cols-3 gap-6 p-8". The root
+ * layout imports this file AFTER globals.css, so a utility wins over the
+ * theme's own class on the same element: <div className="card p-10"> gets
+ * the card's look with more padding.
+ *
+ * Tailwind's reset ("preflight") is deliberately left out: it would restyle
+ * every heading, list and button the theme already designs. Building pages
+ * from scratch and want it? Add this as the first line:
+ *   @import "tailwindcss/preflight.css" layer(base);
+ */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css";
+
+/*
+ * The store's own design settings as Tailwind names. Each one reads the CSS
+ * variable the merchant's customizer sets (lib/settings.ts), so a merchant
+ * changing their accent colour or fonts in the admin changes these classes
+ * too. Prefer them to fixed colours: bg-accent, not bg-teal-700.
+ *
+ *   colours   bg-accent  text-accent-ink  text-ink  text-muted  text-faint
+ *             text-sale  bg-bg  bg-paper  border-line  border-line-strong
+ *   fonts     font-sans (body text)  font-display (headings)
+ *   shape     rounded-store  shadow-store  shadow-store-lg  max-w-store
+ */
+@theme inline {
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-sale: var(--sale);
+  --color-bg: var(--bg);
+  --color-paper: var(--paper);
+
+  --font-sans: var(--font-body);
+  --font-display: var(--font-heading);
+
+  --radius-store: var(--radius);
+  --shadow-store: var(--shadow);
+  --shadow-store-lg: var(--shadow-lg);
+  --container-store: var(--maxw);
+}

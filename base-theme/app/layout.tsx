@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./tailwind.css";   // after globals.css, so a Tailwind utility wins over the theme's own class
 import type { ReactNode } from "react";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { Header } from "@/components/Header";

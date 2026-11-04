@@ -58,6 +58,26 @@ export function packageImports(source: string): string[] {
   return [...out];
 }
 
+/**
+ * The packages a PostCSS config loads. Next.js wants plugins named as strings
+ * — `plugins: { "@tailwindcss/postcss": {} }` — so they are not imports and
+ * packageImports cannot see them. A config naming a package the theme has not
+ * installed still fails every build ("Cannot find module"), so `theme upgrade`
+ * must hold it back exactly like a file importing that package.
+ */
+export function postcssPlugins(source: string): string[] {
+  const out = new Set<string>();
+  const NAME = String.raw`["']((?:@[\w.-]+\/)?[\w.-]+)["']`;
+  const asObject = /plugins\s*:\s*\{([\s\S]*?)\}\s*,?\s*\}/.exec(source);   // { "name": {} }
+  if (asObject) for (const m of asObject[1].matchAll(new RegExp(`${NAME}\\s*:`, "g"))) out.add(m[1]);
+  const asArray = /plugins\s*:\s*\[([\s\S]*?)\]/.exec(source);                // [ "name" ]
+  if (asArray) for (const m of asArray[1].matchAll(new RegExp(NAME, "g"))) out.add(m[1]);
+  return [...out];
+}
+
+/** A PostCSS config file, which names its plugins as strings (see postcssPlugins). */
+export const isPostcssConfig = (rel: string): boolean => /(^|\/)postcss\.config\.(m|c)?js$/.test(rel);
+
 const EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".css"];
 
 /**
