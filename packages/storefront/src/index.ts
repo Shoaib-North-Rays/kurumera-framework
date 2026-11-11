@@ -24,6 +24,7 @@ import { contentResource } from "./resources/content.js";
 import { formsResource } from "./resources/forms.js";
 import { discountsResource } from "./resources/discounts.js";
 import { contactResource } from "./resources/contact.js";
+import { subscriptionsResource } from "./resources/subscriptions.js";
 
 export * from "./types.js";
 /**
@@ -55,6 +56,15 @@ export type {
   ContactConfig, ContactDetails, ContactFieldRule, ContactFormRules,
   ContactSubmission, ContactSubmitResult,
 } from "./resources/contact.js";
+/**
+ * The store's own subscription plans: list them, start a checkout on the
+ * store's own Stripe. A refusal resolves with the shopper's words.
+ */
+export { readCheckoutRefusal } from "./resources/subscriptions.js";
+export type {
+  SubscriptionCheckoutAnswer, SubscriptionCheckoutInput, SubscriptionPeriod,
+  SubscriptionPlan, SubscriptionPlanList, SubscriptionPrice,
+} from "./resources/subscriptions.js";
 
 export interface KurumeraClient {
   products: ReturnType<typeof productsResource>;
@@ -76,6 +86,11 @@ export interface KurumeraClient {
    * platform's own endpoint behind it.
    */
   contact: ReturnType<typeof contactResource>;
+  /**
+   * The store's own subscription plans (monthly / yearly), and checkout for
+   * them on the store's own Stripe. The theme holds no key.
+   */
+  subscriptions: ReturnType<typeof subscriptionsResource>;
   /** Escape hatch: call any storefront endpoint the typed resources don't cover. */
   http: Http;
 }
@@ -94,6 +109,7 @@ export function createKurumeraClient(config: ClientConfig): KurumeraClient {
     forms: formsResource(http),
     discounts: discountsResource(http),
     contact: contactResource(http),
+    subscriptions: subscriptionsResource(http),
     http,
   };
 }

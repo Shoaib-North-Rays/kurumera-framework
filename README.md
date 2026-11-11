@@ -9,7 +9,7 @@ See the platform plan: `theplantsmall-backend/docs/theme-framework/P0-SPEC.md`.
 
 | Package | What it is |
 |---|---|
-| `@kurumera/storefront` | Typed Storefront SDK over the platform's public APIs (products, collections, cart, checkout, search, pages, navigation, config). |
+| `@kurumera/storefront` | Typed Storefront SDK over the platform's public APIs (products, collections, cart, checkout, search, pages, navigation, config, subscription plans). |
 | `@kurumera/theme` | Runtime helpers: `defineTheme`, SEO/metadata, image + route helpers, safe env access. |
 | `@kurumera/cli` | `kurumera login / stores list / theme init / dev / check / push / preview / publish`. |
 | `base-theme/` | The official starter Next.js theme, built on the SDK. |

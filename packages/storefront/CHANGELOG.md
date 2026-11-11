@@ -1,5 +1,52 @@
 # @kurumera/storefront — changelog
 
+## 0.10.0 — 2026-11-11
+
+### Subscription plans: list them, start a checkout (KME-551)
+
+A store can sell monthly and yearly plans on its own Stripe account. A code
+theme now shows them and sends the shopper to checkout, holding no key: the
+platform makes the Stripe checkout with the store's own key and answers only
+its address.
+
+```ts
+const { accepting_new, message, results } = await kurumera.subscriptions.plans();
+
+const answer = await kurumera.subscriptions.checkout({
+  plan: "studio",            // the plan's handle
+  period: "year",            // "month" | "year"
+  email,
+  successUrl: "https://app.example.com/welcome",   // on the store's own site, https
+  cancelUrl: "https://example.com/pricing",
+});
+if (answer.ok) {
+  if (answer.notice) await confirm(answer.notice); // a trial this email already used
+  window.location.href = answer.url;
+} else {
+  showMessage(answer.detail);                      // the shopper's sentence, as it is
+}
+```
+
+- `plans()` lists the plans on sale with their monthly and yearly prices
+  (`amount` in the currency's decimals, `unit_amount` in cents) and trial days.
+  When `accepting_new` is false, show `message` instead of the buttons; the
+  plans stay listed.
+- `checkout()` never throws for a refusal. It resolves to
+  `{ ok: false, status, code, detail }`: `already_subscribed`,
+  `not_taking_new`, `store_not_ready`, `plan_not_found`,
+  `no_price_for_period`, `return_url_not_allowed`, `stripe_error`, `invalid`,
+  `throttled`, or `unreachable` (status 0) when the platform cannot be
+  reached. `detail` is written for the shopper.
+- `returnUrl` sets both addresses at once. `externalUserId` passes the store
+  app's id for a buyer who came from inside it; `clientReferenceId` passes the
+  app's own signed reference to Stripe untouched.
+- `readCheckoutRefusal(err)` is exported for themes that call the endpoint
+  through `http` themselves.
+
+Works with the platform as it is: store subscriptions have been live since
+2026-11-06. `clientReferenceId` is sent only when given, and the platform
+passes it to Stripe from its next release (wave 4); until then it is ignored.
+
 ## 0.9.0 — 2026-10-16
 
 ### Server-rendered pages can say which visitor they are for
