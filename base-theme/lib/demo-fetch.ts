@@ -96,6 +96,9 @@ function detail(p: DemoProduct): Product {
     options: options(p),
     variants: variants(p),
     images: images(p),
+    // The ordered gallery the platform sends since 2026-11 (pictures only here).
+    media: images(p).map((im) => ({ type: "image" as const, ...im })),
+    videos: [],
     available_quantity: p.inStock ? 24 : 0,
     seo_jsonld: null,
     seo_image_url: first?.src ?? "",

@@ -1,10 +1,46 @@
 import { notFound } from "next/navigation";
-import { KurumeraError } from "@kurumera/storefront";
+import { KurumeraError, type Product } from "@kurumera/storefront";
 import { getStore } from "@/lib/kurumera";
+import { ProductGallery, type GalleryItem } from "@/components/ProductGallery";
 import { Price } from "@/components/Price";
 import { AddToCart } from "@/components/AddToCart";
 import { TrackOutOfStock, TrackProductView } from "@/components/Analytics";
 import { TruckIcon, RefreshIcon, ShieldIcon } from "@/components/Icon";
+
+/**
+ * The gallery, pictures and videos in the merchant's order. `media` is the
+ * platform's ordered gallery (2026-11); a platform that does not send it still
+ * sends `images`, and a product with neither falls back to its featured image.
+ */
+function galleryItems(product: Product): GalleryItem[] {
+  // Only ever an https player or file from the platform, never a script URL.
+  const safe = (url: string | null | undefined) => (url && /^(https:\/\/|\/)/.test(url) ? url : "");
+  const firstPicture = safe(product.images?.[0]?.src ?? product.featured_image?.src);
+
+  if (product.media?.length) {
+    const items: GalleryItem[] = [];
+    for (const m of product.media) {
+      if (m.type === "image") {
+        const src = safe(m.src);
+        if (src) items.push({ kind: "image", id: m.id, src, alt: m.alt ?? "" });
+        continue;
+      }
+      const embedUrl = m.provider === "upload" ? "" : safe(m.embed_url);
+      const src = m.provider === "upload" ? safe(m.src) : "";
+      if (!embedUrl && !src) continue;   // nothing playable
+      items.push({
+        kind: "video", id: m.id, title: m.title, embedUrl, src, mimeType: m.mime_type,
+        poster: safe(m.thumbnail) || firstPicture,
+      });
+    }
+    if (items.length) return items;
+  }
+  const images = product.images?.length ? product.images : product.featured_image ? [product.featured_image] : [];
+  return images.flatMap((im) => {
+    const src = safe(im.src);
+    return src ? [{ kind: "image" as const, id: im.id, src, alt: im.alt ?? "" }] : [];
+  });
+}
 
 /** product template */
 export default async function ProductPage({
@@ -42,14 +78,7 @@ export default async function ProductPage({
       {/* PRODUCT_VIEW. Renders nothing; deduped per product so re-rendering on
           variant or quantity changes does not re-count the view. */}
       <TrackProductView productId={String(product.id)} handle={handle} />
-      <div className="pdp__media">
-        {product.featured_image?.src ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={product.featured_image.src} alt={product.featured_image.alt ?? product.title} />
-        ) : (
-          <div className="pdp__media--empty" aria-hidden="true" />
-        )}
-      </div>
+      <ProductGallery items={galleryItems(product)} title={product.title} />
       <div className="pdp__info">
         <h1 className="pdp__title">{product.title}</h1>
         <Price amount={product.min_price} compareAt={product.min_compare_at_price} />

@@ -243,24 +243,39 @@ export function themeUpgrade(args: string[]): number {
    * layout importing app/tailwind.css while the Tailwind packages are not
    * installed. Replacing it would break the build on a file nobody edited, so
    * it waits for the file it needs.
+   *
+   * The same goes for a package whose range the template raised: the newer
+   * file can use what only the newer package has — the product page reading
+   * `product.media`, which storefront 0.9's types do not declare, fails the
+   * theme's type check. Exactly the rule new files already follow.
    */
   const holdUpdates = (withheld: Set<string>) => {
     const known = new Set(Object.keys(template));
+    const stale = stalePackages();
     const held: string[] = [];
+    let needsDeps = false;
     const willUpdate = update.filter(({ rel }) => {
-      const refs = dependsOn(readIf(join(src, rel)), rel, known).filter((d) => withheld.has(d));
-      if (!refs.length) return true;
-      held.push(`  ${rel}\n    ${dim(`imports ${refs.join(", ")}, which was not added`)}`);
+      const body = readIf(join(src, rel));
+      const refs = dependsOn(body, rel, known).filter((d) => withheld.has(d));
+      const pkgs = [...packageImports(body), ...(isPostcssConfig(rel) ? postcssPlugins(body) : [])]
+        .filter((p) => stale.has(p));
+      if (!refs.length && !pkgs.length) return true;
+      if (pkgs.length) needsDeps = true;
+      const why = [
+        ...refs.map((d) => `${d}, which was not added`),
+        ...pkgs.map((p) => `${p} ${stale.get(p)}`),
+      ];
+      held.push(`  ${rel}\n    ${dim(`needs ${why.join("; ")}`)}`);
       return false;
     });
-    return { willUpdate, held };
+    return { willUpdate, held, needsDeps };
   };
   const withheldOf = (willAdd: Row[]) => new Set(add.filter((r) => !willAdd.includes(r)).map((r) => r.rel));
-  const reportHeldUpdates = (held: string[], b: Blocked) => {
-    if (!held.length) return;
-    console.log(`\n${yellow("Not updated — the template's version imports a file that was not added:")}`);
-    held.forEach((line) => console.log(line));
-    console.log(dim(`  They come with it:  ${remedy(b.needsMerge, b.needsDeps)}`));
+  const reportHeldUpdates = (h: { held: string[]; needsDeps: boolean }, b: Blocked) => {
+    if (!h.held.length) return;
+    console.log(`\n${yellow("Not updated — the template's version needs something this run did not bring:")}`);
+    h.held.forEach((line) => console.log(line));
+    console.log(dim(`  They come with it:  ${remedy(b.needsMerge, b.needsDeps || h.needsDeps)}`));
   };
 
   // Reported per NEW file, because the question a developer has is "I just got
@@ -328,7 +343,7 @@ export function themeUpgrade(args: string[]): number {
     const would = willAdd.length + predictedUpdates.willUpdate.length;
     console.log(`${would} file(s) would change. Nothing has been written.`);
     reportBlocked(prediction, "what they import would");
-    reportHeldUpdates(predictedUpdates.held, prediction);
+    reportHeldUpdates(predictedUpdates, prediction);
     reportWiring(willAdd, wouldMerge);
     // Only offer the plain --apply when it would actually do something; after a
     // blocked report it is the wrong command and the remedy above is the right one.
@@ -480,7 +495,8 @@ Cannot merge: no baseline, so I do not know which template this theme started fr
       landed.delete(rel);
     }
   }
-  const { willUpdate, held: heldUpdates } = holdUpdates(withheld);
+  const heldUpdates = holdUpdates(withheld);
+  const { willUpdate } = heldUpdates;
   for (const { rel } of [...willAdd, ...willUpdate]) {
     const to = join(dir, rel);
     if (process.env.KURUMERA_DEBUG_MERGE) console.error(`DBG copy ${rel}`);

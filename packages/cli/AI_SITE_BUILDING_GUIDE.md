@@ -272,6 +272,22 @@ add `@import "tailwindcss/preflight.css" layer(base);` as the first line of
 created before Tailwind was added gets it with
 `kurumera theme upgrade --merge --deps --apply`, then `npm install`.
 
+**Product videos.** `components/ProductGallery.tsx` shows a product's
+pictures and videos in the merchant's order, from `product.media` (falling
+back to `product.images`). A video shows its cover and a play button; the
+provider's player (YouTube no-cookie, Vimeo) loads only when the shopper
+presses play, and an uploaded video plays in a `<video>`. Keep it that way if
+you restyle it: loading the players with the page costs every visitor
+hundreds of KB.
+
+**Subscription plans.** `/plans` (`app/plans/page.tsx` +
+`components/PlanPicker.tsx`) lists the store's plans with a month / year
+switch and starts checkout on the store's own Stripe through
+`kurumera.subscriptions.checkout()` — the theme holds no key. It answers 404
+for a store that sells no plans, so it is safe to ship in every theme; the
+merchant links to it from their menu. Show a refusal's `detail` as it is —
+it is written for the shopper.
+
 ### 4. `kurumera theme check`
 
 Run this before every push — `theme push` runs it too and refuses to upload

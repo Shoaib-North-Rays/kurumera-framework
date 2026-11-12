@@ -123,3 +123,32 @@ describe("theme upgrade: Tailwind arriving in the template", () => {
     expect(layout).toContain(`export const brand = "mine";`);
   });
 });
+
+describe("theme upgrade: a package range the template raised", () => {
+  /**
+   * The product page started reading `product.media` (storefront 0.11). A
+   * theme on storefront ^0.9 that took the new page without the new range
+   * failed its type check — the page was copied because nobody had edited it.
+   */
+  function sdkTemplate(range: string, page: string): string {
+    const t = tmp();
+    write(t, "package.json", JSON.stringify({ name: "base", dependencies: { "@kurumera/storefront": range } }));
+    write(t, "app/products/[handle]/page.tsx", page);
+    return t;
+  }
+  const OLD_PAGE = `import { getStore } from "@/lib/kurumera";\nimport type { Product } from "@kurumera/storefront";\nexport default function P() { return null; }\n`;
+  const NEW_PAGE = `import { getStore } from "@/lib/kurumera";\nimport type { Product } from "@kurumera/storefront";\nconst m = (p: Product) => p.media;\nexport default function P() { return null; }\n`;
+
+  it("without --deps leaves the untouched page alone, and says why", () => {
+    const theme = scaffold(sdkTemplate("^0.9.0", OLD_PAGE));
+    expect(upgrade(theme, sdkTemplate("^0.11.0", NEW_PAGE), "--apply")).toBe(0);
+    expect(read(theme, "app/products/[handle]/page.tsx")).toBe(OLD_PAGE);
+  });
+
+  it("with --deps updates the page and the range together", () => {
+    const theme = scaffold(sdkTemplate("^0.9.0", OLD_PAGE));
+    expect(upgrade(theme, sdkTemplate("^0.11.0", NEW_PAGE), "--deps", "--apply")).toBe(0);
+    expect(read(theme, "app/products/[handle]/page.tsx")).toBe(NEW_PAGE);
+    expect(JSON.parse(read(theme, "package.json")).dependencies["@kurumera/storefront"]).toBe("^0.11.0");
+  });
+});

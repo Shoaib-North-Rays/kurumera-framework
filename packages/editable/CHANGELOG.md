@@ -1,5 +1,12 @@
 # @kurumera/editable — changelog
 
+## 0.5.1 — 2026-11-12
+
+`@kurumera/storefront` is now accepted from 0.9.0 up to (not including) 1.0.0,
+was `^0.9.0`. For a 0.x package `^0.9.0` stops at 0.9.x, so a theme on
+storefront 0.10 or 0.11 got a second, older copy of the SDK nested under this
+package. Nothing here needs more than 0.9 (forwardHeaders).
+
 ## 0.5.0 — 2026-10-16
 
 `resolveEditableContent()` now forwards the visitor's `x-forwarded-for` and
