@@ -1,6 +1,6 @@
 # @kurumera/storefront — changelog
 
-## 0.11.0 — unreleased
+## 0.11.0 — 2026-11-12
 
 ### Product videos
 
