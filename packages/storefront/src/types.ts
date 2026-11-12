@@ -25,6 +25,33 @@ export interface ProductImage {
   alt: string | null;
 }
 
+/**
+ * A gallery video. Either a YouTube or Vimeo LINK the merchant added: put
+ * `embed_url` (and only `embed_url`) in an iframe, it is the provider's own
+ * player (YouTube no-cookie, Vimeo do-not-track). Or an UPLOAD from the
+ * store's media library (`provider: "upload"`): play `src` (of `mime_type`)
+ * in a plain <video>; `embed_url` is empty. `thumbnail` can be empty (Vimeo,
+ * an upload without a cover); fall back to a photo.
+ */
+export interface ProductVideo {
+  type: "video";
+  id: string;
+  provider: "youtube" | "vimeo" | "upload";
+  video_id: string;
+  /** A link: the video's page on the provider. An upload: the file itself. */
+  url: string;
+  embed_url: string;
+  /** Upload only: the stored file and its type. Empty for a link. */
+  src: string;
+  mime_type: string;
+  thumbnail: string;
+  title: string;
+  uploaded_at: string | null;
+}
+
+/** One item of a product's gallery, pictures and videos in the merchant's order. */
+export type ProductMedia = ({ type: "image" } & ProductImage) | ProductVideo;
+
 /** A product as returned by the LIST endpoint (card-sized payload). */
 export interface ProductListItem {
   id: string;
@@ -84,6 +111,13 @@ export interface Product extends ProductListItem {
   options: ProductOption[];
   variants: ProductVariant[];
   images: ProductImage[];
+  /** Gallery videos. Absent on platforms older than 12 Nov 2026. */
+  videos?: ProductVideo[];
+  /**
+   * The whole gallery, pictures and videos, in the merchant's order. Absent on
+   * platforms older than 12 Nov 2026: fall back to `images`.
+   */
+  media?: ProductMedia[];
   available_quantity: number;
   seo_jsonld: unknown;
   seo_image_url: string;

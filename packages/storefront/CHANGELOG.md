@@ -1,5 +1,27 @@
 # @kurumera/storefront — changelog
 
+## 0.11.0 — unreleased
+
+### Product videos
+
+A product can now carry up to two videos, as YouTube or Vimeo links (nothing
+is hosted by the platform). `getProduct` returns two new fields:
+
+- `videos`: the product's videos (`ProductVideo`).
+- `media`: the whole gallery, pictures and videos, in the merchant's order
+  (`ProductMedia[]`, each item `type: "image"` or `type: "video"`).
+
+`images` is unchanged, so a theme that ignores videos keeps working. Both new
+fields are optional: an older platform does not send them, so fall back to
+`images`. Play a video by putting its `embed_url` in an iframe; it is the
+provider's own player (YouTube no-cookie, Vimeo do-not-track). Load it when the
+shopper presses play, not with the page.
+
+A video can also be **uploaded** to the store's media library
+(`provider: "upload"`, on when the platform's media is on cloud storage). Play
+its `src` (type `mime_type`) in a plain `<video>`; its `embed_url` is empty and
+its `thumbnail` is the cover the merchant chose, or empty.
+
 ## 0.10.0 — 2026-11-11
 
 ### Subscription plans: list them, start a checkout (KME-551)
