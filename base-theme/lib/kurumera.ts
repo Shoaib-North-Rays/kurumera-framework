@@ -6,6 +6,11 @@ import { makeDemoFetch, DEMO_TENANT } from "./demo-fetch";
 /** The marketplace-preview container (and only it) runs with KURUMERA_DEMO=1. */
 const IS_DEMO = process.env.KURUMERA_DEMO === "1";
 
+/** Whether this is the marketplace preview: no live store, nothing is charged. */
+export function isDemo(): boolean {
+  return IS_DEMO;
+}
+
 /**
  * Build a Storefront client for THIS request's store. The store is resolved by
  * middleware.ts from the host (or ?store=) and passed via request headers, so a

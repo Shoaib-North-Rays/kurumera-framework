@@ -288,6 +288,14 @@ for a store that sells no plans, so it is safe to ship in every theme; the
 merchant links to it from their menu. Show a refusal's `detail` as it is —
 it is written for the shopper.
 
+A store with its own app can send a signed-in user to `/plans?ref=<signed
+reference>`: the page passes it to checkout as `clientReferenceId`, Stripe
+keeps it on the session, and the app's own webhook learns which of its users
+paid. Only letters, digits and `. _ ~ -` (up to 200) are passed on, so the
+app should sign with base64url; anything else is dropped. In the marketplace
+preview (`KURUMERA_DEMO=1`) the page shows the plans from `lib/demo-data.ts`
+(`demoPlans`) and choosing one says checkout is switched off.
+
 ### 4. `kurumera theme check`
 
 Run this before every push — `theme push` runs it too and refuses to upload

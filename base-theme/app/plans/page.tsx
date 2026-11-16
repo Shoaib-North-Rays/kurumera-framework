@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { KurumeraError } from "@kurumera/storefront";
-import { getStore } from "@/lib/kurumera";
+import { getStore, isDemo } from "@/lib/kurumera";
 import { getSettings } from "@/lib/settings";
 import { PlanPicker } from "@/components/PlanPicker";
 
@@ -8,7 +8,15 @@ import { PlanPicker } from "@/components/PlanPicker";
  * /plans — the store's subscription plans (monthly / yearly, on the store's own
  * Stripe). A store that sells no plans gets a 404 here, so the page exists only
  * where it means something; link to it from the store's menu in the admin.
+ *
+ * A store with its own app can send a signed-in user here as /plans?ref=<its
+ * signed reference>. The reference rides along to Stripe untouched (Kurumera
+ * never reads it), so the app's own Stripe webhook knows which of its users
+ * paid. Only letters, digits and . _ ~ - (up to 200) are passed on; anything
+ * else is dropped, as the platform would refuse it.
  */
+const REFERENCE = /^[A-Za-z0-9._~-]{1,200}$/;
+
 export async function generateMetadata() {
   const s = await getSettings();
   return { title: `Plans · ${s.storeName}` };
@@ -17,7 +25,7 @@ export async function generateMetadata() {
 export default async function PlansPage({
   searchParams,
 }: {
-  searchParams: Promise<{ subscribed?: string }>;
+  searchParams: Promise<{ subscribed?: string; ref?: string }>;
 }) {
   const kurumera = await getStore();
   let list;
@@ -29,7 +37,8 @@ export default async function PlansPage({
   }
   if (!list.results.length) notFound();
 
-  const { subscribed } = await searchParams;
+  const { subscribed, ref } = await searchParams;
+  const reference = typeof ref === "string" && REFERENCE.test(ref) ? ref : "";
   return (
     <section className="plans">
       <header className="plans__head">
@@ -42,7 +51,8 @@ export default async function PlansPage({
           <p className="plans__notice" role="status">{list.message}</p>
         ) : null}
       </header>
-      <PlanPicker plans={list.results} accepting={list.accepting_new} />
+      <PlanPicker plans={list.results} accepting={list.accepting_new}
+        reference={reference} preview={isDemo()} />
     </section>
   );
 }

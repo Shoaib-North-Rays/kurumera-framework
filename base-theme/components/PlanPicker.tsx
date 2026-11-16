@@ -16,8 +16,15 @@ import { tenantSlug } from "@/lib/cart-client";
  *
  * A refusal ("already subscribed", "not taking new subscribers", a throttle)
  * comes back as a sentence written for the shopper; it is shown as it is.
+ *
+ * `reference` is a store app's signed reference from /plans?ref= (already
+ * checked by the page): passed to checkout, and kept on the way back from a
+ * cancelled payment. `preview` is the marketplace preview, where there is no
+ * store to charge: choosing a plan says so instead of starting a checkout.
  */
-export function PlanPicker({ plans, accepting }: { plans: SubscriptionPlan[]; accepting: boolean }) {
+export function PlanPicker({ plans, accepting, reference = "", preview = false }: {
+  plans: SubscriptionPlan[]; accepting: boolean; reference?: string; preview?: boolean;
+}) {
   const hasMonth = plans.some((p) => p.prices.month);
   const hasYear = plans.some((p) => p.prices.year);
   const [period, setPeriod] = useState<SubscriptionPeriod>(hasMonth ? "month" : "year");
@@ -58,7 +65,13 @@ export function PlanPicker({ plans, accepting }: { plans: SubscriptionPlan[]; ac
                 </ul>
               ) : null}
               {chosen === plan.handle && price ? (
-                <SubscribeForm plan={plan.handle} period={period} />
+                preview ? (
+                  <p className="plan__message" role="status">
+                    This is a preview of the theme, so checkout is switched off. In a live store this continues to payment.
+                  </p>
+                ) : (
+                  <SubscribeForm plan={plan.handle} period={period} reference={reference} />
+                )
               ) : (
                 <button type="button" className="btn btn--primary btn--block"
                   disabled={!accepting || !price} onClick={() => setChosen(plan.handle)}>
@@ -73,7 +86,7 @@ export function PlanPicker({ plans, accepting }: { plans: SubscriptionPlan[]; ac
   );
 }
 
-function SubscribeForm({ plan, period }: { plan: string; period: SubscriptionPeriod }) {
+function SubscribeForm({ plan, period, reference }: { plan: string; period: SubscriptionPeriod; reference: string }) {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -86,11 +99,13 @@ function SubscribeForm({ plan, period }: { plan: string; period: SubscriptionPer
     // Stripe only returns shoppers to https addresses on the store's own site;
     // on a local http preview the platform's own default is used instead.
     const origin = window.location.protocol === "https:" ? window.location.origin : "";
+    const back = reference ? `?ref=${encodeURIComponent(reference)}` : "";
     let answer;
     try {
       answer = await createKurumeraClient({ tenant: tenantSlug() }).subscriptions.checkout({
         plan, period, email,
-        ...(origin ? { successUrl: `${origin}/plans?subscribed=1`, cancelUrl: `${origin}/plans` } : {}),
+        ...(reference ? { clientReferenceId: reference } : {}),
+        ...(origin ? { successUrl: `${origin}/plans?subscribed=1`, cancelUrl: `${origin}/plans${back}` } : {}),
       });
     } catch {
       // checkout() answers refusals itself; reaching here means the page has no

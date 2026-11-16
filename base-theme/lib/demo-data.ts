@@ -200,3 +200,37 @@ export const demoReviews: DemoReview[] = [
 export function demoReviewsFor(handle: string): DemoReview[] {
   return demoReviews.filter((r) => r.product === handle).sort((a, b) => b.date.localeCompare(a.date));
 }
+
+/**
+ * Subscription plans for the /plans page in the preview. Amounts are decimal
+ * strings in the currency's own units, as the Storefront API sends them; null
+ * means the plan is not offered for that period. Checkout is switched off in
+ * the preview, so nothing here is ever charged.
+ */
+export interface DemoPlan {
+  handle: string;
+  name: string;
+  description: string;
+  features: string[];
+  trialDays: number;
+  monthly: string | null;
+  yearly: string | null;
+}
+
+export const demoPlans: DemoPlan[] = [
+  {
+    handle: "basic", name: "Basic", description: "Member prices and early news.",
+    features: ["Members-only prices", "Early access to new arrivals", "Birthday gift"],
+    trialDays: 0, monthly: "9.00", yearly: "90.00",
+  },
+  {
+    handle: "plus", name: "Plus", description: "Everything in Basic, delivered free.",
+    features: ["Everything in Basic", "Free standard shipping", "Free returns", "Priority support"],
+    trialDays: 14, monthly: "19.00", yearly: "190.00",
+  },
+  {
+    handle: "premium", name: "Premium", description: "For people who shop with us every month.",
+    features: ["Everything in Plus", "Free express shipping", "A seasonal gift box", "Personal styling session"],
+    trialDays: 14, monthly: "39.00", yearly: "390.00",
+  },
+];

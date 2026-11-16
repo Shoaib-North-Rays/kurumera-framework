@@ -14,10 +14,11 @@
  */
 import type {
   Collection, CollectionDetail, Menu, Paginated, Product,
-  ProductImage, ProductListItem, ProductOption, ProductVariant, TenantConfig,
+  ProductImage, ProductListItem, ProductOption, ProductVariant,
+  SubscriptionPlanList, SubscriptionPrice, TenantConfig,
 } from "@kurumera/storefront";
 import {
-  demoProducts, demoCategories, demoReviewsFor,
+  demoProducts, demoCategories, demoReviewsFor, demoPlans,
   type DemoProduct, type DemoCategory,
 } from "./demo-data";
 
@@ -192,6 +193,25 @@ function reviewsFor(handle: string): unknown {
   return { count: reviews.length, results: reviews };
 }
 
+/* ── subscription plans (/plans) ───────────────────────────────────────────── */
+
+function demoPrice(amount: string | null): SubscriptionPrice | null {
+  if (amount == null) return null;
+  return { amount, unit_amount: Math.round(Number(amount) * 100), currency: "USD" };
+}
+
+function planList(): SubscriptionPlanList {
+  return {
+    accepting_new: true,
+    message: "",
+    results: demoPlans.map((p) => ({
+      id: p.handle, handle: p.handle, name: p.name, description: p.description,
+      features: p.features, trial_days: p.trialDays,
+      prices: { month: demoPrice(p.monthly), year: demoPrice(p.yearly) },
+    })),
+  };
+}
+
 /* ── list filtering (limit / offset / collection / sort / q) ───────────────── */
 
 function pageOf<T>(results: T[]): Paginated<T> {
@@ -283,6 +303,7 @@ export function makeDemoFetch(): typeof fetch {
     if (path === "/storefront/search/autocomplete/") return json({ results: filtered(p).slice(0, 5) });
     if (path === "/storefront/menus/") return json({ menus: menus() });
     if (path === "/storefront/tenant-config/") return json(tenantConfig());
+    if (path === "/storefront/subscriptions/plans/") return json(planList());
     const cms = path.match(/^\/storefront\/pages\/([^/]+)\/?$/);
     if (cms) return json({ id: cms[1], title: "About", handle: cms[1], body_html: "<p>A demo page.</p>" });
 
