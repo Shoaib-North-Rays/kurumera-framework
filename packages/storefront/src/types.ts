@@ -183,8 +183,24 @@ export interface CmsPage {
   [k: string]: unknown;
 }
 
+/**
+ * The store's floating "Message us on WhatsApp" button (platform KME-528), as
+ * tenant-config gives it. `enabled` is true only when the merchant turned it on
+ * AND the store's WhatsApp number can take messages; draw nothing otherwise.
+ * `href` opens WhatsApp with the store's request already typed: the shopper
+ * sending it is their own yes to updates and offers, which the platform
+ * records. Read it with `whatsappChat(config)`.
+ */
+export interface WhatsAppChat {
+  enabled: boolean;
+  href: string;
+  label: string;
+}
+
 /** Store branding / defaults from /storefront/tenant-config/. Loosely typed. */
 export interface TenantConfig {
+  /** Absent on platforms older than KME-528. */
+  whatsapp_chat?: WhatsAppChat;
   [k: string]: unknown;
 }
 

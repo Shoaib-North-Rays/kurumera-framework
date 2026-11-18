@@ -52,6 +52,8 @@ export type { DiscountValidation } from "./resources/discounts.js";
  * either.
  */
 export { contactFields, DEFAULT_CONTACT_CONFIG } from "./resources/contact.js";
+/** The store's floating WhatsApp button, read from tenant-config (KME-528). */
+export { whatsappChat } from "./resources/config.js";
 export type {
   ContactConfig, ContactDetails, ContactFieldRule, ContactFormRules,
   ContactSubmission, ContactSubmitResult,

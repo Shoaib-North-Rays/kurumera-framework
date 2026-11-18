@@ -1,5 +1,22 @@
 # @kurumera/storefront — changelog
 
+## 0.12.0 — unreleased
+
+### The store's WhatsApp chat button (KME-528)
+
+A merchant can turn on a floating "Message us on WhatsApp" button in the
+Kurumera admin (Settings, WhatsApp). `tenant-config` now carries it as
+`whatsapp_chat` (`WhatsAppChat`: `enabled`, `href`, `label`), and the new
+`whatsappChat(config)` reads it: a `WhatsAppChat`, or `null` when there is
+nothing to draw (off, the number cannot take messages, or an older platform).
+The link is always `https://wa.me/...`.
+
+The link opens WhatsApp with the store's request already typed. The shopper
+sending it is their own agreement to updates and offers, which the platform
+records, so draw it as a plain link: do not rewrite `href` or its message.
+Place it fixed in a corner, below the theme's drawers, and leave it out of
+pages that already pin a bar to the bottom of the screen.
+
 ## 0.11.0 — 2026-11-12
 
 ### Product videos
