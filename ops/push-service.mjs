@@ -3116,6 +3116,18 @@ const server = http.createServer((req, res) => {
   const mkt = qMarket || (!qStore && (cookieMarket(req) || marketFromReferer(req)));
 
   /*
+   * Every page proxied below is a COPY: a store's preview (often a version that
+   * is not even published) or a marketplace theme on demo data. Google indexed
+   * those copies — "Roasted Flax Seeds | The Plants Mall" was a search result
+   * at themekit.kurumera.com/products/…, not at theplantsmall.com, though the
+   * page's canonical link names theplantsmall.com. A canonical is only a hint;
+   * this header is an instruction, and it is what makes Google drop the copy
+   * and keep the store's own address. The landing page above is not a copy
+   * and stays indexable.
+   */
+  const PREVIEW_ROBOTS = "noindex, nofollow";
+
+  /*
    * A builder design is not a code theme: it has no artifact and no container,
    * so there is nothing here to start. Without this branch it fell through to
    * the proxy below, failed, and was reported as a cold start -- leaving the
@@ -3141,7 +3153,7 @@ const server = http.createServer((req, res) => {
         (pr) => {
           const cookies = [].concat(pr.headers["set-cookie"] || []);
           if (qMarket) cookies.push(`kurumera_market=${encodeURIComponent(mkt)}; Path=/; SameSite=Lax`);
-          const h = { ...pr.headers }; if (cookies.length) h["set-cookie"] = cookies;
+          const h = { ...pr.headers, "x-robots-tag": PREVIEW_ROBOTS }; if (cookies.length) h["set-cookie"] = cookies;
           res.writeHead(pr.statusCode || 502, h);
           pr.pipe(res);
         },
@@ -3175,7 +3187,7 @@ const server = http.createServer((req, res) => {
       (pr) => {
         const cookies = [].concat(pr.headers["set-cookie"] || []);
         if (qStore) cookies.push("kurumera_market=; Path=/; Max-Age=0");   // leaving any market preview
-        const h = { ...pr.headers }; if (cookies.length) h["set-cookie"] = cookies;
+        const h = { ...pr.headers, "x-robots-tag": PREVIEW_ROBOTS }; if (cookies.length) h["set-cookie"] = cookies;
         res.writeHead(pr.statusCode || 502, h);
         pr.pipe(res);
       },
