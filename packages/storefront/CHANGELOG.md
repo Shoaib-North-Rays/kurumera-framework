@@ -1,6 +1,6 @@
 # @kurumera/storefront — changelog
 
-## 0.12.0 — unreleased
+## 0.12.0 — 2026-11-19
 
 ### The store's WhatsApp chat button (KME-528)
 
