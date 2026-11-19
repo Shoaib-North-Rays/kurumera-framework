@@ -45,6 +45,11 @@ export function middleware(req: NextRequest) {
   const editMode = editModeParam || (editToken ? req.cookies.get("kurumera_edit_mode")?.value : "") || "";
 
   const headers = new Headers(req.headers);
+  // The server layer builds a canonical-host redirect from these (see
+  // lib/canonicalRedirect.ts): the request path, and a flag marking a ?store=
+  // demo/preview render so it is never redirected to the custom domain.
+  headers.set("x-kurumera-pathname", req.nextUrl.pathname);
+  if (q) headers.set("x-kurumera-preview", "1");
   if (tenant) headers.set("x-kurumera-tenant", tenant);
   if (domain) headers.set("x-kurumera-domain", domain);
   if (editToken) headers.set("x-kurumera-edit-token", editToken);
