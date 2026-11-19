@@ -5,8 +5,9 @@ import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { getSettings, themeCssVars } from "@/lib/settings";
-import { getTenantSlug } from "@/lib/kurumera";
+import { getStoreConfig, getTenantSlug } from "@/lib/kurumera";
 import { PageViews, SessionTracking } from "@/components/Analytics";
+import { WhatsAppChatButton } from "@/components/WhatsAppChatButton";
 import { EditableProvider } from "@kurumera/editable/client";
 import { resolveEditableContent } from "@kurumera/editable/server";
 
@@ -25,10 +26,13 @@ export async function generateMetadata() {
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const [s, tenantSlug, editable] = await Promise.all([
+  // getStoreConfig() is the same request-cached tenant-config getSettings()
+  // reads, so the chat button's setting costs no extra request.
+  const [s, tenantSlug, editable, storeConfig] = await Promise.all([
     getSettings(),
     getTenantSlug(),
     resolveEditableContent(),
+    getStoreConfig(),
   ]);
   const css = themeCssVars(s);
   return (
@@ -79,6 +83,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           <SessionTracking />
           <main className="site-main">{children}</main>
           <Footer />
+          {/* The store's "Message us on WhatsApp" button, when the merchant
+              turned it on in the admin. The raw setting goes in; the client
+              component reads it (see the note there on why). */}
+          <WhatsAppChatButton setting={storeConfig?.whatsapp_chat ?? null} />
         </EditableProvider>
       </body>
     </html>

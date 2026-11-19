@@ -479,3 +479,21 @@ img { max-width: 100%; display: block; }
 /* Full-width under the row, so "Applied at checkout" reads as a note on the
    whole thing rather than a caption on the Remove button. */
 .coupon__note { flex-basis: 100%; margin: 0; }
+
+/* ── WhatsApp chat button ───────────────────────── */
+/* The store's "Message us on WhatsApp" button (components/WhatsAppChatButton).
+   Above the sticky header (50), below the mobile menu (100) and any drawer.
+   WhatsApp's own green, so shoppers know it on sight. A page that pins its own
+   bar to the bottom of the screen should hide it there, e.g.
+   body:has(.my-bottom-bar) .whatsapp-chat { display: none; } */
+.whatsapp-chat {
+  position: fixed; z-index: 60; right: 20px; bottom: 20px;
+  width: 56px; height: 56px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; background: #25d366;
+  box-shadow: 0 2px 4px rgba(16,24,40,.08), 0 8px 24px rgba(16,24,40,.16);
+  transition: transform .15s ease-out;
+}
+.whatsapp-chat:active { transform: scale(.97); }
+@media (max-width: 640px) { .whatsapp-chat { right: 16px; bottom: 16px; width: 52px; height: 52px; } }
+@media (prefers-reduced-motion: reduce) { .whatsapp-chat { transition: none; } }

@@ -7,6 +7,9 @@ const base = (props: SVGProps<SVGSVGElement>) => ({
   strokeLinejoin: "round" as const, "aria-hidden": true, ...props,
 });
 
+export const ChatIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></svg>
+);
 export const CartIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}><circle cx="9" cy="20" r="1" /><circle cx="18" cy="20" r="1" />
     <path d="M2 3h2l2.4 12.3a1 1 0 0 0 1 .7h9.3a1 1 0 0 0 1-.8L21 7H5.2" /></svg>
