@@ -952,8 +952,16 @@ async function verifyOwnership(authHeader, store, action, confirm) {
  * KURUMERA_ADMIN_EMAILS anyway — so the page failed twice over for a caller the
  * platform had already trusted.
  */
+/** Does this request carry the platform's service key? Compared in constant
+ *  time (content audit PB-15): `===` stops at the first differing character. */
+function isService(req) {
+  const got = String(req.headers["x-kurumera-service"] || "");
+  if (!SERVICE_KEY || got.length !== SERVICE_KEY.length) return false;
+  return timingSafeEqual(Buffer.from(got), Buffer.from(SERVICE_KEY));
+}
+
 async function authorizeAdmin(req, bodyActor) {
-  if (SERVICE_KEY && req.headers["x-kurumera-service"] === SERVICE_KEY) {
+  if (isService(req)) {
     return { ok: true, actor: String(bodyActor || "").trim() || "operator console" };
   }
   const az = await verifyIdentity(req.headers["authorization"]);
@@ -963,7 +971,7 @@ async function authorizeAdmin(req, bodyActor) {
 }
 
 async function authorizeMutation(req, store, bodyActor, action, confirm) {
-  if (SERVICE_KEY && req.headers["x-kurumera-service"] === SERVICE_KEY) {
+  if (isService(req)) {
     return { ok: true, actor: bodyActor || undefined };
   }
   return verifyOwnership(req.headers["authorization"], store, action, confirm);
@@ -1008,6 +1016,61 @@ async function runThemeBuild(s, dir) {
   return b;
 }
 
+// ── Upload limits (content audit AI-03) ──────────────────────────────────────
+// A theme upload is unpacked HERE, by this service, on a host with the docker
+// socket, before any sandbox. It used to be read with no size limit and
+// unpacked with no check of what it held, so a crafted archive could carry
+// links that point outside the store's folder or unpack to fill the disk.
+const MAX_PUSH_BYTES = Number(process.env.PUSH_MAX_UPLOAD_MB || 100) * 1048576;
+const MAX_JSON_BYTES = Number(process.env.PUSH_MAX_JSON_MB || 16) * 1048576;
+const MAX_UNPACKED_BYTES = Number(process.env.PUSH_MAX_UNPACKED_MB || 600) * 1048576;
+const MAX_ARCHIVE_ENTRIES = Number(process.env.PUSH_MAX_ENTRIES || 20000);
+
+/** tar's listing of `file`, stdout only (warnings go to stderr), capped. */
+function listArchive(file, verbose) {
+  return new Promise((resolve) => {
+    const p = spawn("tar", [verbose ? "-tvzf" : "-tzf", file], { stdio: ["ignore", "pipe", "ignore"] });
+    let out = "", over = false;
+    p.stdout.on("data", (d) => {
+      if (over) return;
+      out += d;
+      if (out.length > 16 * 1048576) { over = true; p.kill("SIGKILL"); }
+    });
+    p.on("close", (code) => resolve({ code: over ? 1 : code, out, over }));
+    p.on("error", () => resolve({ code: 1, out: "", over: false }));
+  });
+}
+
+/** Why this upload may not be unpacked, or null when it may: only plain
+ *  files and folders, no absolute or `..` paths, a bounded number of entries
+ *  and a bounded unpacked size. */
+async function archiveProblem(file) {
+  const names = await listArchive(file, false);
+  if (names.over) return "the upload holds too many files";
+  if (names.code !== 0) return "the upload is not a readable .tar.gz";
+  const list = names.out.split("\n").filter(Boolean);
+  if (list.length > MAX_ARCHIVE_ENTRIES) return `the upload holds ${list.length} files (at most ${MAX_ARCHIVE_ENTRIES})`;
+  for (const n of list) {
+    if (n.startsWith("/") || n.split("/").includes("..")) return `a path in the upload leaves the theme folder: ${n.slice(0, 120)}`;
+  }
+  const detail = await listArchive(file, true);
+  if (detail.code !== 0) return "the upload is not a readable .tar.gz";
+  let total = 0;
+  for (const line of detail.out.split("\n")) {
+    if (!line.trim()) continue;
+    if (line[0] !== "-" && line[0] !== "d") return "links and special files are not allowed in a theme upload";
+    const size = Number(line.trim().split(/\s+/)[2]);
+    if (Number.isFinite(size)) total += size;
+    if (total > MAX_UNPACKED_BYTES) return `the upload unpacks to more than ${Math.round(MAX_UNPACKED_BYTES / 1048576)} MB`;
+  }
+  return null;
+}
+
+/** Unpack a checked archive. Never restores owners or permissions from it. */
+function unpack(file, dir) {
+  return sh("tar", ["--no-same-owner", "--no-same-permissions", "-xzf", file, "-C", dir]);
+}
+
 async function buildVersion(s, buffer, actor) {
   s = slug(s);
   building.add(s);
@@ -1024,7 +1087,9 @@ async function buildVersion(s, buffer, actor) {
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true });
     writeFileSync(tgz, buffer);
-    const x = await sh("tar", ["-xzf", tgz, "-C", dir]);
+    const problem = await archiveProblem(tgz);
+    if (problem) return fail(s, v, `upload refused: ${problem}`);
+    const x = await unpack(tgz, dir);
     if (x.code !== 0) return fail(s, v, "unpack failed");
 
     // Split the store's secrets from the source now, while the tree is still
@@ -1219,7 +1284,11 @@ async function rebuildAndActivate(s, version, actor) {
     const dir = versionDir(s, version);
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true });
-    const x = await sh("tar", ["-xzf", join(SOURCES, s, `${version}.tgz`), "-C", dir]);
+    // Retained sources from before the upload check are checked here too.
+    const retained = join(SOURCES, s, `${version}.tgz`);
+    const problem = await archiveProblem(retained);
+    if (problem) return fail(s, version, `retained source refused: ${problem}`);
+    const x = await unpack(retained, dir);
     if (x.code !== 0) return fail(s, version, "unpack failed (retained source)");
     // This version's own .env files, kept out of the source (see ENV_FILES).
     if (existsSync(envBundle(s, version))) {
@@ -1958,7 +2027,29 @@ const server = http.createServer((req, res) => {
   const u = new URL(req.url || "/", "http://x");
   const p = u.pathname;
   const json = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json" }); res.end(JSON.stringify(obj)); };
-  const readBody = () => new Promise((resolve) => { const c = []; req.on("data", (d) => c.push(d)); req.on("end", () => resolve(Buffer.concat(c))); });
+  // Bodies are read up to a limit (content audit AI-03): over it the request
+  // is answered 413 and dropped, and the handler never runs.
+  const readBody = (limit = MAX_JSON_BYTES) => new Promise((resolve) => {
+    const c = []; let n = 0, over = false;
+    if (Number(req.headers["content-length"] || 0) > limit) {
+      over = true;
+      json(413, { error: `request too large (limit ${Math.round(limit / 1048576)} MB)` });
+      req.destroy();
+      return;
+    }
+    req.on("data", (d) => {
+      if (over) return;
+      n += d.length;
+      if (n > limit) {
+        over = true; c.length = 0;
+        try { json(413, { error: `request too large (limit ${Math.round(limit / 1048576)} MB)` }); } catch { /* already answered */ }
+        req.destroy();
+        return;
+      }
+      c.push(d);
+    });
+    req.on("end", () => { if (!over) resolve(Buffer.concat(c)); });
+  });
 
   // ── Public developer guide (served from the mounted /ops dir) ────────────────
   if (p === "/guide" || p === "/guide/") {
@@ -2091,7 +2182,7 @@ const server = http.createServer((req, res) => {
     // in the DB looks like.
     const s = u.searchParams.get("store") || "";
     const version = String(u.searchParams.get("version") || "").replace(/[^a-zA-Z0-9._-]/g, "");
-    const az0 = (SERVICE_KEY && req.headers["x-kurumera-service"] === SERVICE_KEY)
+    const az0 = (isService(req))
       ? Promise.resolve({ ok: true })
       : verifyOwnership(req.headers["authorization"], s, "pull");
     az0.then((az) => {
@@ -2122,7 +2213,7 @@ const server = http.createServer((req, res) => {
     verifyOwnership(req.headers["authorization"], s, "checkpoint").then((az) => {
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       if (!s) return json(400, { error: "no store — pass --store or run `kurumera login`" });
-      readBody().then((buf) => {
+      readBody(MAX_PUSH_BYTES).then((buf) => {   // an archive, like a push (AI-03)
         if (!buf || !buf.length) return json(400, { error: "empty checkpoint body" });
         mkdirSync(CHECKPOINTS, { recursive: true });
         const tmp = join(CHECKPOINTS, `.${s}.${randomBytes(6).toString("hex")}.tmp`);
@@ -2146,7 +2237,7 @@ const server = http.createServer((req, res) => {
   }
   if (p.endsWith("/_push/checkpoint") && req.method === "GET") {
     const s = slug(u.searchParams.get("store") || "");
-    const az0 = (SERVICE_KEY && req.headers["x-kurumera-service"] === SERVICE_KEY)
+    const az0 = (isService(req))
       ? Promise.resolve({ ok: true })
       : verifyOwnership(req.headers["authorization"], s, "checkpoint");
     az0.then((az) => {
@@ -2166,7 +2257,10 @@ const server = http.createServer((req, res) => {
 
   if (p.endsWith("/_push/logs")) {
     const s = u.searchParams.get("store") || "";
-    verifyOwnership(req.headers["authorization"], s, "logs").then((az) => {
+    // The dashboard asks with the service key, on behalf of a merchant the
+    // backend already authenticated (PB-20); the CLI with its own sign-in.
+    const az0 = isService(req) ? Promise.resolve({ ok: true }) : verifyOwnership(req.headers["authorization"], s, "logs");
+    az0.then((az) => {
       if (!az.ok) { res.writeHead(az.status || 403, { "Content-Type": "text/plain" }); return res.end(az.error || "not authorized"); }
       let log = "";
       try { log = readFileSync(join(storeDir(s), "build.log"), "utf8"); } catch { /* none */ }
@@ -2186,7 +2280,7 @@ const server = http.createServer((req, res) => {
 
   // ── Reconcile (service key only) — heal containers + converge the DB ─────────
   if (p.endsWith("/_push/reconcile")) {
-    if (!SERVICE_KEY || req.headers["x-kurumera-service"] !== SERVICE_KEY) return json(403, { error: "service key required" });
+    if (!isService(req)) return json(403, { error: "service key required" });
     reconcile().then((r) => json(200, r));
     return;
   }
@@ -2950,7 +3044,7 @@ const server = http.createServer((req, res) => {
     verifyOwnership(req.headers["authorization"], s, "push").then((az) => {
       if (!az.ok) return json(az.status || 403, { error: az.error, detail: az.detail, required_scope: az.requiredScope });
       if (building.has(s)) return json(409, { error: "a build is already in progress for this store" });
-      readBody().then((buf) => { json(200, { id: "queued", status: "building" }); buildVersion(s, buf, az.actor); });
+      readBody(MAX_PUSH_BYTES).then((buf) => { json(200, { id: "queued", status: "building" }); buildVersion(s, buf, az.actor); });
     });
     return;
   }
@@ -2958,7 +3052,7 @@ const server = http.createServer((req, res) => {
   // Backend only (the service key, never a CLI session): the store is being
   // deleted for good. See forgetStore().
   if (p.endsWith("/_push/forget") && req.method === "POST") {
-    if (!SERVICE_KEY || req.headers["x-kurumera-service"] !== SERVICE_KEY) return json(403, { error: "service key required" });
+    if (!isService(req)) return json(403, { error: "service key required" });
     readBody().then(async (buf) => {
       let body = {}; try { body = JSON.parse(buf.toString() || "{}"); } catch { /* */ }
       const r = await forgetStore(body.store, body.actor_email);
