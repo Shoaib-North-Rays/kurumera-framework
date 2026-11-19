@@ -53,12 +53,23 @@ export function middleware(req: NextRequest) {
   const res = NextResponse.next({ request: { headers } });
   // Remember an explicit ?store choice so links without it still resolve.
   if (q && tenant) res.cookies.set("kurumera_store", tenant, { path: "/", sameSite: "lax" });
+  if (editToken) {
+    // Inside the editor the address can carry the edit credential: never send
+    // it onward as the Referer to other sites (content audit PB-13). The
+    // address itself stays: the editor's iframe is cross-site, so this cookie
+    // is third-party and Safari drops it; the first page load must keep
+    // working from the address alone.
+    res.headers.set("Referrer-Policy", "same-origin");
+  }
   if (editTokenParam) {
     // Short-lived cookie — a courtesy for in-iframe navigation, not the
     // security boundary (see comment above). Matches EditSession's own
-    // 2-hour server-side TTL.
-    res.cookies.set("kurumera_edit", editTokenParam, { path: "/", sameSite: "none", secure: true, maxAge: 2 * 60 * 60 });
-    if (editModeParam) res.cookies.set("kurumera_edit_mode", editModeParam, { path: "/", sameSite: "none", secure: true, maxAge: 2 * 60 * 60 });
+    // 2-hour server-side TTL. httpOnly: only this middleware reads it (the
+    // page gets the token from the server render), so it was readable by
+    // every script on the store for no reason (PB-13).
+    const cookie = { path: "/", sameSite: "none" as const, secure: true, httpOnly: true, maxAge: 2 * 60 * 60 };
+    res.cookies.set("kurumera_edit", editTokenParam, cookie);
+    if (editModeParam) res.cookies.set("kurumera_edit_mode", editModeParam, cookie);
   }
   return res;
 }

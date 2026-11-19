@@ -1046,7 +1046,13 @@ async function buildVersion(s, buffer, actor) {
     if (r.code !== 0) return fail(s, v, "preview host failed", r.out.slice(-800));
 
     const man = readManifest(dir);
-    const themeSlug = slug(man.name || s);
+    // Recorded under the STORE's own namespace (content audit PB-12): the
+    // manifest name alone is shared by every store that pushed the same base
+    // theme ("Kurumera Base" 0.1.0), so the platform kept ONE version record
+    // for all of them. A second store's push then pointed at the first
+    // store's build, listed its versions, and sent its build id on download
+    // and activate. Marketplace themes keep their platform slug (installs).
+    const themeSlug = slug(`${s}--${man.name || s}`).slice(0, 140);
     const semver = man.version || v;
 
     // Retain the original uploaded source now that the build actually
