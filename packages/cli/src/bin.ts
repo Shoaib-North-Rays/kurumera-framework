@@ -60,6 +60,8 @@ function help(): void {
   console.log("                                       Restore the previous live version, or an exact one");
   console.log("  theme activate --store <slug> --version <id>");
   console.log("                                       Make an exact retained version live");
+  console.log("                                       publish, rollback and activate change the LIVE store:");
+  console.log("                                       they ask first, or need --yes without a terminal");
   console.log("  theme versions --store <slug>        List every retained version for this store");
   console.log("  theme pull --store <slug> --version <id> [--out <dir>]");
   console.log("                                       Download an exact version's original source");
@@ -91,7 +93,11 @@ function help(): void {
 
 const argv = process.argv.slice(2);
 
-if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
+// `--help` / `-h` ANYWHERE prints help and stops, before any command runs. It
+// used to count only as the first argument: `kurumera theme publish --help`
+// went on to publish, and on 18 Nov 2026 that took a live store down while an
+// agent was reading the help (content audit AI-09).
+if (argv.length === 0 || argv.includes("--help") || argv.includes("-h") || argv[0] === "help") {
   help();
   process.exit(0);
 }

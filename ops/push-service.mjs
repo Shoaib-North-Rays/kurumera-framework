@@ -1720,6 +1720,51 @@ async function installFromMarket(s, theme, version, actor, license) {
 // product limit — bump KURUMERA_MAX_DESIGN_MB if real themes need more.
 const MAX_DESIGN_MB = Number(process.env.KURUMERA_MAX_DESIGN_MB || 50);
 const MAX_DESIGN_BYTES = MAX_DESIGN_MB * 1024 * 1024;
+// Code blocks never travel in a marketplace design (content audit XS-01, 18 Nov
+// 2026). A design is previewed on the builder's own origin and installed into
+// OTHER stores, so a creator's Custom JavaScript (or Custom HTML with cleaning
+// off) would run where buyers' and merchants' sessions live. Refused when a
+// design is published, and stripped when one is served (designs stored before
+// this check).
+function isDesignCodeNode(n) {
+  if (!n || typeof n !== "object") return false;
+  if (n.type === "custom-js") return true;
+  return n.type === "custom-html" && !!n.props && (n.props.sanitize === false || n.props.sanitize === "false");
+}
+function designNodeMaps(pkg) {
+  const maps = [];
+  for (const page of Array.isArray(pkg && pkg.pages) ? pkg.pages : []) if (page && page.nodes) maps.push(page.nodes);
+  for (const g of Array.isArray(pkg && pkg.globalSections) ? pkg.globalSections : []) if (g && g.nodes) maps.push(g.nodes);
+  return maps;
+}
+function designCodeNodeIds(pkg) {
+  const ids = [];
+  for (const nodes of designNodeMaps(pkg)) {
+    for (const [id, n] of Object.entries(nodes)) if (isDesignCodeNode(n)) ids.push(id);
+  }
+  return ids;
+}
+function stripDesignCode(pkg) {
+  const copy = JSON.parse(JSON.stringify(pkg));
+  for (const nodes of designNodeMaps(copy)) {
+    const dropped = new Set();
+    for (const [id, n] of Object.entries(nodes)) {
+      if (!n || typeof n !== "object") continue;
+      if (n.type === "custom-js") { dropped.add(id); delete nodes[id]; continue; }
+      if (n.type === "custom-html") n.props = { ...(n.props || {}), sanitize: true };
+    }
+    if (dropped.size) {
+      for (const n of Object.values(nodes)) {
+        if (n && Array.isArray(n.children)) n.children = n.children.filter((c) => !dropped.has(c));
+      }
+    }
+  }
+  for (const page of Array.isArray(copy.pages) ? copy.pages : []) {
+    if (page && Array.isArray(page.rootNodeIds) && page.nodes) page.rootNodeIds = page.rootNodeIds.filter((id) => id in page.nodes);
+  }
+  return copy;
+}
+
 function validateDesignPackage(pkg) {
   if (!pkg || typeof pkg !== "object") return "missing design package";
   if (typeof pkg.schemaVersion !== "string" || !pkg.schemaVersion.trim()) return "package missing schemaVersion";
@@ -1729,6 +1774,10 @@ function validateDesignPackage(pkg) {
   if (!Array.isArray(pkg.media)) return "package missing media manifest";
   const size = Buffer.byteLength(JSON.stringify(pkg));
   if (size > MAX_DESIGN_BYTES) return `design too large (${Math.round(size / 1024)}KB, max ${MAX_DESIGN_MB}MB)`;
+  const code = designCodeNodeIds(pkg);
+  if (code.length) {
+    return `a design shared on the marketplace cannot contain Custom JavaScript, or Custom HTML with cleaning turned off. Remove block ${code[0]}${code.length > 1 ? ` and ${code.length - 1} more` : ""}, then publish again.`;
+  }
   return null;
 }
 
@@ -2266,8 +2315,12 @@ const server = http.createServer((req, res) => {
     if (!e || e.type !== "builder") { res.writeHead(404, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ error: "no builder design" })); }
     const fp = designPath(t);
     if (!existsSync(fp)) { res.writeHead(404, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ error: "design not found" })); }
+    let pkg;
+    try { pkg = JSON.parse(readFileSync(fp, "utf8")); }
+    catch { res.writeHead(500, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ error: "design unreadable" })); }
     res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "public, max-age=60", "Access-Control-Allow-Origin": "*" });
-    return res.end(readFileSync(fp));
+    // Stripped on the way out too: designs stored before the publish check (XS-01).
+    return res.end(JSON.stringify(stripDesignCode(pkg)));
   }
   // Does the caller own this theme? (free ⇒ always; paid ⇒ needs a valid license)
   if (p.endsWith("/_push/market/owns")) {

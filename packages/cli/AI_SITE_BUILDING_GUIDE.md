@@ -365,11 +365,17 @@ store — useful to sanity-check before going live. Prints the URL either way
 (it also tries to open a real browser, which won't do anything useful in a
 headless agent sandbox — just relay the printed URL to the human).
 
-### 7. `kurumera theme publish --store <slug>`
+### 7. `kurumera theme publish --store <slug> --yes`
 
 Makes the just-pushed build the store's live theme. `--off` reverts the
 store to the visual builder instead (an intentional escape hatch — this is
 the one operation that crosses back to the other mode).
+
+`publish`, `rollback` and `activate` change what shoppers see, so they ask
+first. Without a terminal (an agent sandbox, CI) they refuse unless the
+command carries `--yes`: add it only once the human has agreed to go live.
+To read a command's options, run `kurumera --help`; `--help` never runs a
+command.
 
 ## After the store is live
 

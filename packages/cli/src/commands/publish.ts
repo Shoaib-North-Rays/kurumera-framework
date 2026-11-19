@@ -84,6 +84,10 @@ export async function themePublish(args: string[]): Promise<number> {
     return 1;
   }
   const off = args.includes("--off");
+  const ok = await confirmLive(args, off
+    ? `Unpublish the code theme on "${store}"? Shoppers will see the visual builder site.`
+    : `Publish your pushed theme LIVE on "${store}"? Shoppers will see it now.`);
+  if (!ok) return 1;
 
   let res: { status: number; data: MutationResult; retried: boolean };
   try {
@@ -141,6 +145,10 @@ export async function themeRollback(args: string[]): Promise<number> {
   const store = flag(args, "--store") || cfg.defaultStore;
   if (!store) { console.error("Which store? Pass --store <slug>."); return 1; }
   const version = flag(args, "--version");
+  const ok = await confirmLive(args, version
+    ? `Make version ${version} LIVE on "${store}"?`
+    : `Roll "${store}" back to its previous live version?`);
+  if (!ok) return 1;
 
   let res: { status: number; data: MutationResult; retried: boolean };
   try {
@@ -175,6 +183,7 @@ export async function themeActivate(args: string[]): Promise<number> {
   if (!store) { console.error("Which store? Pass --store <slug>."); return 1; }
   const version = flag(args, "--version");
   if (!version) { console.error("Which version? Pass --version <id> (see `kurumera theme versions --store <slug>`)."); return 1; }
+  if (!(await confirmLive(args, `Make version ${version} LIVE on "${store}"?`))) return 1;
 
   let res: { status: number; data: MutationResult; retried: boolean };
   try {
@@ -194,6 +203,29 @@ export async function themeActivate(args: string[]): Promise<number> {
   console.log(`✓ "${store}" activated ${res.data.version || version}.`);
   console.log(`  Live: https://${store}.${ROOT}`);
   return 0;
+}
+
+/**
+ * Changing what a store's shoppers see is asked about, every time (content
+ * audit AI-09, 18 Nov 2026). On a terminal the question is asked; without one
+ * (CI, an AI agent's sandbox) the command must carry `--yes`, so running a
+ * command to read about it can never publish.
+ */
+async function confirmLive(args: string[], question: string): Promise<boolean> {
+  if (args.includes("--yes") || args.includes("-y")) return true;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    console.error(`${question}`);
+    console.error("This changes the LIVE store, and there is no terminal to ask on. Run it again with --yes to go ahead.");
+    return false;
+  }
+  const { createInterface } = await import("node:readline/promises");
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const answer = (await rl.question(`${question} [y/N] `)).trim().toLowerCase();
+    return answer === "y" || answer === "yes";
+  } finally {
+    rl.close();
+  }
 }
 
 function flag(args: string[], name: string): string | undefined {

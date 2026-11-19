@@ -288,7 +288,7 @@ saved by `kurumera login`, and — importantly — **never writes it to disk**:
 ```bash
 export KURUMERA_CLI_TOKEN=kcli_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 kurumera theme push --store your-store
-kurumera theme publish --store your-store
+kurumera theme publish --store your-store --yes   # --yes: no terminal to ask on
 ```
 
 ### GitHub Actions example
@@ -299,7 +299,7 @@ kurumera theme publish --store your-store
     KURUMERA_CLI_TOKEN: ${{ secrets.KURUMERA_CLI_TOKEN }}
   run: |
     npx @kurumera/cli theme push --store your-store
-    npx @kurumera/cli theme publish --store your-store
+    npx @kurumera/cli theme publish --store your-store --yes
 ```
 
 Store the token in your CI platform's own secret manager (GitHub Actions
