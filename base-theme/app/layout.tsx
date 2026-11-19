@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { getSettings, themeCssVars } from "@/lib/settings";
 import { getStoreConfig, getTenantSlug } from "@/lib/kurumera";
+import { maybeRedirectToCanonicalDomain } from "@/lib/canonicalRedirect";
 import { PageViews, SessionTracking } from "@/components/Analytics";
 import { WhatsAppChatButton } from "@/components/WhatsAppChatButton";
 import { EditableProvider } from "@kurumera/editable/client";
@@ -26,6 +27,13 @@ export async function generateMetadata() {
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Search-engine consolidation: if this store has a live custom domain and the
+  // request came in on a platform host (<slug>.kurumera.com, themekit), send a
+  // 308 to the custom domain. Awaited first, before any render. Reuses the
+  // request-cached tenant-config below, so it adds no fetch. No-op for a store
+  // with no custom domain, and for editor / ?store= preview renders.
+  await maybeRedirectToCanonicalDomain();
+
   // getStoreConfig() is the same request-cached tenant-config getSettings()
   // reads, so the chat button's setting costs no extra request.
   const [s, tenantSlug, editable, storeConfig] = await Promise.all([
