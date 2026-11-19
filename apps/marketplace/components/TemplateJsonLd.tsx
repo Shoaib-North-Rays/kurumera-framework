@@ -72,8 +72,25 @@ export function TemplateJsonLd({ t }: { t: Template }) {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(product) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(product) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(crumbs) }} />
     </>
   );
 }
+
+/** JSON for an inline <script type="application/ld+json">. A listing's name and
+ *  description are the creator's text, and a `</script>` in them ended this
+ *  element and ran as markup on the marketplace, where the session token lives
+ *  (content audit XS-06). Escaping `<`, `>` and `&` keeps the JSON identical to
+ *  a parser and inert to the HTML tokenizer. */
+function jsonLd(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(LINE_SEPARATORS, (c) => `\\u${c.charCodeAt(0).toString(16)}`);
+}
+
+/** U+2028 and U+2029, built from their code points: typed into a regular
+ *  expression they would end the line it is written on. */
+const LINE_SEPARATORS = new RegExp(`[${String.fromCharCode(0x2028, 0x2029)}]`, "g");
