@@ -35,7 +35,7 @@ kurumera theme dev --store <slug>   # run against the store's REAL live data, ht
 kurumera theme check                # validate before pushing — fix any ✗ errors
 kurumera theme push                 # upload; the platform builds it; blocks until built or ~10min timeout
 kurumera theme preview --store <slug>   # optional — opens the built, unpublished preview
-kurumera theme publish --store <slug>   # make it the store's LIVE theme
+kurumera theme publish --store <slug> --yes   # make it the store's LIVE theme: ask the merchant first (step 7)
 ```
 
 Each step in order, in more detail:
@@ -379,11 +379,14 @@ command.
 
 ## After the store is live
 
-- `kurumera theme rollback --store <slug> [--version <id>]` — restore the
+- `kurumera theme rollback --store <slug> [--version <id>] --yes` — restore the
   previous live version, or an exact retained one.
-- `kurumera theme activate --store <slug> --version <id>` — make an exact
+- `kurumera theme activate --store <slug> --version <id> --yes` — make an exact
   version live (works even for a version whose build was pruned from hot
   storage — it rebuilds from the permanently retained source first).
+- Both change what shoppers see, so, like `publish`, they ask "y/N" in a
+  terminal and refuse without one unless `--yes` is given. Add it only once
+  the merchant has agreed.
 - `kurumera theme versions --store <slug>` — every retained version, with the
   ids the two commands above expect.
 - `kurumera theme pull --store <slug> --version <id> [--out <dir>]` —
